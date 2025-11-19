@@ -1,0 +1,1411 @@
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiRefreshCw, FiStar, FiArrowUp, FiArrowDown, FiEye, FiExternalLink } from 'react-icons/fi'
+import ModuleHeader from '../../components/admin/ModuleHeader.jsx'
+import { useAdminData } from '../../hooks/useAdminData.js'
+import { adminApi } from '../../services/adminApi.js'
+import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
+import { 
+  FaSnowflake, FaBolt, FaTint, FaBroom, FaPaintRoller, 
+  FaTools, FaHammer, FaFilter, FaPlug, FaWrench,
+  FaCheckCircle, FaRupeeSign, FaCreditCard, FaMobileAlt,
+  FaUserCheck, FaCommentDots, FaTimesCircle
+} from 'react-icons/fa'
+
+// Icon mapping for selection
+const ICON_OPTIONS = [
+  { name: 'FaSnowflake', label: 'AC Service', icon: FaSnowflake },
+  { name: 'FaBolt', label: 'Electrical', icon: FaBolt },
+  { name: 'FaTint', label: 'Plumbing', icon: FaTint },
+  { name: 'FaBroom', label: 'Cleaning', icon: FaBroom },
+  { name: 'FaPaintRoller', label: 'Painting', icon: FaPaintRoller },
+  { name: 'FaTools', label: 'Tools/Repair', icon: FaTools },
+  { name: 'FaHammer', label: 'Carpentry', icon: FaHammer },
+  { name: 'FaFilter', label: 'Water Filter', icon: FaFilter },
+  { name: 'FaPlug', label: 'Plug/Outlet', icon: FaPlug },
+  { name: 'FaWrench', label: 'Wrench', icon: FaWrench },
+  { name: 'FaCheckCircle', label: 'Check Circle', icon: FaCheckCircle },
+  { name: 'FaRupeeSign', label: 'Rupee', icon: FaRupeeSign },
+  { name: 'FaCreditCard', label: 'Credit Card', icon: FaCreditCard },
+  { name: 'FaMobileAlt', label: 'Mobile', icon: FaMobileAlt },
+  { name: 'FaUserCheck', label: 'User Check', icon: FaUserCheck },
+  { name: 'FaCommentDots', label: 'Comment', icon: FaCommentDots },
+]
+
+const PopularServicesManagement = () => {
+  const { token } = useAdminAuth()
+  const navigate = useNavigate()
+  const [showModal, setShowModal] = useState(false)
+  const [editingService, setEditingService] = useState(null)
+  const [formData, setFormData] = useState({
+    name: '',
+    slug: '',
+    icon: 'FaTools',
+    description: '',
+    price: '',
+    basePrice: 0,
+    discount: 0,
+    discountType: 'percentage',
+    cgst: 0,
+    sgst: 0,
+    serviceCharge: 0,
+    serviceChargeType: 'amount',
+    trusted: 'Trusted by thousands of homes',
+    included: [],
+    excluded: [],
+    addOns: [],
+    order: 0,
+    isActive: true
+  })
+  const [includedItem, setIncludedItem] = useState('')
+  const [excludedItem, setExcludedItem] = useState('')
+  const [addOnForm, setAddOnForm] = useState({
+    name: '',
+    description: '',
+    basePrice: 0,
+    discount: 0,
+    cgst: 0,
+    sgst: 0,
+    serviceCharge: 0,
+    price: '',
+    icon: 'FaTools'
+  })
+  const [editingAddOnIndex, setEditingAddOnIndex] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [viewingService, setViewingService] = useState(null)
+
+  const { data: servicesData, isLoading, error, refresh } = useAdminData(
+    (token) => adminApi.fetchPopularServices(token),
+    []
+  )
+
+  const services = servicesData?.data || []
+
+  const filteredServices = services.filter(service =>
+    service.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    service.slug?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const handleOpenModal = (service = null) => {
+    if (service) {
+      setEditingService(service._id)
+      setFormData({
+        name: service.name || '',
+        slug: service.slug || '',
+        icon: service.icon || 'FaTools',
+        description: service.description || '',
+        price: service.price || '',
+        basePrice: service.basePrice || 0,
+        discount: service.discount || 0,
+        discountType: service.discountType || 'percentage',
+        cgst: service.cgst || 0,
+        sgst: service.sgst || 0,
+        serviceCharge: service.serviceCharge || 0,
+        serviceChargeType: service.serviceChargeType || 'amount',
+        trusted: service.trusted || 'Trusted by thousands of homes',
+        included: service.included || [],
+        excluded: service.excluded || [],
+        addOns: service.addOns || [],
+        order: service.order || 0,
+        isActive: service.isActive !== undefined ? service.isActive : true
+      })
+    } else {
+      setEditingService(null)
+      setFormData({
+        name: '',
+        slug: '',
+        icon: 'FaTools',
+        description: '',
+        price: '',
+        basePrice: 0,
+        discount: 0,
+        discountType: 'percentage',
+        cgst: 0,
+        sgst: 0,
+        serviceCharge: 0,
+        serviceChargeType: 'amount',
+        trusted: 'Trusted by thousands of homes',
+        included: [],
+        excluded: [],
+        addOns: [],
+        order: services.length > 0 ? Math.max(...services.map(s => s.order || 0)) + 1 : 0,
+        isActive: true
+      })
+    }
+    setIncludedItem('')
+    setExcludedItem('')
+    setAddOnForm({
+      name: '',
+      description: '',
+      basePrice: 0,
+      discount: 0,
+      cgst: 0,
+      sgst: 0,
+      serviceCharge: 0,
+      price: '',
+      icon: 'FaTools'
+    })
+    setEditingAddOnIndex(null)
+    setShowModal(true)
+    setErrorMsg('')
+    setSuccessMsg('')
+  }
+
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setEditingService(null)
+      setFormData({
+        name: '',
+        slug: '',
+        icon: 'FaTools',
+        description: '',
+        price: '',
+        basePrice: 0,
+        discount: 0,
+        discountType: 'percentage',
+        cgst: 0,
+        sgst: 0,
+        serviceCharge: 0,
+        serviceChargeType: 'amount',
+        trusted: 'Trusted by thousands of homes',
+        included: [],
+        excluded: [],
+        addOns: [],
+        order: 0,
+        isActive: true
+      })
+    setIncludedItem('')
+    setExcludedItem('')
+    setAddOnName('')
+    setAddOnPrice('')
+    setErrorMsg('')
+    setSuccessMsg('')
+  }
+
+  const handleAddIncluded = () => {
+    if (includedItem.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        included: [...prev.included, includedItem.trim()]
+      }))
+      setIncludedItem('')
+    }
+  }
+
+  const handleRemoveIncluded = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      included: prev.included.filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleAddExcluded = () => {
+    if (excludedItem.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        excluded: [...prev.excluded, excludedItem.trim()]
+      }))
+      setExcludedItem('')
+    }
+  }
+
+  const handleRemoveExcluded = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      excluded: prev.excluded.filter((_, i) => i !== index)
+    }))
+  }
+
+  // Calculate addOn display price
+  const calculateAddOnPrice = (addOn) => {
+    if (!addOn.basePrice || addOn.basePrice <= 0) return ''
+    
+    let total = addOn.basePrice || 0
+    // Apply discount
+    if (addOn.discount > 0) {
+      total -= total * addOn.discount / 100
+    }
+    // Add service charge
+    if (addOn.serviceCharge > 0) {
+      total += addOn.serviceCharge
+    }
+    // Calculate GST on subtotal
+    const subtotal = (addOn.basePrice || 0) - 
+      (addOn.discount > 0 ? (addOn.basePrice || 0) * addOn.discount / 100 : 0) +
+      (addOn.serviceCharge || 0)
+    total += (subtotal * (addOn.cgst || 0) / 100) + (subtotal * (addOn.sgst || 0) / 100)
+    return `₹${Math.round(total)}`
+  }
+
+  // Auto-update addOn price when fields change
+  useEffect(() => {
+    if (addOnForm.basePrice > 0) {
+      const calculatedPrice = calculateAddOnPrice(addOnForm)
+      if (!addOnForm.price || addOnForm.price.startsWith('₹') || addOnForm.price === '') {
+        setAddOnForm(prev => ({
+          ...prev,
+          price: calculatedPrice
+        }))
+      }
+    }
+  }, [addOnForm.basePrice, addOnForm.discount, addOnForm.cgst, addOnForm.sgst, addOnForm.serviceCharge])
+
+  const handleAddAddOn = () => {
+    if (addOnForm.name.trim() && addOnForm.basePrice > 0) {
+      const newAddOn = {
+        ...addOnForm,
+        price: addOnForm.price || calculateAddOnPrice(addOnForm)
+      }
+      
+      if (editingAddOnIndex !== null) {
+        // Update existing addOn
+      setFormData(prev => ({
+        ...prev,
+          addOns: prev.addOns.map((addon, i) => i === editingAddOnIndex ? newAddOn : addon)
+        }))
+        setEditingAddOnIndex(null)
+      } else {
+        // Add new addOn
+        setFormData(prev => ({
+          ...prev,
+          addOns: [...prev.addOns, newAddOn]
+        }))
+      }
+      
+      // Reset form
+      setAddOnForm({
+        name: '',
+        description: '',
+        basePrice: 0,
+        discount: 0,
+        cgst: 0,
+        sgst: 0,
+        serviceCharge: 0,
+        price: '',
+        icon: 'FaTools'
+      })
+    }
+  }
+
+  const handleEditAddOn = (index) => {
+    const addOn = formData.addOns[index]
+    setAddOnForm({
+      name: addOn.name || '',
+      description: addOn.description || '',
+      basePrice: addOn.basePrice || 0,
+      discount: addOn.discount || 0,
+      cgst: addOn.cgst || 0,
+      sgst: addOn.sgst || 0,
+      serviceCharge: addOn.serviceCharge || 0,
+      price: addOn.price || '',
+      icon: addOn.icon || 'FaTools'
+    })
+    setEditingAddOnIndex(index)
+  }
+
+  const handleRemoveAddOn = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      addOns: prev.addOns.filter((_, i) => i !== index)
+    }))
+    if (editingAddOnIndex === index) {
+      setEditingAddOnIndex(null)
+      setAddOnForm({
+        name: '',
+        description: '',
+        basePrice: 0,
+        discount: 0,
+        cgst: 0,
+        sgst: 0,
+        serviceCharge: 0,
+        price: '',
+        icon: 'FaTools'
+      })
+    }
+  }
+
+  const handleCancelEditAddOn = () => {
+    setEditingAddOnIndex(null)
+    setAddOnForm({
+      name: '',
+      description: '',
+      basePrice: 0,
+      discount: 0,
+      cgst: 0,
+      sgst: 0,
+      serviceCharge: 0,
+      price: '',
+      icon: 'FaTools'
+    })
+  }
+
+  const generateSlug = (name) => {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+  }
+
+  const handleNameChange = (name) => {
+    setFormData(prev => ({
+      ...prev,
+      name,
+      slug: editingService ? prev.slug : generateSlug(name)
+    }))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setErrorMsg('')
+    setSuccessMsg('')
+
+    try {
+      if (editingService) {
+        // Update service
+        await adminApi.updatePopularService(token, editingService, formData)
+        setSuccessMsg('Popular service updated successfully!')
+      } else {
+        // Create service
+        await adminApi.createPopularService(token, formData)
+        setSuccessMsg('Popular service created successfully!')
+      }
+
+      refresh()
+      setTimeout(() => {
+        handleCloseModal()
+      }, 1500)
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to save popular service')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (serviceId) => {
+    if (!window.confirm('Are you sure you want to delete this popular service?')) {
+      return
+    }
+
+    try {
+      await adminApi.deletePopularService(token, serviceId)
+      setSuccessMsg('Popular service deleted successfully!')
+      refresh()
+      setTimeout(() => setSuccessMsg(''), 3000)
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to delete popular service')
+      setTimeout(() => setErrorMsg(''), 3000)
+    }
+  }
+
+  const handleMoveOrder = async (serviceId, direction) => {
+    const service = services.find(s => s._id === serviceId)
+    if (!service) return
+
+    const currentOrder = service.order || 0
+    const newOrder = direction === 'up' ? currentOrder - 1 : currentOrder + 1
+
+    // Find service at new position
+    const targetService = services.find(s => (s.order || 0) === newOrder)
+    
+    try {
+      const updates = [{ id: serviceId, order: newOrder }]
+      if (targetService) {
+        updates.push({ id: targetService._id, order: currentOrder })
+      }
+
+      await adminApi.updatePopularServicesOrder(token, updates)
+      refresh()
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to update order')
+      setTimeout(() => setErrorMsg(''), 3000)
+    }
+  }
+
+  const getIconComponent = (iconName) => {
+    const iconOption = ICON_OPTIONS.find(opt => opt.name === iconName)
+    return iconOption ? iconOption.icon : FaTools
+  }
+
+  const handleViewDetails = (service) => {
+    setViewingService(service)
+    setShowDetailsModal(true)
+  }
+
+  const handleCloseDetailsModal = () => {
+    setShowDetailsModal(false)
+    setViewingService(null)
+  }
+
+  const calculateTotalPrice = (service) => {
+    if (!service || !service.basePrice) return 0
+    let total = service.basePrice || 0
+    // Apply discount
+    if (service.discount > 0) {
+      if (service.discountType === 'percentage') {
+        total -= total * service.discount / 100
+      } else {
+        total -= service.discount
+      }
+    }
+    // Add service charge
+    if (service.serviceCharge > 0) {
+      if (service.serviceChargeType === 'percentage') {
+        total += (service.basePrice || 0) * service.serviceCharge / 100
+      } else {
+        total += service.serviceCharge
+      }
+    }
+    // Calculate GST on subtotal
+    const subtotal = (service.basePrice || 0) - 
+      (service.discount > 0 ? (service.discountType === 'percentage' ? (service.basePrice || 0) * service.discount / 100 : service.discount) : 0) +
+      (service.serviceCharge > 0 ? (service.serviceChargeType === 'percentage' ? (service.basePrice || 0) * service.serviceCharge / 100 : service.serviceCharge) : 0)
+    total += (subtotal * (service.cgst || 0) / 100) + (subtotal * (service.sgst || 0) / 100)
+    return total
+  }
+
+  // Calculate display price from form data
+  const calculateDisplayPrice = (data = formData) => {
+    if (!data.basePrice || data.basePrice <= 0) return ''
+    
+    const total = calculateTotalPrice(data)
+    return `Starting at ₹${Math.round(total)}`
+  }
+
+  // Auto-update display price when pricing fields change
+  useEffect(() => {
+    if (formData.basePrice > 0) {
+      const calculatedPrice = calculateDisplayPrice(formData)
+      // Only auto-update if user hasn't manually edited it or if it's empty
+      if (!formData.price || formData.price.startsWith('Starting at ₹') || formData.price === '') {
+        setFormData(prev => ({
+          ...prev,
+          price: calculatedPrice
+        }))
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.basePrice, formData.discount, formData.discountType, formData.cgst, formData.sgst, formData.serviceCharge, formData.serviceChargeType])
+
+  const handleMigrateServices = async () => {
+    if (!window.confirm('This will update all existing services in the database with new fields (basePrice, discount, CGST, SGST, serviceCharge, excluded, etc.). This ensures all services have the required fields. Continue?')) {
+      return
+    }
+
+    setSubmitting(true)
+    setErrorMsg('')
+    setSuccessMsg('')
+
+    try {
+      await adminApi.migratePopularServices(token)
+      setSuccessMsg('Migration completed successfully! All existing services have been updated with new fields.')
+      refresh()
+      setTimeout(() => setSuccessMsg(''), 5000)
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to migrate services')
+      setTimeout(() => setErrorMsg(''), 5000)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div>
+      <ModuleHeader
+        title="Popular Services Management"
+        subtitle="Manage popular services displayed on the homepage. Control order, icons, and visibility."
+        actions={
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleMigrateServices}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition"
+              title="Update existing services with new fields"
+            >
+              <FiRefreshCw className="w-5 h-5" />
+              Migrate Data
+            </button>
+            <button
+              onClick={() => handleOpenModal()}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary-dark transition"
+            >
+              <FiPlus className="w-5 h-5" />
+              Add Service
+            </button>
+          </div>
+        }
+      />
+
+      {errorMsg && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-600 px-4 py-3 rounded-lg mb-6">
+          {errorMsg}
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-600 px-4 py-3 rounded-lg mb-6">
+          {successMsg}
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="mb-6">
+        <input
+          type="text"
+          placeholder="Search popular services..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full max-w-md px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : error ? (
+        <div className="bg-rose-50 border border-rose-200 text-rose-600 px-6 py-4 rounded-2xl">
+          Error loading popular services: {error}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Order</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Icon</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Slug</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {filteredServices.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                      No popular services found. Click "Add Service" to create one.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredServices
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .map((service, index) => {
+                      const IconComponent = getIconComponent(service.icon)
+                      return (
+                        <tr key={service._id} className="hover:bg-slate-50 transition">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-slate-700">{service.order || 0}</span>
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => handleMoveOrder(service._id, 'up')}
+                                  disabled={index === 0}
+                                  className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Move up"
+                                >
+                                  <FiArrowUp className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => handleMoveOrder(service._id, 'down')}
+                                  disabled={index === filteredServices.length - 1}
+                                  className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Move down"
+                                >
+                                  <FiArrowDown className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                              <IconComponent className="w-5 h-5 text-primary" />
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-semibold text-slate-900">{service.name}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-slate-500 font-mono">{service.slug}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                                service.isActive
+                                  ? 'bg-emerald-500/10 text-emerald-600'
+                                  : 'bg-slate-200 text-slate-600'
+                              }`}
+                            >
+                              {service.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  if (service?.slug) {
+                                    navigate(`/service/${service.slug}`)
+                                  }
+                                }}
+                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                title="View Service on Website"
+                              >
+                                <FiExternalLink className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleViewDetails(service)}
+                                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                title="View Details"
+                              >
+                                <FiEye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenModal(service)}
+                                className="p-2 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition"
+                                title="Edit"
+                              >
+                                <FiEdit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(service._id)}
+                                className="p-2 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                title="Delete"
+                              >
+                                <FiTrash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-slate-900">
+                {editingService ? 'Edit Popular Service' : 'Add Popular Service'}
+              </h3>
+              <button
+                onClick={handleCloseModal}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Service Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                  placeholder="e.g., AC Service"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Slug *
+                </label>
+                <input
+                  type="text"
+                  value={formData.slug}
+                  onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                  required
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary font-mono"
+                  placeholder="e.g., ac-service"
+                />
+                <p className="mt-1 text-xs text-slate-500">URL-friendly identifier (auto-generated from name)</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Icon *
+                </label>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                  {ICON_OPTIONS.map((option) => {
+                    const IconComponent = option.icon
+                    const isSelected = formData.icon === option.name
+                    return (
+                      <button
+                        key={option.name}
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, icon: option.name }))}
+                        className={`p-4 rounded-xl border-2 transition ${
+                          isSelected
+                            ? 'border-primary bg-primary/10'
+                            : 'border-slate-200 hover:border-primary/50'
+                        }`}
+                        title={option.label}
+                      >
+                        <IconComponent className={`w-6 h-6 mx-auto ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+                        <p className="mt-2 text-xs text-center text-slate-600">{option.label}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows="3"
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                  placeholder="Service description..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Trusted Text
+                </label>
+                <input
+                  type="text"
+                  value={formData.trusted}
+                  onChange={(e) => setFormData(prev => ({ ...prev, trusted: e.target.value }))}
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                  placeholder="e.g., Trusted by thousands of homes"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Included Items
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={includedItem}
+                    onChange={(e) => setIncludedItem(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddIncluded())}
+                    className="flex-1 px-4 py-2 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                    placeholder="Add included item..."
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddIncluded}
+                    className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {formData.included.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg">
+                      <span className="text-sm text-slate-700">{item}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveIncluded(index)}
+                        className="text-rose-600 hover:text-rose-700"
+                      >
+                        <FiX className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Excluded Items
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={excludedItem}
+                    onChange={(e) => setExcludedItem(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddExcluded())}
+                    className="flex-1 px-4 py-2 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                    placeholder="Add excluded item..."
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddExcluded}
+                    className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {formData.excluded.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg">
+                      <span className="text-sm text-slate-700">{item}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExcluded(index)}
+                        className="text-rose-600 hover:text-rose-700"
+                      >
+                        <FiX className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Add-On Services
+                </label>
+                
+                {/* Add-On Form */}
+                <div className="bg-slate-50 p-4 rounded-xl border-2 border-slate-200 mb-4">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                    {editingAddOnIndex !== null ? 'Edit Add-On Service' : 'Add New Add-On Service'}
+                  </h4>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Name *</label>
+                  <input
+                    type="text"
+                        value={addOnForm.name}
+                        onChange={(e) => setAddOnForm(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                        placeholder="Add-on service name..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+                      <textarea
+                        value={addOnForm.description}
+                        onChange={(e) => setAddOnForm(prev => ({ ...prev, description: e.target.value }))}
+                        className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                        placeholder="Service description..."
+                        rows="2"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Base Price (₹) *</label>
+                        <input
+                          type="number"
+                          value={addOnForm.basePrice}
+                          onChange={(e) => setAddOnForm(prev => ({ ...prev, basePrice: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Discount (%)</label>
+                        <input
+                          type="number"
+                          value={addOnForm.discount}
+                          onChange={(e) => setAddOnForm(prev => ({ ...prev, discount: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">CGST (%)</label>
+                        <input
+                          type="number"
+                          value={addOnForm.cgst}
+                          onChange={(e) => setAddOnForm(prev => ({ ...prev, cgst: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">SGST (%)</label>
+                        <input
+                          type="number"
+                          value={addOnForm.sgst}
+                          onChange={(e) => setAddOnForm(prev => ({ ...prev, sgst: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Service Charge (₹)</label>
+                      <input
+                        type="number"
+                        value={addOnForm.serviceCharge}
+                        onChange={(e) => setAddOnForm(prev => ({ ...prev, serviceCharge: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">
+                        Display Price (Text) <span className="text-slate-400">(Auto-calculated)</span>
+                      </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                          value={addOnForm.price}
+                          onChange={(e) => setAddOnForm(prev => ({ ...prev, price: e.target.value }))}
+                          className="flex-1 px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                          placeholder="e.g., ₹299"
+                        />
+                        {addOnForm.basePrice > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const calculatedPrice = calculateAddOnPrice(addOnForm)
+                              setAddOnForm(prev => ({ ...prev, price: calculatedPrice }))
+                            }}
+                            className="px-3 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition text-xs font-semibold whitespace-nowrap"
+                          >
+                            Auto Calculate
+                          </button>
+                        )}
+                      </div>
+                      {addOnForm.basePrice > 0 && (
+                        <p className="mt-1 text-xs text-emerald-600">
+                          💡 Calculated: {calculateAddOnPrice(addOnForm)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-2">Icon</label>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                        {ICON_OPTIONS.map((option) => {
+                          const IconComponent = option.icon
+                          const isSelected = addOnForm.icon === option.name
+                          return (
+                            <button
+                              key={option.name}
+                              type="button"
+                              onClick={() => setAddOnForm(prev => ({ ...prev, icon: option.name }))}
+                              className={`p-2 rounded-lg border-2 transition ${
+                                isSelected
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-slate-200 hover:border-primary/50'
+                              }`}
+                              title={option.label}
+                            >
+                              <IconComponent className={`w-4 h-4 mx-auto ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleAddAddOn}
+                        className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-semibold text-sm"
+                    >
+                        {editingAddOnIndex !== null ? 'Update Add-On' : 'Add Add-On'}
+                    </button>
+                      {editingAddOnIndex !== null && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditAddOn}
+                          className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition font-semibold text-sm"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                  </div>
+                </div>
+                </div>
+
+                {/* Add-Ons List */}
+                <div className="space-y-2">
+                  {formData.addOns.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-4">No add-on services added yet</p>
+                  ) : (
+                    formData.addOns.map((addon, index) => {
+                      const AddOnIcon = getIconComponent(addon.icon || 'FaTools')
+                      return (
+                        <div key={index} className="flex items-start justify-between bg-slate-50 px-4 py-3 rounded-lg border border-slate-200">
+                          <div className="flex items-start gap-3 flex-1">
+                            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <AddOnIcon className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-semibold text-slate-900">{addon.name}</div>
+                              {addon.description && (
+                                <div className="text-xs text-slate-600 mt-1">{addon.description}</div>
+                              )}
+                              <div className="text-xs text-slate-500 mt-1">
+                                Base: ₹{addon.basePrice || 0} | 
+                                {addon.discount > 0 && ` Discount: ${addon.discount}% |`}
+                                {addon.cgst > 0 && ` CGST: ${addon.cgst}% |`}
+                                {addon.sgst > 0 && ` SGST: ${addon.sgst}% |`}
+                                {addon.serviceCharge > 0 && ` Charge: ₹${addon.serviceCharge} |`}
+                                {' '}Price: {addon.price || 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditAddOn(index)}
+                              className="p-1.5 text-primary hover:bg-primary/10 rounded transition"
+                              title="Edit"
+                            >
+                              <FiEdit2 className="w-4 h-4" />
+                            </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAddOn(index)}
+                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition"
+                              title="Remove"
+                      >
+                        <FiX className="w-4 h-4" />
+                      </button>
+                    </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Display Order
+                </label>
+                <input
+                  type="number"
+                  value={formData.order}
+                  onChange={(e) => setFormData(prev => ({ ...prev, order: parseInt(e.target.value) || 0 }))}
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                  min="0"
+                />
+                <p className="mt-1 text-xs text-slate-500">Lower numbers appear first</p>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
+                    className="w-5 h-5 text-primary rounded focus:ring-primary"
+                  />
+                  <span className="text-sm font-semibold text-slate-700">Active (visible on homepage)</span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-6 py-3 text-slate-600 font-semibold rounded-xl hover:bg-slate-100 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? (
+                    <>
+                      <FiRefreshCw className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <FiSave className="w-4 h-4" />
+                      {editingService ? 'Update' : 'Create'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {showDetailsModal && viewingService && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={handleCloseDetailsModal}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-slate-900">
+                Service Details: {viewingService.name}
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (viewingService?.slug) {
+                      navigate(`/service/${viewingService.slug}`)
+                      handleCloseDetailsModal()
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold flex items-center gap-2"
+                  title="View service on website"
+                >
+                  <FiExternalLink className="w-4 h-4" />
+                  View Service
+                </button>
+                <button
+                  onClick={() => {
+                    handleCloseDetailsModal()
+                    handleOpenModal(viewingService)
+                  }}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm font-semibold flex items-center gap-2"
+                >
+                  <FiEdit2 className="w-4 h-4" />
+                  Edit
+                </button>
+                <button
+                  onClick={handleCloseDetailsModal}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                >
+                  <FiX className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Basic Information */}
+              <div className="bg-slate-50 rounded-xl p-6">
+                <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Basic Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold text-slate-600">Service Name</label>
+                    <p className="text-base text-slate-900 mt-1">{viewingService.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-600">Slug</label>
+                    <p className="text-base text-slate-900 font-mono mt-1">{viewingService.slug}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-600">Icon</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                        {React.createElement(getIconComponent(viewingService.icon), { className: "w-5 h-5 text-primary" })}
+                      </div>
+                      <span className="text-base text-slate-900">{viewingService.icon}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-600">Display Order</label>
+                    <p className="text-base text-slate-900 mt-1">{viewingService.order || 0}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-600">Status</label>
+                    <p className="mt-1">
+                      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                        viewingService.isActive
+                          ? 'bg-emerald-500/10 text-emerald-600'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {viewingService.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-600">Display Price</label>
+                    <p className="text-base text-slate-900 mt-1">{viewingService.price || 'Not set'}</p>
+                  </div>
+                </div>
+                {viewingService.description && (
+                  <div className="mt-4">
+                    <label className="text-sm font-semibold text-slate-600">Description</label>
+                    <p className="text-base text-slate-900 mt-1">{viewingService.description}</p>
+                  </div>
+                )}
+                {viewingService.trusted && (
+                  <div className="mt-4">
+                    <label className="text-sm font-semibold text-slate-600">Trusted Text</label>
+                    <p className="text-base text-slate-900 mt-1">{viewingService.trusted}</p>
+                  </div>
+                )}
+              </div>
+
+          
+
+              {/* Included Items */}
+              {viewingService.included && viewingService.included.length > 0 && (
+                <div className="bg-slate-50 rounded-xl p-6">
+                  <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Included Items</h4>
+                  <ul className="space-y-2">
+                    {viewingService.included.map((item, index) => (
+                      <li key={index} className="flex items-center gap-2 text-slate-900">
+                        <FaCheckCircle className="text-primary flex-shrink-0" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Excluded Items */}
+              {viewingService.excluded && viewingService.excluded.length > 0 && (
+                <div className="bg-slate-50 rounded-xl p-6">
+                  <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Excluded Items</h4>
+                  <ul className="space-y-2">
+                    {viewingService.excluded.map((item, index) => (
+                      <li key={index} className="flex items-center gap-2 text-slate-900">
+                        <FaTimesCircle className="text-rose-600 flex-shrink-0" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Add-Ons */}
+              {viewingService.addOns && viewingService.addOns.length > 0 && (
+                <div className="bg-slate-50 rounded-xl p-6">
+                  <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Add-On Services</h4>
+                  <div className="grid sm:grid-cols-1 gap-4">
+                    {viewingService.addOns.map((addon, index) => {
+                      const AddOnIcon = getIconComponent(addon.icon || 'FaTools')
+                      // Calculate add-on price breakdown
+                      const calculateAddOnTotal = (addon) => {
+                        if (!addon.basePrice || addon.basePrice <= 0) return 0
+                        let total = addon.basePrice || 0
+                        // Apply discount
+                        if (addon.discount > 0) {
+                          total -= total * addon.discount / 100
+                        }
+                        // Add service charge
+                        if (addon.serviceCharge > 0) {
+                          total += addon.serviceCharge
+                        }
+                        // Calculate GST on subtotal
+                        const subtotal = (addon.basePrice || 0) - 
+                          (addon.discount > 0 ? (addon.basePrice || 0) * addon.discount / 100 : 0) +
+                          (addon.serviceCharge || 0)
+                        total += (subtotal * (addon.cgst || 0) / 100) + (subtotal * (addon.sgst || 0) / 100)
+                        return total
+                      }
+                      const addOnTotal = calculateAddOnTotal(addon)
+                      
+                      return (
+                        <div key={index} className="bg-white p-5 rounded-lg border-2 border-slate-200 hover:border-primary/30 transition">
+                          <div className="flex items-start gap-4 mb-3">
+                            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <AddOnIcon className="w-6 h-6 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-bold text-slate-900 text-lg">{addon.name}</p>
+                              {addon.description && (
+                                <p className="text-sm text-slate-600 mt-1">{addon.description}</p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Base Price:</span>
+                              <span className="font-semibold text-slate-900">₹{(addon.basePrice || 0).toFixed(2)}</span>
+                            </div>
+                            {addon.discount > 0 && (
+                              <div className="flex justify-between text-rose-600">
+                                <span>Discount ({addon.discount}%):</span>
+                                <span>-₹{((addon.basePrice || 0) * addon.discount / 100).toFixed(2)}</span>
+                              </div>
+                            )}
+                            {addon.serviceCharge > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Service Charge:</span>
+                                <span className="font-semibold text-slate-900">+₹{(addon.serviceCharge || 0).toFixed(2)}</span>
+                              </div>
+                            )}
+                            {(addon.cgst > 0 || addon.sgst > 0) && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">GST ({(addon.cgst || 0) + (addon.sgst || 0)}%):</span>
+                                <span className="font-semibold text-slate-900">
+                                  +₹{(() => {
+                                    const subtotal = (addon.basePrice || 0) - 
+                                      (addon.discount > 0 ? (addon.basePrice || 0) * addon.discount / 100 : 0) +
+                                      (addon.serviceCharge || 0)
+                                    return ((subtotal * (addon.cgst || 0) / 100) + (subtotal * (addon.sgst || 0) / 100)).toFixed(2)
+                                  })()}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-2 mt-2 border-t border-slate-200">
+                              <span className="font-bold text-slate-900">Total Price:</span>
+                              <span className="text-lg font-bold text-primary">₹{addOnTotal.toFixed(2)}</span>
+                            </div>
+                            {addon.price && (
+                              <div className="text-xs text-slate-500 mt-1">
+                                Display Price: {addon.price}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Metadata */}
+              <div className="bg-slate-50 rounded-xl p-6">
+                <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Metadata</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="text-slate-600 font-semibold">Created At</label>
+                    <p className="text-slate-900 mt-1">
+                      {viewingService.createdAt ? new Date(viewingService.createdAt).toLocaleString() : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-slate-600 font-semibold">Last Updated</label>
+                    <p className="text-slate-900 mt-1">
+                      {viewingService.updatedAt ? new Date(viewingService.updatedAt).toLocaleString() : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default PopularServicesManagement
+

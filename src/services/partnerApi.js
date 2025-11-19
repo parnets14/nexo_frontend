@@ -1,0 +1,554 @@
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+
+const buildUrl = (path) => {
+  if (path.startsWith('/api/')) {
+    return `${API_BASE_URL}${path}`
+  }
+  return `${API_BASE_URL}/api/partner${path}`
+}
+
+const getDefaultHeaders = (token) => {
+  const headers = {
+    'Content-Type': 'application/json'
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+  return headers
+}
+
+const handleResponse = async (response) => {
+  const contentType = response.headers.get('content-type')
+  const isJson = contentType && contentType.includes('application/json')
+  const data = isJson ? await response.json() : await response.text()
+
+  if (!response.ok) {
+    const error = new Error(data?.message || data?.error || 'Request failed')
+    error.status = response.status
+    error.data = data
+    throw error
+  }
+
+  return data
+}
+
+export const partnerApi = {
+  // Authentication
+  async sendOTP(phone) {
+    const response = await fetch(buildUrl('/auth/send-otp'), {
+      method: 'POST',
+      headers: getDefaultHeaders(),
+      body: JSON.stringify({ phone })
+    })
+    return handleResponse(response)
+  },
+
+  async verifyOTP(phone, otp) {
+    const response = await fetch(buildUrl('/auth/verify-otp'), {
+      method: 'POST',
+      headers: getDefaultHeaders(),
+      body: JSON.stringify({ phone, otp })
+    })
+    return handleResponse(response)
+  },
+
+  async resendOTP(phone) {
+    const response = await fetch(buildUrl('/auth/resend-otp'), {
+      method: 'POST',
+      headers: getDefaultHeaders(),
+      body: JSON.stringify({ phone })
+    })
+    return handleResponse(response)
+  },
+
+  // Profile
+  async completeProfile(token, profileData) {
+    const formData = new FormData()
+    
+    // Add text fields
+    Object.keys(profileData).forEach(key => {
+      if (key !== 'profilePicture' && profileData[key] !== null && profileData[key] !== undefined) {
+        if (typeof profileData[key] === 'object') {
+          formData.append(key, JSON.stringify(profileData[key]))
+        } else {
+          formData.append(key, profileData[key])
+        }
+      }
+    })
+
+    // Add profile picture if exists
+    if (profileData.profilePicture) {
+      formData.append('profilePicture', profileData.profilePicture)
+    }
+
+    const response = await fetch(buildUrl('/profile/complete'), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Don't set Content-Type, let browser set it with boundary for FormData
+      },
+      body: formData
+    })
+    return handleResponse(response)
+  },
+
+  // KYC
+  async completeKYC(token, kycData) {
+    const formData = new FormData()
+
+    // Add KYC files
+    if (kycData.panCard) {
+      formData.append('panCard', kycData.panCard)
+    }
+    if (kycData.aadhaar) {
+      formData.append('aadhaar', kycData.aadhaar)
+    }
+    if (kycData.aadhaarback) {
+      formData.append('aadhaarback', kycData.aadhaarback)
+    }
+    if (kycData.chequeImage) {
+      formData.append('chequeImage', kycData.chequeImage)
+    }
+    if (kycData.drivingLicence) {
+      formData.append('drivingLicence', kycData.drivingLicence)
+    }
+    if (kycData.bill) {
+      formData.append('bill', kycData.bill)
+    }
+
+    // Add bank details as separate form fields (not JSON)
+    if (kycData.accountNumber) {
+      formData.append('accountNumber', kycData.accountNumber)
+    }
+    if (kycData.ifscCode) {
+      formData.append('ifscCode', kycData.ifscCode)
+    }
+    if (kycData.accountHolderName) {
+      formData.append('accountHolderName', kycData.accountHolderName)
+    }
+    if (kycData.bankName) {
+      formData.append('bankName', kycData.bankName)
+    }
+
+    const response = await fetch(buildUrl('/kyc/complete'), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Don't set Content-Type, let browser set it with boundary for FormData
+      },
+      body: formData
+    })
+    return handleResponse(response)
+  },
+
+  // Payment
+  async completePayment(token, paymentData) {
+    const response = await fetch(buildUrl('/regigiste-fee'), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(paymentData)
+    })
+    return handleResponse(response)
+  },
+
+  // Get profile
+  async getProfile(token) {
+    const response = await fetch(buildUrl('/profile'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Update profile
+  async updateProfile(token, profileData) {
+    // Check if profileData is FormData
+    if (profileData instanceof FormData) {
+      const response = await fetch(buildUrl('/profile/update'), {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // Don't set Content-Type, let browser set it with boundary for FormData
+        },
+        body: profileData
+      })
+      return handleResponse(response)
+    } else {
+      const response = await fetch(buildUrl('/profile/update'), {
+        method: 'PUT',
+        headers: getDefaultHeaders(token),
+        body: JSON.stringify(profileData)
+      })
+      return handleResponse(response)
+    }
+  },
+
+  // Get categories for trade selection
+  async getCategories(token) {
+    // This endpoint doesn't require auth, so only add token if provided
+    const headers = token ? getDefaultHeaders(token) : getDefaultHeaders()
+    const response = await fetch(buildUrl('/dropdown/categories'), {
+      headers
+    })
+    return handleResponse(response)
+  },
+
+  // Select category and service
+  async selectCategoryAndService(token, categoryId, serviceIds) {
+    const response = await fetch(buildUrl('/select-category-and-service'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({
+        category: categoryId,
+        services: serviceIds
+      })
+    })
+    return handleResponse(response)
+  },
+
+  // MG Plans
+  async getMGPlans(token) {
+    const response = await fetch(buildUrl('/mg-plans'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getCurrentPlan(token) {
+    const response = await fetch(buildUrl('/mg-plans/current'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async subscribeToPlan(token, planId) {
+    const response = await fetch(buildUrl('/mg-plans/subscribe'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ planId })
+    })
+    return handleResponse(response)
+  },
+
+  async renewPlan(token) {
+    const response = await fetch(buildUrl('/mg-plans/renew'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Get Pricing Settings
+  async getPricingSettings() {
+    const response = await fetch(`${API_BASE_URL}/api/registerFee/getPricingSettings`, {
+      headers: getDefaultHeaders()
+    })
+    return handleResponse(response)
+  },
+
+  // Service Hubs
+  async getAvailableServiceHubs(token) {
+    const response = await fetch(buildUrl('/service-hubs/available'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async createServiceHub(token, hubData) {
+    const response = await fetch(buildUrl('/service-hubs'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(hubData)
+    })
+    return handleResponse(response)
+  },
+
+  // New Hub System - Assign hubs to partner
+  async assignHub(token, hubId) {
+    const response = await fetch(buildUrl('/hubs/assign'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ hubId })
+    })
+    return handleResponse(response)
+  },
+
+  async unassignHub(token, hubId) {
+    const response = await fetch(buildUrl('/hubs/unassign'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ hubId })
+    })
+    return handleResponse(response)
+  },
+
+  // Wallet
+  async getWallet(token) {
+    const response = await fetch(buildUrl('/getWalletbypartner'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Transactions
+  async getTransactions(token) {
+    const response = await fetch(buildUrl('/getAllwalletTransaction'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Top-up Wallet
+  async topUpWallet(token, amount, description, reference) {
+    const response = await fetch(buildUrl('/wallet/topup'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({
+        amount,
+        type: 'credit',
+        description: description || 'Topup',
+        reference: reference || `TOPUP-${Date.now()}`
+      })
+    })
+    return handleResponse(response)
+  },
+
+  // Bookings/Jobs
+  async getBookings(token) {
+    const response = await fetch(buildUrl('/bookings'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getPendingBookings(token) {
+    const response = await fetch(buildUrl('/bookings/pending'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getAcceptedBookings(token) {
+    const response = await fetch(buildUrl('/bookings/accepted/:partnerId'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getCompletedBookings(token) {
+    const response = await fetch(buildUrl('/bookings/completed'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Products/Spare Parts
+  async getProductsByCategory(token, category) {
+    const response = await fetch(buildUrl(`/products/${category}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async addToCart(token, productData) {
+    const response = await fetch(buildUrl('/products/add'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(productData)
+    })
+    return handleResponse(response)
+  },
+
+  // Hubs
+  async getAvailableHubs(token) {
+    const response = await fetch(buildUrl('/service-hubs/available'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // KYC
+  async updateKYC(token, kycData) {
+    const formData = new FormData()
+
+    // Add KYC files
+    if (kycData.panCard) {
+      formData.append('panCard', kycData.panCard)
+    }
+    if (kycData.aadhaar) {
+      formData.append('aadhaar', kycData.aadhaar)
+    }
+    if (kycData.aadhaarback) {
+      formData.append('aadhaarback', kycData.aadhaarback)
+    }
+    if (kycData.chequeImage) {
+      formData.append('chequeImage', kycData.chequeImage)
+    }
+    if (kycData.drivingLicence) {
+      formData.append('drivingLicence', kycData.drivingLicence)
+    }
+    if (kycData.bill) {
+      formData.append('bill', kycData.bill)
+    }
+
+    // Add bank details
+    if (kycData.accountNumber) {
+      formData.append('accountNumber', kycData.accountNumber)
+    }
+    if (kycData.ifscCode) {
+      formData.append('ifscCode', kycData.ifscCode)
+    }
+    if (kycData.accountHolderName) {
+      formData.append('accountHolderName', kycData.accountHolderName)
+    }
+    if (kycData.bankName) {
+      formData.append('bankName', kycData.bankName)
+    }
+
+    const response = await fetch(buildUrl('/kyc/complete'), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    })
+    return handleResponse(response)
+  },
+
+  // Select Category and Service
+  async selectCategoryAndService(token, data) {
+    const response = await fetch(buildUrl('/select-category-and-service'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(data)
+    })
+    return handleResponse(response)
+  },
+
+  // Team Members
+  async getTeamMembers(token) {
+    const response = await fetch(buildUrl('/team-members'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async addTeamMember(token, memberData) {
+    const formData = new FormData()
+    
+    // Add all text fields
+    Object.keys(memberData).forEach(key => {
+      if (key !== 'profilePicture' && key !== 'kyc' && key !== 'kycData' && memberData[key] !== null && memberData[key] !== undefined) {
+        if (Array.isArray(memberData[key])) {
+          // For arrays, append each item with index
+          memberData[key].forEach((item, index) => {
+            formData.append(`${key}[${index}]`, item)
+          })
+        } else {
+          formData.append(key, memberData[key])
+        }
+      }
+    })
+
+    // Add profile picture
+    if (memberData.profilePicture) {
+      formData.append('profilePicture', memberData.profilePicture)
+    }
+
+    // Add KYC files
+    if (memberData.kycData) {
+      const kycData = memberData.kycData
+      if (kycData.panCard) formData.append('panCard', kycData.panCard)
+      if (kycData.aadhaar) formData.append('aadhaar', kycData.aadhaar)
+      if (kycData.aadhaarback) formData.append('aadhaarback', kycData.aadhaarback)
+      if (kycData.chequeImage) formData.append('chequeImage', kycData.chequeImage)
+      if (kycData.drivingLicence) formData.append('drivingLicence', kycData.drivingLicence)
+      if (kycData.bill) formData.append('bill', kycData.bill)
+    }
+
+    const response = await fetch(buildUrl('/team-members'), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    })
+    return handleResponse(response)
+  },
+
+  async updateTeamMember(token, memberId, memberData) {
+    const formData = new FormData()
+    
+    // Add all text fields
+    Object.keys(memberData).forEach(key => {
+      if (key !== 'profilePicture' && key !== 'kyc' && key !== 'kycData' && memberData[key] !== null && memberData[key] !== undefined) {
+        if (typeof memberData[key] === 'object' && !Array.isArray(memberData[key])) {
+          formData.append(key, JSON.stringify(memberData[key]))
+        } else if (Array.isArray(memberData[key])) {
+          memberData[key].forEach((item, index) => {
+            formData.append(`${key}[${index}]`, item)
+          })
+        } else {
+          formData.append(key, memberData[key])
+        }
+      }
+    })
+
+    // Add profile picture
+    if (memberData.profilePicture) {
+      formData.append('profilePicture', memberData.profilePicture)
+    }
+
+    // Add KYC files
+    if (memberData.kycData) {
+      const kycData = memberData.kycData
+      if (kycData.panCard) formData.append('panCard', kycData.panCard)
+      if (kycData.aadhaar) formData.append('aadhaar', kycData.aadhaar)
+      if (kycData.aadhaarback) formData.append('aadhaarback', kycData.aadhaarback)
+      if (kycData.chequeImage) formData.append('chequeImage', kycData.chequeImage)
+      if (kycData.drivingLicence) formData.append('drivingLicence', kycData.drivingLicence)
+      if (kycData.bill) formData.append('bill', kycData.bill)
+    }
+
+    const response = await fetch(buildUrl(`/team-members/${memberId}`), {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    })
+    return handleResponse(response)
+  },
+
+  async deleteTeamMember(token, memberId) {
+    const response = await fetch(buildUrl(`/team-members/${memberId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getTeamMemberActivities(token, memberId) {
+    const response = await fetch(buildUrl(`/team-members/${memberId}/activities`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async assignBookingToTeamMember(token, bookingId, teamMemberId) {
+    const response = await fetch(buildUrl('/team-members/assign-booking'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ bookingId, teamMemberId })
+    })
+    return handleResponse(response)
+  },
+
+  // Public Partner Verification
+  async verifyPartner(partnerId) {
+    const response = await fetch(buildUrl(`/verify/${partnerId}`))
+    return handleResponse(response)
+  }
+}
+
