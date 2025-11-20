@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
-  FaShoppingCart, 
+  FaWhatsapp, 
   FaCheckCircle, 
   FaSnowflake, 
   FaBolt, 
@@ -24,6 +24,7 @@ import {
   FaRupeeSign,
   FaPlus,
   FaMinus,
+  FaShoppingCart,
   FaChevronRight,
   FaChevronDown,
   FaPercentage,
@@ -58,7 +59,7 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const ServiceDetail = () => {
   const { serviceName } = useParams()
@@ -595,11 +596,11 @@ const ServiceDetail = () => {
                   onClick={handleWhatsAppClick}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 rounded-full text-base font-bold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 w-full sm:w-auto justify-center min-h-[44px]"
-                  aria-label="Book Now"
+                  className="bg-[#25D366] text-white px-6 sm:px-8 py-3 rounded-full text-base font-bold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 w-full sm:w-auto justify-center min-h-[44px]"
+                  aria-label="Book service on WhatsApp"
                 >
-                  <FaShoppingCart className="w-5 h-5 text-current" />
-                  <span>Book Now</span>
+                  <FaWhatsapp className="w-5 h-5" />
+                  <span>Book on WhatsApp</span>
                 </motion.button>
                 {currentService.subServices && currentService.subServices.length > 0 && (
                   <motion.button
@@ -1200,9 +1201,9 @@ const ServiceDetail = () => {
                       
                       <button
                         onClick={openComingSoon}
-                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 sm:py-4 rounded-lg sm:rounded-xl font-bold hover:from-purple-700 hover:to-indigo-700 transition-all text-sm sm:text-base mb-4 flex items-center justify-center gap-2 min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                        className="w-full bg-gradient-to-r from-[#25D366] to-[#20BA5A] text-white py-3 sm:py-4 rounded-lg sm:rounded-xl font-bold hover:from-[#20BA5A] hover:to-[#25D366] transition-all text-sm sm:text-base mb-4 flex items-center justify-center gap-2 min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                       >
-                        <FaShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-current" />
+                        <FaWhatsapp className="w-5 h-5 sm:w-6 sm:h-6" />
                         <span>Book Now</span>
                       </button>
                     </>
@@ -1735,13 +1736,13 @@ const ServiceDetail = () => {
                 <div className="text-center mt-8">
                   <button
                     onClick={handleWhatsAppClick}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-10 py-4 rounded-lg text-base font-bold shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 mx-auto w-full sm:w-auto justify-center min-h-[48px]"
-                    aria-label="Book Now"
+                    className="bg-[#25D366] text-white px-10 py-4 rounded-lg text-base font-bold shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 mx-auto w-full sm:w-auto justify-center min-h-[48px]"
+                    aria-label="Book this service on WhatsApp"
                   >
-                    <FaShoppingCart className="w-5 h-5 text-current" />
-                    <span>Book Now</span>
+                    <FaWhatsapp className="w-5 h-5" />
+                    <span>Book Selected Packages</span>
                   </button>
-                  <p className="text-xs text-gray-500 mt-3">Click to proceed</p>
+                  <p className="text-xs text-gray-500 mt-3">Click to book via WhatsApp</p>
                 </div>
               </motion.div>
             </div>
@@ -1836,7 +1837,7 @@ const ServiceDetail = () => {
               transition={{ duration: 0.6 }}
             >
               <div className="text-center mb-6">
-                <h2 className="text-2xl sm:text-3xl font-bold mb-2">Why Choose Us</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2">Why Book on WhatsApp</h2>
                 <p className="text-base text-white/90">Experience the easiest way to book services</p>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1898,10 +1899,10 @@ const ServiceDetail = () => {
                     onClick={handleWhatsAppClick}
                     whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-4 rounded-full text-base font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-xl hover:shadow-purple-600/50 flex items-center gap-2 mx-auto"
+                  className="bg-[#25D366] text-white px-8 py-4 rounded-full text-base font-bold hover:bg-[#20BA5A] transition-all duration-300 shadow-xl hover:shadow-[#25D366]/50 flex items-center gap-2 mx-auto"
                   >
-                    <FaShoppingCart className="w-5 h-5 text-current" />
-                  Book Now
+                    <FaWhatsapp className="w-5 h-5" />
+                  Book Now on WhatsApp
                   </motion.button>
               </div>
             </motion.div>
@@ -2453,9 +2454,9 @@ const ServiceDetail = () => {
                       setShowCartModal(false)
                       openComingSoon()
                     }}
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3.5 rounded-xl font-bold hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                    className="flex-1 bg-gradient-to-r from-[#25D366] to-[#20BA5A] text-white px-6 py-3.5 rounded-xl font-bold hover:from-[#20BA5A] hover:to-[#25D366] transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
                   >
-                    <FaShoppingCart className="w-5 h-5 text-current" />
+                    <FaWhatsapp className="w-5 h-5" />
                     <span>Book Now</span>
                   </button>
                 </div>

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FaCheckCircle, 
   FaUpload, 
-  FaShoppingCart,
+  FaWhatsapp,
   FaArrowRight,
   FaArrowLeft,
   FaIdCard,
@@ -2776,10 +2776,10 @@ const PartnerOnboardingForm = () => {
               onClick={handlePayment}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transition"
+              className="w-full bg-[#25D366] text-white py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transition"
             >
-              <FaShoppingCart className="text-2xl text-current" />
-              Book Now
+              <FaWhatsapp className="text-2xl" />
+              Pay via WhatsApp Pay
             </motion.button>
 
             <div className="space-y-4">
@@ -3115,9 +3115,9 @@ const PartnerOnboardingForm = () => {
                 }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2"
+                className="bg-[#25D366] text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2"
               >
-                <FaShoppingCart className="text-current" /> Book Now
+                <FaWhatsapp /> Contact Support
               </motion.a>
             </div>
           </div>
@@ -3312,9 +3312,9 @@ const PartnerOnboardingForm = () => {
                 }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2"
+                className="bg-[#25D366] text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2"
               >
-                <FaShoppingCart className="text-current" /> Book Now
+                <FaWhatsapp /> Contact Support
               </motion.a>
             </div>
           </div>

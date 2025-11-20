@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
-  FaShoppingCart,
-  FaCreditCard,
-  FaFileAlt, 
+  FaWhatsapp, 
   FaTools, 
   FaBolt, 
   FaCheckCircle, 
   FaRupeeSign, 
+  FaCreditCard, 
   FaMobileAlt, 
   FaWrench,
   FaSnowflake,
@@ -49,7 +48,7 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const Home = () => {
   const whatsappNumber = "919590926068"
@@ -127,7 +126,7 @@ const Home = () => {
   useEffect(() => {
     const fetchSubscriptionPlans = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'http://localhost:9088'
         const response = await fetch(`${apiUrl}/api/public/subscription-plans`)
         const data = await response.json()
         
@@ -192,7 +191,7 @@ const Home = () => {
   useEffect(() => {
     const fetchFeaturedReviews = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'http://localhost:9088'
         const response = await fetch(`${apiUrl}/api/public/featured-reviews`)
         const data = await response.json()
         
@@ -439,7 +438,7 @@ const Home = () => {
                     ease: "easeInOut",
                   }}
                 >
-                  Now just a message away.
+                  Now on WhatsApp.
                 </motion.span>
               </motion.h1>
               
@@ -458,10 +457,10 @@ const Home = () => {
                   onClick={handleWhatsAppClick}
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-purple-600/50 transition-all duration-300 flex items-center gap-2 w-full sm:w-auto justify-center"
+                  className="bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-[#25D366]/50 transition-all duration-300 flex items-center gap-2 w-full sm:w-auto justify-center"
                 >
-                  <FaShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-current" />
-                  Book Now
+                  <FaWhatsapp className="w-5 h-5 sm:w-6 sm:h-6" />
+                  Book on WhatsApp
                 </motion.button>
                 <motion.a
                   href="/partner/onboard"
@@ -567,10 +566,10 @@ const Home = () => {
                   onClick={handleWhatsAppClick}
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  className="bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-primary-dark transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
                 >
-                  <FaShoppingCart className="w-5 h-5 text-current" />
-                  Book Now
+                  <FaWhatsapp className="w-5 h-5" />
+                  Start on WhatsApp
                 </motion.button>
               </div>
             </motion.div>
@@ -650,7 +649,7 @@ const Home = () => {
                           whileTap={{ scale: 0.95 }}
                           className="text-primary hover:text-primary-dark font-semibold text-xs sm:text-sm flex items-center gap-1"
                         >
-                          Book Now <FaShoppingCart className="w-3 h-3 text-current" />
+                          Book Now <FaWhatsapp className="w-3 h-3" />
                         </motion.button>
                       </Link>
                     </motion.div>
@@ -724,10 +723,10 @@ const Home = () => {
                   onClick={handleWhatsAppClick}
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  className="bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-primary-dark transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
                 >
-                  <FaShoppingCart className="w-5 h-5 text-current" />
-                  Book Now
+                  <FaWhatsapp className="w-5 h-5" />
+                  Book Your Service
                 </motion.button>
               </div>
             </motion.div>
@@ -808,8 +807,8 @@ const Home = () => {
                           : 'bg-gray-100 text-primary hover:bg-gray-200'
                       }`}
                     >
-                      <FaCreditCard className="w-4 h-4 text-current" />
-                      Subscribe
+                      <FaWhatsapp className="w-4 h-4" />
+                      Subscribe on WhatsApp
                     </motion.button>
                   </motion.div>
                 )
@@ -856,10 +855,10 @@ const Home = () => {
                     onClick={handleWhatsAppClick}
                     whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg flex items-center gap-2"
+                    className="bg-white text-primary px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-lg flex items-center gap-2"
                   >
-                    <FaFileAlt className="w-5 h-5 text-current" />
-                    Get AMC Quote
+                    <FaWhatsapp className="w-5 h-5" />
+                    Get AMC Quote on WhatsApp
                   </motion.button>
                 </div>
               </div>

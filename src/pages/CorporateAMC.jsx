@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { FaShoppingCart, FaFileAlt } from 'react-icons/fa'
+import { FaWhatsapp } from 'react-icons/fa'
 import SEO from '../components/SEO'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 
@@ -15,7 +15,7 @@ const CorporateAMC = () => {
     const fetchPlans = async () => {
       try {
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-          (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+          (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
         
         console.log('Fetching AMC plans from:', `${API_BASE_URL}/api/public/amc-plans`)
         
@@ -235,10 +235,10 @@ const CorporateAMC = () => {
                 onClick={handleWhatsAppClick}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-purple-600/50 transition-all duration-300 flex items-center gap-2"
+                className="bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-[#25D366]/50 transition-all duration-300 flex items-center gap-2"
               >
-                <FaShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-current" />
-                Book Now
+                <FaWhatsapp className="w-5 h-5 sm:w-6 sm:h-6" />
+                Get AMC Proposal on WhatsApp
               </motion.button>
             </div>
           </motion.div>
@@ -389,7 +389,7 @@ const CorporateAMC = () => {
                         : 'bg-gray-100 text-primary hover:bg-gray-200'
                     }`}
                   >
-                    <FaFileAlt className="w-4 h-4 text-current" />
+                    <FaWhatsapp className="w-4 h-4" />
                     Get Quote
                   </motion.button>
                 </motion.div>
@@ -410,9 +410,9 @@ const CorporateAMC = () => {
                 onClick={handleWhatsAppClick}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+                className="bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-primary-dark transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
               >
-                <FaFileAlt className="w-5 h-5 text-current" />
+                <FaWhatsapp className="w-5 h-5" />
                 Request Custom Plan
               </motion.button>
             </div>
