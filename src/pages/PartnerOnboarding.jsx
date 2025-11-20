@@ -61,27 +61,64 @@ const PartnerOnboarding = () => {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        // Try to get plans without auth (public endpoint if available)
-        // For now, use default plans
-        // If you have a public endpoint, uncomment below:
-        // const response = await partnerApi.getMGPlans(null)
-        // if (response.success && response.data) {
-        //   setMgPlans(response.data.map(plan => ({
-        //     name: plan.name,
-        //     price: plan.price,
-        //     leads: plan.leads,
-        //     commission: plan.commission,
-        //     icon: plan.name === 'Silver' ? '🥈' : plan.name === 'Gold' ? '🥇' : '💎',
-        //     features: plan.features || [
-        //       `${plan.leads} Guaranteed Leads/month`,
-        //       `${plan.commission}% Commission Rate`,
-        //       'Priority Support'
-        //     ]
-        //   })))
-        // }
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+          (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+        const response = await fetch(`${API_BASE_URL}/api/partner/mg-plans/public`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data && Array.isArray(result.data)) {
+            // Map admin-configured plans dynamically
+            const mappedPlans = result.data.map(plan => {
+              // Determine icon based on plan name
+              const planName = plan.name || ''
+              const nameLower = planName.toLowerCase()
+              let icon = plan.icon || '📦'
+              
+              if (!plan.icon) {
+                if (nameLower.includes('silver')) {
+                  icon = '🥈'
+                } else if (nameLower.includes('gold')) {
+                  icon = '🥇'
+                } else if (nameLower.includes('platinum') || nameLower.includes('diamond')) {
+                  icon = '💎'
+                } else if (nameLower.includes('bronze')) {
+                  icon = '🥉'
+                }
+              }
+              
+              // Build features array
+              const features = plan.features && Array.isArray(plan.features) && plan.features.length > 0
+                ? plan.features
+                : [
+                    `${plan.leads || 0} Guaranteed Leads/month`,
+                    `${plan.commission || 0}% Commission Rate`,
+                    'Priority Support'
+                  ]
+              
+              return {
+                name: plan.name,
+                price: plan.price || 0,
+                leads: plan.leads || 0,
+                commission: plan.commission || 0,
+                icon: icon,
+                features: features
+              }
+            })
+            
+            if (mappedPlans.length > 0) {
+              setMgPlans(mappedPlans)
+            }
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch MG plans:', err)
-        // Use default plans
+        // Use default plans if fetch fails
       }
     }
     fetchPlans()
@@ -457,7 +494,7 @@ const PartnerOnboarding = () => {
           </div>
         </section>
 
-        {/* Partner Subscription Plans */}
+        {/* MG Plan */}
         <section className="py-12 sm:py-16 lg:py-20 bg-white relative overflow-hidden">
           <div className="absolute inset-0 opacity-5">
             <motion.div
@@ -485,7 +522,7 @@ const PartnerOnboarding = () => {
               transition={{ duration: 0.6 }}
               className="text-center mb-12 sm:mb-16"
             >
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-3 sm:mb-4">Partner Subscription Plans</h2>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-3 sm:mb-4">MG Plan</h2>
             </motion.div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -570,35 +607,268 @@ const PartnerOnboarding = () => {
               className="text-center mb-12 sm:mb-16"
             >
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-3 sm:mb-4">How to Join</h2>
+              <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">Follow these simple steps to become a Nexo partner and start earning</p>
             </motion.div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            {/* Enhanced Step Bar */}
+            <div className="relative py-8">
+              {/* Horizontal connecting line - Desktop with step-by-step fill */}
+              <div className="hidden lg:block absolute top-[5.5rem] left-[12%] right-[12%] h-1.5 bg-gray-200 rounded-full overflow-hidden z-0" style={{ transform: 'translateY(-50%)' }}>
+                {/* Base gray line */}
+                <div className="absolute inset-0 bg-gray-200 rounded-full" />
+                {/* Progressive fill segments - fills one by one after each step completes */}
+                {steps.slice(0, -1).map((_, index) => {
+                  const segmentWidth = 100 / (steps.length - 1)
+                  const startPercent = (index * segmentWidth)
+                  // Delay: step fill (0.8s) + icon appear (0.4s) + small gap (0.2s) = 1.4s per step
+                  const baseDelay = index * 1.4
+                  return (
+                    <motion.div
+                      key={index}
+                      className="absolute h-full bg-gradient-to-r from-primary via-primary-dark to-primary rounded-full z-10"
+                      style={{
+                        left: `${startPercent}%`,
+                      }}
+                      initial={{ width: 0 }}
+                      whileInView={{ width: `${segmentWidth}%` }}
+                      viewport={{ once: true }}
+                      transition={{
+                        duration: 0.6,
+                        delay: baseDelay + 0.2,
+                        ease: "easeInOut"
+                      }}
+                    />
+                  )
+                })}
+              </div>
+
+              {/* Vertical connecting line - Mobile/Tablet with step-by-step fill */}
+              <div className="lg:hidden absolute left-[2.5rem] sm:left-[3rem] top-[2.5rem] sm:top-[3rem] bottom-8 w-1 bg-gray-200 rounded-full overflow-hidden z-0" style={{ transform: 'translateX(-50%)' }}>
+                {/* Base gray line */}
+                <div className="absolute inset-0 bg-gray-200 rounded-full" />
+                {/* Progressive fill segments - fills one by one after each step completes */}
+                {steps.slice(0, -1).map((_, index) => {
+                  const segmentHeight = 100 / (steps.length - 1)
+                  const startPercent = (index * segmentHeight)
+                  // Delay: step fill (0.8s) + icon appear (0.4s) + small gap (0.2s) = 1.4s per step
+                  const baseDelay = index * 1.4
+                  return (
+                    <motion.div
+                      key={index}
+                      className="absolute w-full bg-gradient-to-b from-primary to-primary-dark rounded-full z-10"
+                      style={{
+                        top: `${startPercent}%`,
+                      }}
+                      initial={{ height: 0 }}
+                      whileInView={{ height: `${segmentHeight}%` }}
+                      viewport={{ once: true }}
+                      transition={{
+                        duration: 0.6,
+                        delay: baseDelay + 0.2,
+                        ease: "easeInOut"
+                      }}
+                    />
+                  )
+                })}
+              </div>
+
+              {/* Steps Container */}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-12 lg:gap-6 relative z-10">
               {steps.map((step, index) => {
                 const IconComponent = step.icon
+                  const isLast = index === steps.length - 1
+                  
                 return (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-50px" }}
-                    transition={{ duration: 0.6, delay: index * 0.2 }}
-                    className="text-center relative"
+                    transition={{ duration: 0.4, delay: index * 1.4 }}
+                    className="relative flex flex-col items-center"
                   >
-                    {/* Step number badge */}
-                    <div className="absolute -top-2 -left-2 w-10 h-10 sm:w-12 sm:h-12 bg-primary text-white rounded-full flex items-center justify-center text-lg sm:text-xl font-bold shadow-lg z-10">
-                      {step.step}
+                      {/* Step Circle Container */}
+                      <div className="relative flex flex-col items-center w-full mb-6">
+                        {/* Step Circle */}
+                        <motion.div
+                          whileHover={{ scale: 1.1, y: -5 }}
+                          className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-white rounded-full shadow-2xl border-2 border-primary flex items-center justify-center group cursor-pointer transition-all duration-300"
+                        >
+                          {/* Step Number Badge - Positioned on right side */}
+                          <motion.div
+                            initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                            whileInView={{ scale: 1, rotate: 0, opacity: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.4, delay: index * 1.4 + 0.1, type: "spring", stiffness: 200 }}
+                            className="absolute -right-1.5 -top-1.5 z-30 w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 text-primary rounded-full flex items-center justify-center text-xs font-extrabold shadow-2xl border-2 border-white ring-2 ring-yellow-300/50"
+                            whileHover={{ scale: 1.2, rotate: 5 }}
+                          >
+                            <span className="drop-shadow-sm">{step.step}</span>
+                            {/* Pulsing effect */}
+                            <motion.div
+                              className="absolute inset-0 rounded-full bg-yellow-400"
+                              animate={{
+                                scale: [1, 1.4, 1],
+                                opacity: [0.6, 0, 0.6],
+                              }}
+                              transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: "easeInOut",
+                              }}
+                            />
+                          </motion.div>
+
+                          {/* Outer animated ring */}
+                          <motion.div
+                            className="absolute inset-0 rounded-full border-4 border-primary/20"
+                            animate={{
+                              scale: [1, 1.3, 1],
+                              opacity: [0.3, 0, 0.3],
+                            }}
+                            transition={{
+                              duration: 2.5,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                          />
+                          
+                          {/* Inner animated ring */}
+                          <motion.div
+                            className="absolute inset-0 rounded-full border-4 border-primary/40"
+                            animate={{
+                              scale: [1, 1.15, 1],
+                              opacity: [0.5, 0, 0.5],
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                              delay: 0.5,
+                            }}
+                          />
+                          
+                          {/* Step-by-step Fill Animation - Expanding from center */}
+                          <motion.div
+                            className="absolute inset-0 rounded-full overflow-hidden z-5"
+                            initial={{ scale: 0, opacity: 0 }}
+                            whileInView={{ scale: 1, opacity: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ 
+                              duration: 0.8, 
+                              delay: index * 1.4,
+                              ease: [0.16, 1, 0.3, 1] // Custom easing for smooth fill
+                            }}
+                          >
+                            <div className="w-full h-full bg-gradient-to-br from-primary via-primary-dark to-primary" />
+                          </motion.div>
+
+                          {/* Circular Progress Indicator - Shows fill progress */}
+                          <motion.svg
+                            className="absolute inset-0 w-full h-full transform -rotate-90 z-6"
+                            initial={{ opacity: 0 }}
+                            whileInView={{ opacity: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.3, delay: index * 1.4 }}
+                          >
+                            <motion.circle
+                              cx="50%"
+                              cy="50%"
+                              r="45%"
+                              fill="none"
+                              stroke="rgba(255, 255, 255, 0.3)"
+                              strokeWidth="3"
+                              strokeDasharray={`${2 * Math.PI * 45}`}
+                              initial={{ strokeDashoffset: 2 * Math.PI * 45 }}
+                              whileInView={{ strokeDashoffset: 0 }}
+                              viewport={{ once: true }}
+                              transition={{
+                                duration: 0.8,
+                                delay: index * 1.4,
+                                ease: "easeInOut"
+                              }}
+                            />
+                          </motion.svg>
+
+                          {/* Icon Background with Gradient - Fades in after fill */}
+                          <motion.div
+                            className="relative z-10 bg-gradient-to-br from-primary via-primary-dark to-primary rounded-full w-full h-full flex items-center justify-center shadow-inner"
+                            initial={{ opacity: 0 }}
+                            whileInView={{ opacity: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ 
+                              duration: 0.4, 
+                              delay: index * 1.4 + 0.8,
+                              ease: "easeOut"
+                            }}
+                          >
+                            <motion.div
+                              initial={{ scale: 0, rotate: -180 }}
+                              whileInView={{ scale: 1, rotate: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ 
+                                duration: 0.5, 
+                                delay: index * 1.4 + 0.9,
+                                type: "spring",
+                                stiffness: 200
+                              }}
+                            >
+                              <IconComponent className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 text-white drop-shadow-lg" />
+                            </motion.div>
+                          </motion.div>
+
+                          {/* Shine effect on hover */}
+                          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20" />
+                        </motion.div>
                     </div>
                     
-                    {/* Icon container */}
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <IconComponent className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+                      {/* Step Content */}
+                      <div className="text-center px-2 mt-2">
+                        <motion.h3
+                          initial={{ opacity: 0, y: 10 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 0.5, delay: index * 1.4 + 1.0, ease: "easeOut" }}
+                          className="text-xl sm:text-2xl font-bold text-primary mb-3"
+                        >
+                          {step.title}
+                        </motion.h3>
+                        <motion.p
+                          initial={{ opacity: 0, y: 10 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 0.5, delay: index * 1.4 + 1.2, ease: "easeOut" }}
+                          className="text-sm sm:text-base text-gray-600 leading-relaxed"
+                        >
+                          {step.description}
+                        </motion.p>
                     </div>
                     
-                    <h3 className="text-lg sm:text-xl font-bold text-primary mb-2">{step.title}</h3>
-                    <p className="text-sm sm:text-base text-gray-600">{step.description}</p>
+                      {/* Connecting Arrow - Desktop only, between steps */}
+                      {!isLast && (
+                        <div className="hidden lg:block absolute top-[5.5rem] left-[calc(50%+3.5rem)] w-[calc(25%-4rem)] z-30" style={{ transform: 'translateY(-50%)' }}>
+                          <motion.div
+                            className="absolute right-0 top-1/2 -translate-y-1/2"
+                            initial={{ opacity: 0, scale: 0, x: -20 }}
+                            whileInView={{ opacity: 1, scale: 1, x: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ 
+                              duration: 0.5, 
+                              delay: index * 1.4 + 0.8,
+                              type: "spring",
+                              stiffness: 150
+                            }}
+                          >
+                            <svg className="w-6 h-6 text-primary drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </motion.div>
+                        </div>
+                      )}
                   </motion.div>
                 )
               })}
+              </div>
             </div>
 
             <motion.div
@@ -606,16 +876,16 @@ const PartnerOnboarding = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.8 }}
-              className="text-center mt-8 sm:mt-12"
+              className="text-center mt-12 sm:mt-16"
             >
               <div className="flex justify-center">
                 <motion.a
                   href="/partner/onboard"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-primary-dark transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  className="bg-gradient-to-r from-primary to-primary-dark text-white px-8 sm:px-10 py-4 sm:py-5 rounded-full text-base sm:text-lg font-semibold hover:shadow-xl transition-all duration-300 shadow-lg flex items-center gap-3"
                 >
-                  <FaUserCheck className="w-5 h-5" />
+                  <FaUserCheck className="w-5 h-5 sm:w-6 sm:h-6" />
                   Start Partner Registration
                 </motion.a>
               </div>

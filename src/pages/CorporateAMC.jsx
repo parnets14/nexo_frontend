@@ -1,50 +1,66 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { FaWhatsapp } from 'react-icons/fa'
+import { FaShoppingCart, FaFileAlt } from 'react-icons/fa'
 import SEO from '../components/SEO'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 
 const CorporateAMC = () => {
   const whatsappNumber = "919590926068"
   const handleWhatsAppClick = useWhatsAppClick()
-  const plans = [
-    {
-      name: 'Basic',
-      price: '₹2,500',
-      features: [
-        'Monthly inspection',
-        'Basic repairs included',
-        'Electrical maintenance',
-        'Plumbing maintenance',
-        'AC service (quarterly)',
-      ],
-    },
-    {
-      name: 'Standard',
-      price: '₹5,000',
-      features: [
-        'Bi-weekly inspection',
-        'All repairs included',
-        'Electrical + Plumbing + AC',
-        'Appliance maintenance',
-        'Priority support',
-        'Free material (up to ₹500/month)',
-      ],
-    },
-    {
-      name: 'Premium',
-      price: '₹10,000',
-      features: [
-        'Weekly inspection',
-        'All repairs + replacements',
-        'Complete maintenance',
-        '24/7 emergency support',
-        'Free material (up to ₹1,500/month)',
-        'Dedicated account manager',
-        'Customized service schedule',
-      ],
-    },
-  ]
+  const [plans, setPlans] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch AMC Plans from backend
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+          (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+        
+        console.log('Fetching AMC plans from:', `${API_BASE_URL}/api/public/amc-plans`)
+        
+        const response = await fetch(`${API_BASE_URL}/api/public/amc-plans`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        console.log('Response status:', response.status, response.statusText)
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        
+        const result = await response.json()
+        console.log('AMC Plans API Response:', result)
+        
+        if (result.success && result.data && Array.isArray(result.data)) {
+          // Map admin-configured plans dynamically (including inactive ones)
+          const mappedPlans = result.data.map(plan => ({
+            name: plan.name,
+            price: plan.priceDisplay || `₹${plan.price?.toLocaleString('en-IN') || 0}`,
+            features: plan.features && Array.isArray(plan.features) ? plan.features : [],
+            highlight: plan.highlight || false,
+            whatsappNumber: plan.whatsappNumber || whatsappNumber,
+            isActive: plan.isActive !== undefined ? plan.isActive : true
+          }))
+          
+          console.log('Mapped plans:', mappedPlans)
+          setPlans(mappedPlans)
+        } else {
+          console.warn('Invalid response format:', result)
+          setPlans([])
+        }
+      } catch (err) {
+        console.error('Failed to fetch AMC plans:', err)
+        setPlans([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchPlans()
+  }, [])
 
   const businessTypes = [
     { name: 'PGs (Paying Guests)', icon: '🏠' },
@@ -219,10 +235,10 @@ const CorporateAMC = () => {
                 onClick={handleWhatsAppClick}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-[#25D366]/50 transition-all duration-300 flex items-center gap-2"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-purple-600/50 transition-all duration-300 flex items-center gap-2"
               >
-                <FaWhatsapp className="w-5 h-5 sm:w-6 sm:h-6" />
-                Get AMC Proposal on WhatsApp
+                <FaShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-current" />
+                Book Now
               </motion.button>
             </div>
           </motion.div>
@@ -314,48 +330,72 @@ const CorporateAMC = () => {
             <p className="text-xl text-gray-600">Choose the plan that fits your business needs</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {plans.map((plan, index) => (
-              <motion.div
-                key={plan.name}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: index * 0.2 }}
-                whileHover={{ y: -10, scale: 1.02 }}
-                className={`bg-white p-8 rounded-2xl shadow-xl border-2 ${
-                  plan.name === 'Standard' ? 'border-primary scale-105' : 'border-gray-200'
-                }`}
-              >
-                <h3 className="text-2xl font-bold text-primary mb-2">{plan.name}</h3>
-                <div className="mb-6">
-                  <span className="text-4xl font-bold text-primary">{plan.price}</span>
-                  <span className="text-gray-600">/month</span>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-gray-700">
-                      <span className="text-primary mt-1">✓</span>
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <motion.button
-                  onClick={handleWhatsAppClick}
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`block w-full text-center py-3 rounded-full font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
-                    plan.name === 'Standard'
-                      ? 'bg-primary text-white hover:bg-primary-dark'
-                      : 'bg-gray-100 text-primary hover:bg-gray-200'
-                  }`}
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">No AMC plans available at the moment. Please check back later.</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-8">
+              {plans.map((plan, index) => (
+                <motion.div
+                  key={plan.name || index}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: index * 0.2 }}
+                  whileHover={plan.isActive !== false ? { y: -10, scale: 1.02 } : {}}
+                  className={`bg-white p-8 rounded-2xl shadow-xl border-2 ${
+                    plan.highlight || plan.name === 'Standard' ? 'border-primary scale-105' : 'border-gray-200'
+                  } ${plan.isActive === false ? 'opacity-60' : ''}`}
                 >
-                  <FaWhatsapp className="w-4 h-4" />
-                  Get Quote
-                </motion.button>
-              </motion.div>
-            ))}
-          </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-2xl font-bold text-primary">{plan.name}</h3>
+                    {plan.isActive === false && (
+                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-semibold">
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+                  <div className="mb-6">
+                    <span className="text-4xl font-bold text-primary">{plan.price}</span>
+                    <span className="text-gray-600">/month</span>
+                  </div>
+                  <ul className="space-y-3 mb-8">
+                    {plan.features && plan.features.length > 0 ? (
+                      plan.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-gray-700">
+                          <span className="text-primary mt-1">✓</span>
+                          <span>{feature}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-gray-500">No features listed</li>
+                    )}
+                  </ul>
+                  <motion.button
+                    onClick={() => {
+                      const number = plan.whatsappNumber || whatsappNumber
+                      window.open(`https://wa.me/${number}`, '_blank')
+                    }}
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`block w-full text-center py-3 rounded-full font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                      plan.highlight || plan.name === 'Standard'
+                        ? 'bg-primary text-white hover:bg-primary-dark'
+                        : 'bg-gray-100 text-primary hover:bg-gray-200'
+                    }`}
+                  >
+                    <FaFileAlt className="w-4 h-4 text-current" />
+                    Get Quote
+                  </motion.button>
+                </motion.div>
+              ))}
+            </div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -370,9 +410,9 @@ const CorporateAMC = () => {
                 onClick={handleWhatsAppClick}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-primary-dark transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
               >
-                <FaWhatsapp className="w-5 h-5" />
+                <FaFileAlt className="w-5 h-5 text-current" />
                 Request Custom Plan
               </motion.button>
             </div>

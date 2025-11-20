@@ -99,8 +99,37 @@ const PartnerLogin = () => {
     }
 
     setSubmitting(true)
+    
+    // Request notification permission immediately on button click (user interaction context)
+    // This must be called before any async operations to maintain user interaction context
+    let permissionPromise = null;
+    if ('Notification' in window) {
+      const currentPermission = Notification.permission;
+      
+      // Try to request permission if default or denied (some browsers allow re-requesting)
+      if (currentPermission === 'default' || currentPermission === 'denied') {
+        try {
+          permissionPromise = Notification.requestPermission();
+        } catch (error) {
+          console.error('Cannot request notification permission:', error);
+        }
+      }
+    }
+    
     try {
       await login(formData.phone, formData.otp)
+      
+      // Wait for permission request to complete if it was initiated
+      if (permissionPromise) {
+        const permission = await permissionPromise;
+        if (permission === 'granted') {
+          // Trigger notification initialization
+          setTimeout(() => {
+            window.dispatchEvent(new Event('notificationPermissionGranted'));
+          }, 500);
+        }
+      }
+      
       navigate('/partner/dashboard', { replace: true })
     } catch (err) {
       setLocalError(err.message || 'Invalid OTP. Please try again.')

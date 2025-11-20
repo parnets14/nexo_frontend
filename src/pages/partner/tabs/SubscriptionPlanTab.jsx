@@ -37,7 +37,7 @@ const SubscriptionPlanTab = () => {
         setAvailablePlans(Array.isArray(plansRes) ? plansRes : [])
       }
     } catch (err) {
-      setError(err.message || 'Failed to fetch subscription plans')
+      setError(err.message || 'Failed to fetch mg plans')
     } finally {
       setLoading(false)
     }
@@ -80,34 +80,34 @@ const SubscriptionPlanTab = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Subscription Plan</h1>
-          <p className="text-slate-600">Manage your subscription and plan details</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">MG Plan</h1>
+          <p className="text-sm sm:text-base text-slate-600">Manage your mg plans details</p>
         </div>
         <button
           onClick={fetchPlans}
-          className="p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200"
+          className="p-2.5 sm:p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200 self-start sm:self-auto"
         >
-          <FiRefreshCw className="text-xl text-slate-600" />
+          <FiRefreshCw className="text-lg sm:text-xl text-slate-600" />
         </button>
       </div>
 
       {/* Current Plan */}
       {currentPlan && (
-        <div className="bg-gradient-to-br from-primary to-primary-dark rounded-2xl shadow-xl p-8 text-white">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-gradient-to-br from-primary to-primary-dark rounded-2xl shadow-xl p-6 sm:p-8 text-white">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div>
-              <h2 className="text-2xl font-bold mb-2">Current Plan</h2>
-              <p className="text-white/80">{currentPlan.name || 'MG Plan'}</p>
+              <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Current Plan</h2>
+              <p className="text-sm sm:text-base text-white/80">{currentPlan.name || 'MG Plan'}</p>
             </div>
-            <div className="bg-white/20 p-4 rounded-xl">
-              <FiCreditCard className="text-4xl" />
+            <div className="bg-white/20 p-3 sm:p-4 rounded-xl self-start sm:self-auto">
+              <FiCreditCard className="text-3xl sm:text-4xl" />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div className="bg-white/10 rounded-xl p-4">
               <p className="text-sm text-white/80 mb-1">Leads Guaranteed</p>
               <p className="text-2xl font-bold">{currentPlan.leadsGuaranteed || 0}</p>
@@ -122,24 +122,24 @@ const SubscriptionPlanTab = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="bg-white/10 rounded-xl p-4">
-              <p className="text-sm text-white/80 mb-1">Lead Fee</p>
-              <p className="text-xl font-bold">₹{currentPlan.leadFee || 0}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className="bg-white/10 rounded-xl p-3 sm:p-4">
+              <p className="text-xs sm:text-sm text-white/80 mb-1">Lead Fee</p>
+              <p className="text-lg sm:text-xl font-bold">₹{currentPlan.leadFee || 0}</p>
             </div>
-            <div className="bg-white/10 rounded-xl p-4">
-              <p className="text-sm text-white/80 mb-1">Commission</p>
-              <p className="text-xl font-bold">{currentPlan.commission || 0}%</p>
+            <div className="bg-white/10 rounded-xl p-3 sm:p-4">
+              <p className="text-xs sm:text-sm text-white/80 mb-1">Commission</p>
+              <p className="text-lg sm:text-xl font-bold">{currentPlan.commission || 0}%</p>
             </div>
           </div>
 
           {currentPlan.expiresAt && (
-            <div className="bg-white/10 rounded-xl p-4 mb-6">
+            <div className="bg-white/10 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6">
               <div className="flex items-center gap-2 mb-2">
-                <FiCalendar className="text-xl" />
-                <p className="font-semibold">Plan Expires</p>
+                <FiCalendar className="text-lg sm:text-xl" />
+                <p className="text-sm sm:text-base font-semibold">Plan Expires</p>
               </div>
-              <p className="text-lg">
+              <p className="text-base sm:text-lg">
                 {new Date(currentPlan.expiresAt).toLocaleDateString('en-IN', {
                   year: 'numeric',
                   month: 'long',
@@ -149,7 +149,7 @@ const SubscriptionPlanTab = () => {
               {currentPlan.daysUntilRenewal !== undefined && currentPlan.daysUntilRenewal <= 7 && (
                 <button
                   onClick={handleRenew}
-                  className="mt-4 w-full py-2 bg-white text-primary rounded-lg font-semibold hover:bg-white/90 transition"
+                  className="mt-3 sm:mt-4 w-full py-2 bg-white text-primary rounded-lg text-sm sm:text-base font-semibold hover:bg-white/90 transition"
                 >
                   Renew Plan
                 </button>
@@ -167,8 +167,8 @@ const SubscriptionPlanTab = () => {
 
       {/* Available Plans */}
       {!currentPlan && (
-        <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">Available Plans</h2>
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-3 sm:mb-4">Available Plans</h2>
           {error ? (
             <div className="text-center text-red-600 py-8">{error}</div>
           ) : availablePlans.length === 0 ? (
@@ -177,33 +177,33 @@ const SubscriptionPlanTab = () => {
               <p>No plans available</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {availablePlans.map((plan, index) => (
                 <div
                   key={index}
-                  className="border-2 border-slate-200 rounded-xl p-6 hover:border-primary transition"
+                  className="border-2 border-slate-200 rounded-xl p-4 sm:p-6 hover:border-primary transition"
                 >
-                  <h3 className="text-xl font-bold text-slate-800 mb-2">{plan.name || 'Plan'}</h3>
-                  <p className="text-3xl font-bold text-primary mb-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-2">{plan.name || 'Plan'}</h3>
+                  <p className="text-2xl sm:text-3xl font-bold text-primary mb-3 sm:mb-4">
                     ₹{plan.price?.toLocaleString('en-IN') || 0}
                   </p>
-                  <ul className="space-y-2 mb-6">
-                    <li className="flex items-center gap-2 text-slate-600">
-                      <FiCheck className="text-green-600" />
+                  <ul className="space-y-2 mb-4 sm:mb-6">
+                    <li className="flex items-center gap-2 text-sm sm:text-base text-slate-600">
+                      <FiCheck className="text-green-600 flex-shrink-0" />
                       {plan.leads || 0} Leads Guaranteed
                     </li>
-                    <li className="flex items-center gap-2 text-slate-600">
-                      <FiCheck className="text-green-600" />
+                    <li className="flex items-center gap-2 text-sm sm:text-base text-slate-600">
+                      <FiCheck className="text-green-600 flex-shrink-0" />
                       Lead Fee: ₹{plan.leadFee || 0}
                     </li>
-                    <li className="flex items-center gap-2 text-slate-600">
-                      <FiCheck className="text-green-600" />
+                    <li className="flex items-center gap-2 text-sm sm:text-base text-slate-600">
+                      <FiCheck className="text-green-600 flex-shrink-0" />
                       Commission: {plan.commission || 0}%
                     </li>
                   </ul>
                   <button
                     onClick={() => handleSubscribe(plan._id || plan.id)}
-                    className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition"
+                    className="w-full py-2.5 sm:py-3 bg-primary text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-primary-dark transition"
                   >
                     Subscribe Now
                   </button>

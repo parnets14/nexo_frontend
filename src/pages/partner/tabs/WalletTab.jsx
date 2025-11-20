@@ -93,37 +93,37 @@ const WalletTab = () => {
   const mgPlan = wallet?.mgPlan || null
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Wallet</h1>
-          <p className="text-slate-600">Manage your wallet balance and transactions</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">Wallet</h1>
+          <p className="text-sm sm:text-base text-slate-600">Manage your wallet balance and transactions</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => setShowTopUpModal(true)}
-            className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2 shadow-lg"
+            className="px-4 sm:px-6 py-2.5 sm:py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2 shadow-lg text-sm sm:text-base"
           >
-            <FiPlus /> Top Up Wallet
+            <FiPlus /> <span className="hidden sm:inline">Top Up Wallet</span><span className="sm:hidden">Top Up</span>
           </button>
           <button
             onClick={fetchWallet}
-            className="p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200"
+            className="p-2.5 sm:p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200"
           >
-            <FiRefreshCw className="text-xl text-slate-600" />
+            <FiRefreshCw className="text-lg sm:text-xl text-slate-600" />
           </button>
         </div>
       </div>
 
       {/* Wallet Balance Card */}
-      <div className="bg-gradient-to-br from-primary to-primary-dark rounded-2xl shadow-xl p-8 text-white">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-gradient-to-br from-primary to-primary-dark rounded-2xl shadow-xl p-6 sm:p-8 text-white">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>
-            <p className="text-white/80 text-sm mb-1">Current Balance</p>
-            <h2 className="text-4xl font-bold">₹{balance.toLocaleString('en-IN')}</h2>
+            <p className="text-white/80 text-xs sm:text-sm mb-1">Current Balance</p>
+            <h2 className="text-3xl sm:text-4xl font-bold">₹{balance.toLocaleString('en-IN')}</h2>
           </div>
-          <div className="bg-white/20 p-4 rounded-xl">
-            <FiDollarSign className="text-4xl" />
+          <div className="bg-white/20 p-3 sm:p-4 rounded-xl">
+            <FiDollarSign className="text-3xl sm:text-4xl" />
           </div>
         </div>
 
@@ -148,9 +148,9 @@ const WalletTab = () => {
       </div>
 
       {/* Recent Transactions */}
-      <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-slate-800">Recent Transactions</h2>
+      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800">Recent Transactions</h2>
           {transactions.length > 0 && (
             <button
               onClick={() => {
@@ -173,10 +173,10 @@ const WalletTab = () => {
                   columnWidths: [20, 12, 15, 15, 30, 20]
                 })
               }}
-              className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition inline-flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition inline-flex items-center gap-2 self-start sm:self-auto"
               title="Export to Excel"
             >
-              <FiDownload /> Export Excel
+              <FiDownload /> <span className="hidden sm:inline">Export Excel</span><span className="sm:hidden">Export</span>
             </button>
           )}
         </div>
@@ -190,40 +190,40 @@ const WalletTab = () => {
             {transactions.slice(0, 10).map((txn, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 flex-1">
                   <div
-                    className={`p-3 rounded-lg ${
+                    className={`p-2 sm:p-3 rounded-lg flex-shrink-0 ${
                       txn.type === 'credit'
                         ? 'bg-green-100 text-green-600'
                         : 'bg-red-100 text-red-600'
                     }`}
                   >
                     {txn.type === 'credit' ? (
-                      <FiTrendingUp className="text-xl" />
+                      <FiTrendingUp className="text-lg sm:text-xl" />
                     ) : (
-                      <FiTrendingDown className="text-xl" />
+                      <FiTrendingDown className="text-lg sm:text-xl" />
                     )}
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-800">{txn.description || 'Transaction'}</p>
-                    <p className="text-sm text-slate-500">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-800 text-sm sm:text-base truncate">{txn.description || 'Transaction'}</p>
+                    <p className="text-xs sm:text-sm text-slate-500">
                       {txn.createdAt
                         ? new Date(txn.createdAt).toLocaleString('en-IN')
                         : new Date().toLocaleString('en-IN')}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right flex-shrink-0">
                   <p
-                    className={`font-bold ${
+                    className={`font-bold text-lg sm:text-xl ${
                       txn.type === 'credit' ? 'text-green-600' : 'text-red-600'
                     }`}
                   >
                     {txn.type === 'credit' ? '+' : '-'}₹{txn.amount?.toLocaleString('en-IN') || 0}
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-xs sm:text-sm text-slate-500">
                     Balance: ₹{txn.balance?.toLocaleString('en-IN') || 0}
                   </p>
                 </div>
@@ -235,10 +235,10 @@ const WalletTab = () => {
 
       {/* Top Up Modal */}
       {showTopUpModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-slate-800">Top Up Wallet</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6 my-auto">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Top Up Wallet</h2>
               <button
                 onClick={() => {
                   setShowTopUpModal(false)
@@ -247,7 +247,7 @@ const WalletTab = () => {
                 }}
                 className="p-2 hover:bg-slate-100 rounded-lg transition"
               >
-                <FiX className="text-xl" />
+                <FiX className="text-lg sm:text-xl" />
               </button>
             </div>
 
@@ -276,7 +276,7 @@ const WalletTab = () => {
                     <button
                       key={amount}
                       onClick={() => setTopUpAmount(amount.toString())}
-                      className={`px-3 py-2 rounded-lg font-semibold transition ${
+                      className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
                         topUpAmount === amount.toString()
                           ? 'bg-primary text-white'
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'

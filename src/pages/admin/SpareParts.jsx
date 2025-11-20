@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { FiAlertTriangle, FiBox, FiLink2, FiTruck, FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiArrowUp, FiArrowDown, FiSearch, FiClock, FiPackage, FiRefreshCw } from 'react-icons/fi'
+import { FiAlertTriangle, FiBox, FiLink2, FiTruck, FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiArrowUp, FiArrowDown, FiSearch, FiClock, FiPackage, FiRefreshCw, FiUser, FiEye } from 'react-icons/fi'
 import ModuleHeader from '../../components/admin/ModuleHeader.jsx'
 import StatCard from '../../components/admin/StatCard.jsx'
 import DataTable from '../../components/admin/DataTable.jsx'
@@ -185,7 +185,7 @@ const procurementColumns = [
 
 const SpareParts = () => {
   const { token } = useAdminAuth()
-  const [activeTab, setActiveTab] = useState('inventory') // 'inventory' or 'materials'
+  const [activeTab, setActiveTab] = useState('inventory') // 'inventory', 'materials', or 'vendor-parts'
   const [showMaterialModal, setShowMaterialModal] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState(null)
   const [materialFormData, setMaterialFormData] = useState({
@@ -256,10 +256,17 @@ const SpareParts = () => {
     []
   )
 
+  // Fetch vendor spare parts
+  const { data: vendorSparePartsData, isLoading: vendorPartsLoading, error: vendorPartsError, refresh: refreshVendorParts } = useAdminData(
+    (token) => adminApi.fetchVendorSpareParts(token),
+    []
+  )
+
   const materials = materialsData?.data || []
   const inventoryItems = inventoryItemsData?.data || []
   const purchaseOrders = purchaseOrdersData?.data || []
   const stats = inventoryStatsData?.data || {}
+  const vendorSpareParts = vendorSparePartsData?.data || []
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -576,6 +583,16 @@ const SpareParts = () => {
         >
           Available Materials
         </button>
+        <button
+          onClick={() => setActiveTab('vendor-parts')}
+          className={`px-4 py-2 font-semibold text-sm transition ${
+            activeTab === 'vendor-parts'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          Vendor Spare Parts
+        </button>
       </div>
 
       {/* Success/Error Messages */}
@@ -603,6 +620,114 @@ const SpareParts = () => {
             columns={materialColumns}
             data={materials}
             emptyLabel="No material categories found. Click 'Add Material Category' to create one."
+          />
+        </section>
+      )}
+
+      {activeTab === 'vendor-parts' && (
+        <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+              Vendor Spare Parts
+            </h2>
+            <div className="flex items-center gap-3">
+              {vendorPartsError && (
+                <span className="text-xs text-rose-500">
+                  Error loading vendor parts. {vendorSpareParts.length > 0 ? `Showing ${vendorSpareParts.length} cached items.` : 'Please refresh.'}
+                </span>
+              )}
+              {vendorPartsLoading && <span className="text-xs text-slate-400">Loading...</span>}
+              {!vendorPartsLoading && !vendorPartsError && (
+                <span className="text-xs text-slate-500">{vendorSpareParts.length} parts</span>
+              )}
+              <button
+                onClick={() => refreshVendorParts()}
+                className="text-xs text-primary hover:text-primary-dark font-semibold flex items-center gap-1"
+              >
+                <FiRefreshCw className="w-3 h-3" />
+                Refresh
+              </button>
+            </div>
+          </div>
+          <DataTable
+            columns={[
+              {
+                header: 'Image/Icon',
+                accessor: 'image',
+                render: (value, row) => (
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
+                    {row.image ? (
+                      <img src={row.image} alt={row.name} className="w-full h-full object-cover" />
+                    ) : row.icon ? (
+                      <span className="text-2xl">{row.icon}</span>
+                    ) : (
+                      <FiPackage className="w-6 h-6 text-slate-400" />
+                    )}
+                  </div>
+                )
+              },
+              { header: 'Name', accessor: 'name' },
+              { header: 'Category', accessor: 'category' },
+              { header: 'Brand', accessor: 'brand' },
+              {
+                header: 'Price',
+                accessor: 'price',
+                render: (value) => `₹${value?.toLocaleString('en-IN') || 0}`
+              },
+              {
+                header: 'Stock',
+                accessor: 'stock',
+                render: (value, row) => `${value || 0} ${row.unit || 'units'}`
+              },
+              {
+                header: 'Vendor',
+                accessor: 'vendor',
+                render: (value) => {
+                  if (typeof value === 'object' && value !== null) {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <FiUser className="w-4 h-4 text-slate-400" />
+                        <div>
+                          <div className="text-sm font-medium">{value.name || 'N/A'}</div>
+                          <div className="text-xs text-slate-500">{value.companyName || value.email || ''}</div>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return 'N/A'
+                }
+              },
+              {
+                header: 'Status',
+                accessor: 'status',
+                render: (value) => (
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    value === 'active'
+                      ? 'bg-emerald-500/10 text-emerald-600'
+                      : value === 'out_of_stock'
+                      ? 'bg-rose-500/10 text-rose-600'
+                      : 'bg-slate-500/10 text-slate-600'
+                  }`}>
+                    {value === 'out_of_stock' ? 'Out of Stock' : value || 'Inactive'}
+                  </span>
+                )
+              },
+              {
+                header: 'Actions',
+                accessor: '_id',
+                render: (value, row) => (
+                  <button
+                    onClick={() => window.open(`/admin/vendors/${row.vendor?._id || row.vendor}`, '_blank')}
+                    className="p-1.5 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition"
+                    title="View Vendor"
+                  >
+                    <FiEye className="w-4 h-4" />
+                  </button>
+                )
+              }
+            ]}
+            data={vendorSpareParts}
+            emptyLabel="No vendor spare parts found. Vendors can add spare parts from their dashboard."
           />
         </section>
       )}

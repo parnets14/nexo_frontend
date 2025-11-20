@@ -135,22 +135,22 @@ const JobsManagementTab = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Jobs Management</h1>
-          <p className="text-slate-600">Manage all your service bookings and jobs</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">Jobs Management</h1>
+          <p className="text-sm sm:text-base text-slate-600">Manage all your service bookings and jobs</p>
         </div>
         <button
           onClick={fetchBookings}
-          className="p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200"
+          className="p-2.5 sm:p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200 self-start sm:self-auto"
         >
-          <FiRefreshCw className="text-xl text-slate-600" />
+          <FiRefreshCw className="text-lg sm:text-xl text-slate-600" />
         </button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <div className="bg-white rounded-xl shadow-md p-4 border border-slate-200">
           <p className="text-sm text-slate-600 mb-1">Total Jobs</p>
           <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
@@ -174,15 +174,15 @@ const JobsManagementTab = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-md p-4 border border-slate-200">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <FiFilter className="text-slate-600" />
+      <div className="bg-white rounded-xl shadow-md p-3 sm:p-4 border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+            <FiFilter className="text-slate-600 hidden sm:block" />
           {['all', 'pending', 'accepted', 'completed', 'rejected'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
                 filter === f
                   ? 'bg-primary text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -224,10 +224,10 @@ const JobsManagementTab = () => {
               })
             }}
             disabled={filteredBookings.length === 0}
-            className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto"
             title="Export to Excel"
           >
-            <FiDownload /> Export Excel
+            <FiDownload /> <span className="hidden sm:inline">Export Excel</span><span className="sm:hidden">Export</span>
           </button>
         </div>
       </div>
@@ -244,15 +244,15 @@ const JobsManagementTab = () => {
         ) : (
           <div className="divide-y divide-slate-200">
             {filteredBookings.map((booking, index) => (
-              <div key={index} className="p-6 hover:bg-slate-50 transition">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold text-slate-800">
+              <div key={index} className="p-4 sm:p-6 hover:bg-slate-50 transition">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-800 truncate">
                         {booking.service?.name || booking.serviceName || 'Service Booking'}
                       </h3>
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${getStatusColor(
+                        className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 w-fit ${getStatusColor(
                           booking.status
                         )}`}
                       >
@@ -304,20 +304,20 @@ const JobsManagementTab = () => {
                       </div>
                     )}
                   </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-primary">
+                  <div className="text-left sm:text-right flex-shrink-0">
+                    <p className="text-lg sm:text-xl font-bold text-primary">
                       ₹{booking.totalAmount?.toLocaleString('en-IN') || booking.amount?.toLocaleString('en-IN') || 0}
                     </p>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-xs sm:text-sm text-slate-500">
                       {booking.createdAt
                         ? new Date(booking.createdAt).toLocaleDateString('en-IN')
                         : 'N/A'}
                     </p>
                     <button
                       onClick={() => setSelectedInvoice({ data: booking, type: 'booking' })}
-                      className="mt-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-semibold hover:bg-primary/20 transition flex items-center gap-2"
+                      className="mt-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-primary/10 text-primary rounded-lg text-xs sm:text-sm font-semibold hover:bg-primary/20 transition inline-flex items-center gap-1 sm:gap-2"
                     >
-                      <FiFileText /> Invoice
+                      <FiFileText /> <span className="hidden sm:inline">Invoice</span>
                     </button>
                   </div>
                 </div>

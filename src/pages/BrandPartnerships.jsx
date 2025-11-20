@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { FaWhatsapp } from 'react-icons/fa'
+import { FaShoppingCart } from 'react-icons/fa'
 import SEO from '../components/SEO'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 
@@ -206,10 +206,10 @@ const BrandPartnerships = () => {
                 onClick={handleWhatsAppClick}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-[#25D366]/50 transition-all duration-300 flex items-center gap-2"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-purple-600/50 transition-all duration-300 flex items-center gap-2"
               >
-                <FaWhatsapp className="w-5 h-5 sm:w-6 sm:h-6" />
-                Partner With Us
+                <FaShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-current" />
+                Book Now
               </motion.button>
             </div>
           </motion.div>
@@ -349,8 +349,8 @@ const BrandPartnerships = () => {
                 whileTap={{ scale: 0.95 }}
                 className="bg-white text-primary px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-2xl hover:shadow-white/50 flex items-center gap-2"
               >
-                <FaWhatsapp className="w-5 h-5" />
-                Start Partnership Discussion
+                <FaShoppingCart className="w-5 h-5 text-current" />
+                Book Now
               </motion.button>
             </div>
           </motion.div>

@@ -54,22 +54,22 @@ const TransactionsTab = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Transactions</h1>
-          <p className="text-slate-600">View all your wallet transactions</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">Transactions</h1>
+          <p className="text-sm sm:text-base text-slate-600">View all your wallet transactions</p>
         </div>
         <button
           onClick={fetchTransactions}
-          className="p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200"
+          className="p-2.5 sm:p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200 self-start sm:self-auto"
         >
-          <FiRefreshCw className="text-xl text-slate-600" />
+          <FiRefreshCw className="text-lg sm:text-xl text-slate-600" />
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-slate-600">Total Credits</p>
@@ -96,16 +96,16 @@ const TransactionsTab = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-md p-4 border border-slate-200">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <FiFilter className="text-slate-600" />
+      <div className="bg-white rounded-xl shadow-md p-3 sm:p-4 border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+            <FiFilter className="text-slate-600 hidden sm:block" />
             <div className="flex gap-2">
               {['all', 'credit', 'debit'].map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
                     filter === f
                       ? 'bg-primary text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -140,10 +140,10 @@ const TransactionsTab = () => {
               })
             }}
             disabled={filteredTransactions.length === 0}
-            className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto"
             title="Export to Excel"
           >
-            <FiDownload /> Export Excel
+            <FiDownload /> <span className="hidden sm:inline">Export Excel</span><span className="sm:hidden">Export</span>
           </button>
         </div>
       </div>
@@ -165,25 +165,25 @@ const TransactionsTab = () => {
             {filteredTransactions.map((txn, index) => (
               <div
                 key={index}
-                className="p-6 hover:bg-slate-50 transition flex items-center justify-between"
+                className="p-4 sm:p-6 hover:bg-slate-50 transition flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
               >
-                <div className="flex items-center gap-4 flex-1">
+                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                   <div
-                    className={`p-3 rounded-lg ${
+                    className={`p-2 sm:p-3 rounded-lg flex-shrink-0 ${
                       txn.type === 'credit'
                         ? 'bg-green-100 text-green-600'
                         : 'bg-red-100 text-red-600'
                     }`}
                   >
                     {txn.type === 'credit' ? (
-                      <FiTrendingUp className="text-xl" />
+                      <FiTrendingUp className="text-lg sm:text-xl" />
                     ) : (
-                      <FiTrendingDown className="text-xl" />
+                      <FiTrendingDown className="text-lg sm:text-xl" />
                     )}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-semibold text-slate-800">{txn.description || 'Transaction'}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <p className="font-semibold text-slate-800 text-sm sm:text-base truncate">{txn.description || 'Transaction'}</p>
                       {txn.teamMember && (
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-semibold flex items-center gap-1">
                           <FiUser className="text-xs" />
@@ -191,8 +191,8 @@ const TransactionsTab = () => {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 mt-1">
-                      <p className="text-sm text-slate-500">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1">
+                      <p className="text-xs sm:text-sm text-slate-500">
                         {txn.createdAt
                           ? new Date(txn.createdAt).toLocaleString('en-IN')
                           : txn.timestamp
@@ -205,22 +205,22 @@ const TransactionsTab = () => {
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right flex-shrink-0">
                   <p
-                    className={`text-xl font-bold ${
+                    className={`text-lg sm:text-xl font-bold ${
                       txn.type === 'credit' ? 'text-green-600' : 'text-red-600'
                     }`}
                   >
                     {txn.type === 'credit' ? '+' : '-'}₹{txn.amount?.toLocaleString('en-IN') || 0}
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-xs sm:text-sm text-slate-500">
                     Balance: ₹{txn.balance?.toLocaleString('en-IN') || 0}
                   </p>
                   <button
                     onClick={() => setSelectedInvoice({ data: txn, type: 'transaction' })}
-                    className="mt-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-semibold hover:bg-primary/20 transition flex items-center gap-2"
+                    className="mt-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-primary/10 text-primary rounded-lg text-xs sm:text-sm font-semibold hover:bg-primary/20 transition inline-flex items-center gap-1 sm:gap-2"
                   >
-                    <FiFileText /> Invoice
+                    <FiFileText /> <span className="hidden sm:inline">Invoice</span>
                   </button>
                 </div>
               </div>

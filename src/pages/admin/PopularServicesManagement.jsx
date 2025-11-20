@@ -57,8 +57,6 @@ const PopularServicesManagement = () => {
     order: 0,
     isActive: true
   })
-  const [includedItem, setIncludedItem] = useState('')
-  const [excludedItem, setExcludedItem] = useState('')
   const [addOnForm, setAddOnForm] = useState({
     name: '',
     description: '',
@@ -68,9 +66,21 @@ const PopularServicesManagement = () => {
     sgst: 0,
     serviceCharge: 0,
     price: '',
+    icon: 'FaTools',
+    included: [],
+    excluded: [],
+    subServices: []
+  })
+  const [addOnIncludedItem, setAddOnIncludedItem] = useState('')
+  const [addOnExcludedItem, setAddOnExcludedItem] = useState('')
+  const [subServiceForm, setSubServiceForm] = useState({
+    name: '',
+    shortDescription: '',
+    price: '',
     icon: 'FaTools'
   })
   const [editingAddOnIndex, setEditingAddOnIndex] = useState(null)
+  const [editingSubServiceIndex, setEditingSubServiceIndex] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
@@ -109,7 +119,12 @@ const PopularServicesManagement = () => {
         trusted: service.trusted || 'Trusted by thousands of homes',
         included: service.included || [],
         excluded: service.excluded || [],
-        addOns: service.addOns || [],
+        addOns: service.addOns?.map(addOn => ({
+          ...addOn,
+          included: addOn.included || [],
+          excluded: addOn.excluded || [],
+          subServices: addOn.subServices || []
+        })) || [],
         order: service.order || 0,
         isActive: service.isActive !== undefined ? service.isActive : true
       })
@@ -136,8 +151,6 @@ const PopularServicesManagement = () => {
         isActive: true
       })
     }
-    setIncludedItem('')
-    setExcludedItem('')
     setAddOnForm({
       name: '',
       description: '',
@@ -147,9 +160,21 @@ const PopularServicesManagement = () => {
       sgst: 0,
       serviceCharge: 0,
       price: '',
+      icon: 'FaTools',
+      included: [],
+      excluded: [],
+      subServices: []
+    })
+    setAddOnIncludedItem('')
+    setAddOnExcludedItem('')
+    setSubServiceForm({
+      name: '',
+      shortDescription: '',
+      price: '',
       icon: 'FaTools'
     })
     setEditingAddOnIndex(null)
+    setEditingSubServiceIndex(null)
     setShowModal(true)
     setErrorMsg('')
     setSuccessMsg('')
@@ -178,46 +203,112 @@ const PopularServicesManagement = () => {
         order: 0,
         isActive: true
       })
-    setIncludedItem('')
-    setExcludedItem('')
-    setAddOnName('')
-    setAddOnPrice('')
+    setAddOnIncludedItem('')
+    setAddOnExcludedItem('')
+    setSubServiceForm({
+      name: '',
+      shortDescription: '',
+      price: '',
+      icon: 'FaTools'
+    })
     setErrorMsg('')
     setSuccessMsg('')
   }
 
-  const handleAddIncluded = () => {
-    if (includedItem.trim()) {
-      setFormData(prev => ({
+  // Add-On Included/Excluded handlers
+  const handleAddAddOnIncluded = () => {
+    if (addOnIncludedItem.trim()) {
+      setAddOnForm(prev => ({
         ...prev,
-        included: [...prev.included, includedItem.trim()]
+        included: [...prev.included, addOnIncludedItem.trim()]
       }))
-      setIncludedItem('')
+      setAddOnIncludedItem('')
     }
   }
 
-  const handleRemoveIncluded = (index) => {
-    setFormData(prev => ({
+  const handleRemoveAddOnIncluded = (index) => {
+    setAddOnForm(prev => ({
       ...prev,
       included: prev.included.filter((_, i) => i !== index)
     }))
   }
 
-  const handleAddExcluded = () => {
-    if (excludedItem.trim()) {
-      setFormData(prev => ({
+  const handleAddAddOnExcluded = () => {
+    if (addOnExcludedItem.trim()) {
+      setAddOnForm(prev => ({
         ...prev,
-        excluded: [...prev.excluded, excludedItem.trim()]
+        excluded: [...prev.excluded, addOnExcludedItem.trim()]
       }))
-      setExcludedItem('')
+      setAddOnExcludedItem('')
     }
   }
 
-  const handleRemoveExcluded = (index) => {
-    setFormData(prev => ({
+  const handleRemoveAddOnExcluded = (index) => {
+    setAddOnForm(prev => ({
       ...prev,
       excluded: prev.excluded.filter((_, i) => i !== index)
     }))
+  }
+
+  // Sub-Service handlers
+  const handleAddSubService = () => {
+    if (subServiceForm.name.trim() && subServiceForm.price.trim()) {
+      if (editingSubServiceIndex !== null) {
+        setAddOnForm(prev => ({
+          ...prev,
+          subServices: prev.subServices.map((sub, i) => 
+            i === editingSubServiceIndex ? { ...subServiceForm } : sub
+          )
+        }))
+        setEditingSubServiceIndex(null)
+      } else {
+        setAddOnForm(prev => ({
+          ...prev,
+          subServices: [...prev.subServices, { ...subServiceForm }]
+        }))
+      }
+      setSubServiceForm({
+        name: '',
+        shortDescription: '',
+        price: ''
+      })
+    }
+  }
+
+  const handleEditSubService = (index) => {
+    const subService = addOnForm.subServices[index]
+    setSubServiceForm({
+      name: subService.name || '',
+      shortDescription: subService.shortDescription || '',
+      price: subService.price || '',
+      icon: subService.icon || 'FaTools'
+    })
+    setEditingSubServiceIndex(index)
+  }
+
+  const handleRemoveSubService = (index) => {
+    setAddOnForm(prev => ({
+      ...prev,
+      subServices: prev.subServices.filter((_, i) => i !== index)
+    }))
+    if (editingSubServiceIndex === index) {
+      setEditingSubServiceIndex(null)
+      setSubServiceForm({
+        name: '',
+        shortDescription: '',
+        price: ''
+      })
+    }
+  }
+
+  const handleCancelEditSubService = () => {
+    setEditingSubServiceIndex(null)
+    setSubServiceForm({
+      name: '',
+      shortDescription: '',
+      price: '',
+      icon: 'FaTools'
+    })
   }
 
   // Calculate addOn display price
@@ -258,7 +349,10 @@ const PopularServicesManagement = () => {
     if (addOnForm.name.trim() && addOnForm.basePrice > 0) {
       const newAddOn = {
         ...addOnForm,
-        price: addOnForm.price || calculateAddOnPrice(addOnForm)
+        price: addOnForm.price || calculateAddOnPrice(addOnForm),
+        included: addOnForm.included || [],
+        excluded: addOnForm.excluded || [],
+        subServices: addOnForm.subServices || []
       }
       
       if (editingAddOnIndex !== null) {
@@ -286,8 +380,19 @@ const PopularServicesManagement = () => {
         sgst: 0,
         serviceCharge: 0,
         price: '',
-        icon: 'FaTools'
+        icon: 'FaTools',
+        included: [],
+        excluded: [],
+        subServices: []
       })
+      setAddOnIncludedItem('')
+      setAddOnExcludedItem('')
+      setSubServiceForm({
+        name: '',
+        shortDescription: '',
+        price: ''
+      })
+      setEditingSubServiceIndex(null)
     }
   }
 
@@ -302,9 +407,21 @@ const PopularServicesManagement = () => {
       sgst: addOn.sgst || 0,
       serviceCharge: addOn.serviceCharge || 0,
       price: addOn.price || '',
-      icon: addOn.icon || 'FaTools'
+      icon: addOn.icon || 'FaTools',
+      included: addOn.included || [],
+      excluded: addOn.excluded || [],
+      subServices: addOn.subServices || []
     })
     setEditingAddOnIndex(index)
+    setAddOnIncludedItem('')
+    setAddOnExcludedItem('')
+    setSubServiceForm({
+      name: '',
+      shortDescription: '',
+      price: '',
+      icon: 'FaTools'
+    })
+    setEditingSubServiceIndex(null)
   }
 
   const handleRemoveAddOn = (index) => {
@@ -339,8 +456,20 @@ const PopularServicesManagement = () => {
       sgst: 0,
       serviceCharge: 0,
       price: '',
+      icon: 'FaTools',
+      included: [],
+      excluded: [],
+      subServices: []
+    })
+    setAddOnIncludedItem('')
+    setAddOnExcludedItem('')
+    setSubServiceForm({
+      name: '',
+      shortDescription: '',
+      price: '',
       icon: 'FaTools'
     })
+    setEditingSubServiceIndex(null)
   }
 
   const generateSlug = (name) => {
@@ -793,80 +922,6 @@ const PopularServicesManagement = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Included Items
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={includedItem}
-                    onChange={(e) => setIncludedItem(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddIncluded())}
-                    className="flex-1 px-4 py-2 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
-                    placeholder="Add included item..."
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddIncluded}
-                    className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition"
-                  >
-                    Add
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {formData.included.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg">
-                      <span className="text-sm text-slate-700">{item}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveIncluded(index)}
-                        className="text-rose-600 hover:text-rose-700"
-                      >
-                        <FiX className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Excluded Items
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={excludedItem}
-                    onChange={(e) => setExcludedItem(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddExcluded())}
-                    className="flex-1 px-4 py-2 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
-                    placeholder="Add excluded item..."
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddExcluded}
-                    className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition"
-                  >
-                    Add
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {formData.excluded.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg">
-                      <span className="text-sm text-slate-700">{item}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveExcluded(index)}
-                        className="text-rose-600 hover:text-rose-700"
-                      >
-                        <FiX className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Add-On Services
                 </label>
                 
@@ -1025,6 +1080,198 @@ const PopularServicesManagement = () => {
                       </div>
                     </div>
 
+                    {/* Included Items */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Included Items</label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={addOnIncludedItem}
+                          onChange={(e) => setAddOnIncludedItem(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAddOnIncluded())}
+                          className="flex-1 px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                          placeholder="Add included item..."
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddAddOnIncluded}
+                          className="px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        {addOnForm.included.map((item, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-200">
+                            <span className="text-xs text-slate-700">{item}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAddOnIncluded(index)}
+                              className="text-rose-600 hover:text-rose-700"
+                            >
+                              <FiX className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Excluded Items */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Excluded Items</label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={addOnExcludedItem}
+                          onChange={(e) => setAddOnExcludedItem(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAddOnExcluded())}
+                          className="flex-1 px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                          placeholder="Add excluded item..."
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddAddOnExcluded}
+                          className="px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        {addOnForm.excluded.map((item, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white px-2 py-1.5 rounded border border-slate-200">
+                            <span className="text-xs text-slate-700">{item}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAddOnExcluded(index)}
+                              className="text-rose-600 hover:text-rose-700"
+                            >
+                              <FiX className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Sub-Services */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-2">Sub-Services</label>
+                      <div className="bg-white p-3 rounded-lg border-2 border-slate-200 space-y-2 mb-2">
+                        <div className="grid grid-cols-1 gap-2">
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">Service Name *</label>
+                            <input
+                              type="text"
+                              value={subServiceForm.name}
+                              onChange={(e) => setSubServiceForm(prev => ({ ...prev, name: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-primary text-xs"
+                              placeholder="Sub-service name..."
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">Short Description</label>
+                            <input
+                              type="text"
+                              value={subServiceForm.shortDescription}
+                              onChange={(e) => setSubServiceForm(prev => ({ ...prev, shortDescription: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-primary text-xs"
+                              placeholder="Brief description..."
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">Price *</label>
+                            <input
+                              type="text"
+                              value={subServiceForm.price}
+                              onChange={(e) => setSubServiceForm(prev => ({ ...prev, price: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-primary text-xs"
+                              placeholder="e.g., ₹299"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Icon</label>
+                          <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-32 overflow-y-auto p-1 border border-slate-200 rounded">
+                            {ICON_OPTIONS.map((option) => {
+                              const IconComponent = option.icon
+                              const isSelected = subServiceForm.icon === option.name
+                              return (
+                                <button
+                                  key={option.name}
+                                  type="button"
+                                  onClick={() => setSubServiceForm(prev => ({ ...prev, icon: option.name }))}
+                                  className={`p-1.5 rounded border transition ${
+                                    isSelected
+                                      ? 'border-primary bg-primary/10'
+                                      : 'border-slate-200 hover:border-primary/50'
+                                  }`}
+                                  title={option.label}
+                                >
+                                  <IconComponent className={`w-3 h-3 mx-auto ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleAddSubService}
+                            className="flex-1 px-3 py-1.5 bg-primary text-white rounded hover:bg-primary-dark transition text-xs font-semibold"
+                          >
+                            {editingSubServiceIndex !== null ? 'Update Sub-Service' : 'Add Sub-Service'}
+                          </button>
+                          {editingSubServiceIndex !== null && (
+                            <button
+                              type="button"
+                              onClick={handleCancelEditSubService}
+                              className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded hover:bg-slate-300 transition text-xs font-semibold"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        {addOnForm.subServices.map((subService, index) => {
+                          const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
+                          return (
+                          <div key={index} className="flex items-start justify-between bg-white px-3 py-2 rounded-lg border border-slate-200">
+                            <div className="flex items-start gap-2 flex-1">
+                              <div className="w-6 h-6 bg-primary/10 rounded flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <SubServiceIcon className="w-3 h-3 text-primary" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-xs font-semibold text-slate-900">{subService.name}</div>
+                                {subService.shortDescription && (
+                                  <div className="text-xs text-slate-600 mt-0.5">{subService.shortDescription}</div>
+                                )}
+                                <div className="text-xs text-primary font-semibold mt-0.5">{subService.price}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditSubService(index)}
+                                className="p-1 text-primary hover:bg-primary/10 rounded transition"
+                                title="Edit"
+                              >
+                                <FiEdit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSubService(index)}
+                                className="p-1 text-rose-600 hover:bg-rose-50 rounded transition"
+                                title="Remove"
+                              >
+                                <FiX className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
                     <div className="flex gap-2 pt-2">
                     <button
                       type="button"
@@ -1072,6 +1319,21 @@ const PopularServicesManagement = () => {
                                 {addon.serviceCharge > 0 && ` Charge: ₹${addon.serviceCharge} |`}
                                 {' '}Price: {addon.price || 'N/A'}
                               </div>
+                              {addon.included && addon.included.length > 0 && (
+                                <div className="text-xs text-slate-600 mt-1">
+                                  <span className="font-semibold">Included:</span> {addon.included.join(', ')}
+                                </div>
+                              )}
+                              {addon.excluded && addon.excluded.length > 0 && (
+                                <div className="text-xs text-slate-600 mt-1">
+                                  <span className="font-semibold">Excluded:</span> {addon.excluded.join(', ')}
+                                </div>
+                              )}
+                              {addon.subServices && addon.subServices.length > 0 && (
+                                <div className="text-xs text-slate-600 mt-1">
+                                  <span className="font-semibold">Sub-Services:</span> {addon.subServices.length} item(s)
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 ml-2">
@@ -1374,6 +1636,62 @@ const PopularServicesManagement = () => {
                               </div>
                             )}
                           </div>
+
+                          {/* Included Items */}
+                          {addon.included && addon.included.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-slate-200">
+                              <h5 className="text-sm font-semibold text-slate-700 mb-2">Included Items</h5>
+                              <ul className="space-y-1">
+                                {addon.included.map((item, idx) => (
+                                  <li key={idx} className="flex items-center gap-2 text-sm text-slate-700">
+                                    <FaCheckCircle className="text-primary flex-shrink-0 text-xs" />
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Excluded Items */}
+                          {addon.excluded && addon.excluded.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-slate-200">
+                              <h5 className="text-sm font-semibold text-slate-700 mb-2">Excluded Items</h5>
+                              <ul className="space-y-1">
+                                {addon.excluded.map((item, idx) => (
+                                  <li key={idx} className="flex items-center gap-2 text-sm text-slate-700">
+                                    <FaTimesCircle className="text-rose-600 flex-shrink-0 text-xs" />
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Sub-Services */}
+                          {addon.subServices && addon.subServices.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-slate-200">
+                              <h5 className="text-sm font-semibold text-slate-700 mb-2">Sub-Services</h5>
+                              <div className="space-y-2">
+                                {addon.subServices.map((subService, idx) => {
+                                  const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
+                                  return (
+                                    <div key={idx} className="bg-white p-2 rounded border border-slate-200 flex items-start gap-2">
+                                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <SubServiceIcon className="w-4 h-4 text-primary" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="text-sm font-semibold text-slate-900">{subService.name}</div>
+                                        {subService.shortDescription && (
+                                          <div className="text-xs text-slate-600 mt-0.5">{subService.shortDescription}</div>
+                                        )}
+                                        <div className="text-xs text-primary font-semibold mt-1">{subService.price}</div>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })}

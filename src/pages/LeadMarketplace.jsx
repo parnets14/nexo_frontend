@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FaWhatsapp, FaTimes, FaUser, FaPhone, FaMapMarkerAlt, FaEnvelope, FaFileAlt } from 'react-icons/fa'
+import { FaShoppingCart, FaTimes, FaUser, FaPhone, FaMapMarkerAlt, FaEnvelope, FaFileAlt } from 'react-icons/fa'
 import SEO from '../components/SEO'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 import { partnerApi } from '../services/partnerApi'
@@ -350,10 +350,10 @@ const LeadMarketplace = () => {
                 onClick={() => setShowEnquiryModal(true)}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-[#25D366]/50 transition-all duration-300 flex items-center justify-center gap-2"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-purple-600/50 transition-all duration-300 flex items-center justify-center gap-2"
               >
-                <FaWhatsapp className="w-5 h-5 sm:w-6 sm:h-6" />
-                I am Looking for Service
+                <FaShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-current" />
+                Book Now
               </motion.button>
             </div>
           </motion.div>
@@ -454,10 +454,10 @@ const LeadMarketplace = () => {
                 onClick={() => setShowEnquiryModal(true)}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-[#20ba5a] transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
               >
-                <FaWhatsapp className="w-5 h-5" />
-                Submit Service Enquiry
+                <FaShoppingCart className="w-5 h-5 text-current" />
+                Book Now
               </motion.button>
             </div>
           </motion.div>
@@ -697,8 +697,8 @@ const LeadMarketplace = () => {
                       </>
                     ) : (
                       <>
-                        <FaWhatsapp className="w-4 h-4" />
-                        Submit Enquiry
+                        <FaShoppingCart className="w-4 h-4 text-current" />
+                        Book Now
                       </>
                     )}
                   </button>

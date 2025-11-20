@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FaWhatsapp, FaTimes, FaRocket, FaClock, FaBell } from 'react-icons/fa'
+import { FaTimes, FaRocket, FaClock, FaBell } from 'react-icons/fa'
 
 const ComingSoonDialog = ({ isOpen, onClose }) => {
   // Prevent body scroll when dialog is open
@@ -70,13 +70,13 @@ const ComingSoonDialog = ({ isOpen, onClose }) => {
               className="bg-white rounded-3xl shadow-2xl max-w-md w-full pointer-events-auto relative overflow-hidden"
             >
               {/* Animated Background Gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#25D366] via-[#20BA5A] to-[#128C7E] opacity-10" />
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-indigo-600 to-purple-700 opacity-10" />
               
               {/* Floating Particles */}
               {[...Array(6)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="absolute rounded-full bg-[#25D366]/20 pointer-events-none"
+                  className="absolute rounded-full bg-purple-600/20 pointer-events-none"
                   style={{
                     width: `${20 + i * 10}px`,
                     height: `${20 + i * 10}px`,
@@ -132,7 +132,7 @@ const ComingSoonDialog = ({ isOpen, onClose }) => {
                     damping: 15,
                     delay: 0.2
                   }}
-                  className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-[#25D366] to-[#128C7E] flex items-center justify-center shadow-xl"
+                  className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-xl"
                 >
                   <motion.div
                     animate={{
@@ -154,7 +154,7 @@ const ComingSoonDialog = ({ isOpen, onClose }) => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="text-3xl sm:text-4xl font-bold text-center mb-3 bg-gradient-to-r from-[#25D366] to-[#128C7E] bg-clip-text text-transparent"
+                  className="text-3xl sm:text-4xl font-bold text-center mb-3 bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent"
                 >
                   Coming Soon!
                 </motion.h2>
@@ -166,7 +166,7 @@ const ComingSoonDialog = ({ isOpen, onClose }) => {
                   transition={{ delay: 0.4 }}
                   className="text-gray-600 text-center mb-6 text-lg"
                 >
-                  WhatsApp integration is under development
+                  Payment gateway under process
                 </motion.p>
 
                 {/* Description */}
@@ -174,40 +174,19 @@ const ComingSoonDialog = ({ isOpen, onClose }) => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
-                  className="bg-gradient-to-br from-[#25D366]/10 to-[#128C7E]/10 rounded-2xl p-6 mb-6 border border-[#25D366]/20"
+                  className="bg-gradient-to-br from-purple-600/10 to-indigo-600/10 rounded-2xl p-6 mb-6 border border-purple-600/20"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#25D366]/20 flex items-center justify-center">
-                      <FaClock className="w-6 h-6 text-[#128C7E]" />
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-purple-600/20 flex items-center justify-center">
+                      <FaClock className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800 mb-2">We're working on it!</h3>
+                      <h3 className="font-semibold text-gray-800 mb-2">Payment Gateway Under Process</h3>
                       <p className="text-gray-600 text-sm leading-relaxed">
-                        Our team is building an amazing WhatsApp experience for you. 
-                        Stay tuned for updates and be the first to know when it's ready!
+                        We're currently working on integrating a secure payment gateway. 
+                        Please write a message and our team will get back to you soon!
                       </p>
                     </div>
-                  </div>
-                </motion.div>
-
-                {/* Features List */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                  className="space-y-3 mb-6"
-                >
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <div className="w-2 h-2 rounded-full bg-[#25D366] flex-shrink-0" />
-                    <span className="text-sm">Instant booking via WhatsApp</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <div className="w-2 h-2 rounded-full bg-[#25D366] flex-shrink-0" />
-                    <span className="text-sm">Real-time service updates</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <div className="w-2 h-2 rounded-full bg-[#25D366] flex-shrink-0" />
-                    <span className="text-sm">24/7 customer support</span>
                   </div>
                 </motion.div>
 
@@ -224,7 +203,7 @@ const ComingSoonDialog = ({ isOpen, onClose }) => {
                       onClose()
                     }
                   }}
-                  className="w-full bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
+                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
                 >
                   <FaBell className="w-5 h-5" />
                   <span>I'll be notified</span>
@@ -237,7 +216,7 @@ const ComingSoonDialog = ({ isOpen, onClose }) => {
                   transition={{ delay: 0.8 }}
                   className="text-center text-xs text-gray-500 mt-4"
                 >
-                  For now, please contact us through other channels
+                  Thank you for your patience
                 </motion.p>
               </div>
             </motion.div>

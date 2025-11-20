@@ -110,6 +110,92 @@ export const adminApi = {
   },
   
   // Partners
+  // Vendors
+  async fetchVendors(token, params = {}) {
+    const queryParams = new URLSearchParams({
+      page: params.page || 1,
+      limit: params.limit || 10,
+      ...(params.search && { search: params.search }),
+      ...(params.status && { status: params.status })
+    }).toString()
+    
+    const response = await fetch(buildUrl(`/api/admin/vendors?${queryParams}`), {
+      headers: getDefaultHeaders(token)
+    })
+    const data = await handleResponse(response)
+    return data
+  },
+
+  async getVendorDetails(token, vendorId) {
+    const response = await fetch(buildUrl(`/api/admin/vendors/${vendorId}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async createVendor(token, vendorData) {
+    const response = await fetch(buildUrl('/api/admin/vendors'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(vendorData)
+    })
+    return handleResponse(response)
+  },
+
+  async updateVendor(token, vendorId, vendorData) {
+    const response = await fetch(buildUrl(`/api/admin/vendors/${vendorId}`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(vendorData)
+    })
+    return handleResponse(response)
+  },
+
+  async updateVendorStatus(token, vendorId, status) {
+    const response = await fetch(buildUrl(`/api/admin/vendors/${vendorId}/status`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ status })
+    })
+    return handleResponse(response)
+  },
+
+  async deleteVendor(token, vendorId) {
+    const response = await fetch(buildUrl(`/api/admin/vendors/${vendorId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Vendor Spare Parts (Admin)
+  async fetchVendorSpareParts(token, params = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.vendorId) queryParams.append('vendorId', params.vendorId)
+    if (params.category) queryParams.append('category', params.category)
+    if (params.status) queryParams.append('status', params.status)
+    if (params.search) queryParams.append('search', params.search)
+    const queryString = queryParams.toString()
+    const url = buildUrl(`/api/admin/vendors/spare-parts${queryString ? `?${queryString}` : ''}`)
+    const response = await fetch(url, {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async fetchVendorSparePartsByVendor(token, vendorId, params = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.category) queryParams.append('category', params.category)
+    if (params.status) queryParams.append('status', params.status)
+    if (params.search) queryParams.append('search', params.search)
+    const queryString = queryParams.toString()
+    const url = buildUrl(`/api/admin/vendors/${vendorId}/spare-parts${queryString ? `?${queryString}` : ''}`)
+    const response = await fetch(url, {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
   async fetchPartners(token, params = {}) {
     const queryParams = new URLSearchParams({
       page: params.page || 1,
@@ -162,7 +248,6 @@ export const adminApi = {
     // Use buildUrl to ensure correct URL construction
     // The buildUrl function will prepend API_BASE_URL which is https://nexo.works in dev
     const url = buildUrl(`/api/admin/updatePartnerProfile/${partnerId}`)
-    console.log('Update Partner Profile URL:', url, 'API_BASE_URL:', API_BASE_URL)
     const response = await fetch(url, {
       method: 'PUT',
       headers: getDefaultHeaders(token),
@@ -463,10 +548,6 @@ export const adminApi = {
 
     const url = buildUrl(`/api/admin/fee-transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`)
     
-    // Debug logging in development
-    if (import.meta.env.DEV) {
-      console.log('Fetching fee transactions with params:', Object.fromEntries(queryParams))
-    }
     
     const response = await fetch(url, {
       method: 'GET',
@@ -516,9 +597,6 @@ export const adminApi = {
   async fetchSubscriptionPlans(token) {
     try {
       const url = buildUrl('/api/admin/subscription-plans')
-      console.log('📡 Fetching subscription plans from:', url)
-      console.log('📡 Using token:', token ? 'Present' : 'Missing')
-      
       const response = await fetch(url, {
         headers: getDefaultHeaders(token)
       })
@@ -527,17 +605,14 @@ export const adminApi = {
       const contentType = response.headers.get('content-type') || ''
       if (contentType.includes('text/html')) {
         const text = await response.text()
-        console.error('❌ Server returned HTML instead of JSON')
+        console.error('Server returned HTML instead of JSON')
         console.error('Response status:', response.status, response.statusText)
-        console.error('Response preview:', text.substring(0, 500))
         throw new Error(`API endpoint returned HTML (${response.status}). Check if the endpoint exists: ${url}`)
       }
       
-      const data = await handleResponse(response)
-      console.log('📡 Subscription plans response:', data)
-      return data
+      return await handleResponse(response)
     } catch (error) {
-      console.error('❌ Error fetching subscription plans:', error)
+      console.error('Error fetching subscription plans:', error)
       throw error
     }
   },
@@ -562,6 +637,56 @@ export const adminApi = {
 
   async deleteSubscriptionPlan(token, planId) {
     const response = await fetch(buildUrl(`/api/admin/subscription-plans/${planId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // AMC Plans Management
+  async fetchAMCPlans(token) {
+    try {
+      const url = buildUrl('/api/admin/amc-plans')
+      const response = await fetch(url, {
+        headers: getDefaultHeaders(token)
+      })
+      
+      // Check if response is HTML (error page)
+      const contentType = response.headers.get('content-type') || ''
+      if (contentType.includes('text/html')) {
+        const text = await response.text()
+        console.error('Server returned HTML instead of JSON')
+        console.error('Response status:', response.status, response.statusText)
+        throw new Error(`API endpoint returned HTML (${response.status}). Check if the endpoint exists: ${url}`)
+      }
+      
+      return await handleResponse(response)
+    } catch (error) {
+      console.error('Error fetching AMC plans:', error)
+      throw error
+    }
+  },
+
+  async createAMCPlan(token, planData) {
+    const response = await fetch(buildUrl('/api/admin/amc-plans'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(planData)
+    })
+    return handleResponse(response)
+  },
+
+  async updateAMCPlan(token, planId, planData) {
+    const response = await fetch(buildUrl(`/api/admin/amc-plans/${planId}`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(planData)
+    })
+    return handleResponse(response)
+  },
+
+  async deleteAMCPlan(token, planId) {
+    const response = await fetch(buildUrl(`/api/admin/amc-plans/${planId}`), {
       method: 'DELETE',
       headers: getDefaultHeaders(token)
     })
@@ -1065,6 +1190,39 @@ export const adminApi = {
   async deleteThreshold(token, category) {
     const response = await fetch(buildUrl(`/api/admin/inventory/thresholds/${category}`), {
       method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Notifications
+  async updateFCMToken(token, fcmToken) {
+    const response = await fetch(buildUrl('/api/firebase/token'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ fcmToken, isAdmin: true })
+    })
+    return handleResponse(response)
+  },
+
+  async getNotifications(token) {
+    const response = await fetch(buildUrl('/api/firebase'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async markNotificationsAsRead(token) {
+    const response = await fetch(buildUrl('/api/firebase/mark-read'), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async markNotificationAsRead(token, notificationId) {
+    const response = await fetch(buildUrl(`/api/firebase/${notificationId}/mark-read`), {
+      method: 'PUT',
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)

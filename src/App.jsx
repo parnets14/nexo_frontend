@@ -24,12 +24,15 @@ import RequireAdminAuth from './layouts/admin/RequireAdminAuth.jsx'
 import AdminOverview from './pages/admin/AdminOverview.jsx'
 import PartnerControl from './pages/admin/PartnerControl.jsx'
 import PartnerDetails from './pages/admin/PartnerDetails.jsx'
+import VendorManagement from './pages/admin/VendorManagement.jsx'
+import VendorDetails from './pages/admin/VendorDetails.jsx'
 import CustomerBookings from './pages/admin/CustomerBookings.jsx'
 import SpareParts from './pages/admin/SpareParts.jsx'
 import AMCManagement from './pages/admin/AMCManagement.jsx'
 import LeadManagement from './pages/admin/LeadManagement.jsx'
 import Reports from './pages/admin/Reports.jsx'
 import Notifications from './pages/admin/Notifications.jsx'
+import AdminNotifications from './pages/admin/AdminNotifications.jsx'
 import RefundManagement from './pages/admin/RefundManagement.jsx'
 import MGPlanManagement from './pages/admin/MGPlanManagement.jsx'
 import FeeManagement from './pages/admin/FeeManagement.jsx'
@@ -39,18 +42,25 @@ import HubManagement from './pages/admin/HubManagement.jsx'
 import PopularServicesManagement from './pages/admin/PopularServicesManagement.jsx'
 import SubscriptionPlanManagement from './pages/admin/SubscriptionPlanManagement.jsx'
 import FeaturedReviewsManagement from './pages/admin/FeaturedReviewsManagement.jsx'
+import AMCPlanManagement from './pages/admin/AMCPlanManagement.jsx'
 import PartnerLogin from './pages/PartnerLogin.jsx'
 import PartnerDashboard from './pages/partner/PartnerDashboard.jsx'
 import PartnerLayout from './layouts/partner/PartnerLayout.jsx'
 import RequirePartnerAuth from './layouts/partner/RequirePartnerAuth.jsx'
+import VendorLogin from './pages/VendorLogin.jsx'
+import VendorDashboard from './pages/vendor/VendorDashboard.jsx'
+import VendorLayout from './layouts/vendor/VendorLayout.jsx'
+import RequireVendorAuth from './layouts/vendor/RequireVendorAuth.jsx'
 import VerifyPartner from './pages/VerifyPartner.jsx'
 import NotFound from './pages/NotFound.jsx'
+import NotificationPermissionPrompt from './components/NotificationPermissionPrompt.jsx'
 
 function App() {
   return (
     <ComingSoonProvider>
       <Router>
       <ScrollToTop />
+      <NotificationPermissionPrompt />
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
@@ -73,18 +83,22 @@ function App() {
 
         <Route path="/admin" element={<AdminLogin />} />
         <Route path="/partner/login" element={<PartnerLogin />} />
+        <Route path="/vendor/login" element={<VendorLogin />} />
 
         <Route element={<RequireAdminAuth />}>
           <Route element={<AdminLayout />}>
             <Route path="/admin/dashboard" element={<AdminOverview />} />
                   <Route path="/admin/partners" element={<PartnerControl />} />
                   <Route path="/admin/partners/:partnerId" element={<PartnerDetails />} />
+            <Route path="/admin/vendors" element={<VendorManagement />} />
+            <Route path="/admin/vendors/:vendorId" element={<VendorDetails />} />
             <Route path="/admin/bookings" element={<CustomerBookings />} />
             <Route path="/admin/spares" element={<SpareParts />} />
             <Route path="/admin/amc" element={<AMCManagement />} />
             <Route path="/admin/leads" element={<LeadManagement />} />
             <Route path="/admin/reports" element={<Reports />} />
-            <Route path="/admin/notifications" element={<Notifications />} />
+            <Route path="/admin/notifications" element={<AdminNotifications />} />
+            <Route path="/admin/notification-templates" element={<Notifications />} />
             <Route path="/admin/refunds" element={<RefundManagement />} />
             <Route path="/admin/mg-plans" element={<MGPlanManagement />} />
             <Route path="/admin/fees" element={<FeeManagement />} />
@@ -93,6 +107,7 @@ function App() {
             <Route path="/admin/hubs" element={<HubManagement />} />
             <Route path="/admin/popular-services" element={<PopularServicesManagement />} />
             <Route path="/admin/subscription-plans" element={<SubscriptionPlanManagement />} />
+            <Route path="/admin/amc-plans" element={<AMCPlanManagement />} />
             <Route path="/admin/featured-reviews" element={<FeaturedReviewsManagement />} />
           </Route>
         </Route>
@@ -100,6 +115,12 @@ function App() {
         <Route element={<RequirePartnerAuth />}>
           <Route element={<PartnerLayout />}>
             <Route path="/partner/dashboard/*" element={<PartnerDashboard />} />
+          </Route>
+        </Route>
+
+        <Route element={<RequireVendorAuth />}>
+          <Route element={<VendorLayout />}>
+            <Route path="/vendor/dashboard/*" element={<VendorDashboard />} />
           </Route>
         </Route>
 

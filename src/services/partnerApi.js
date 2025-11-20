@@ -549,6 +549,40 @@ export const partnerApi = {
   async verifyPartner(partnerId) {
     const response = await fetch(buildUrl(`/verify/${partnerId}`))
     return handleResponse(response)
+  },
+
+  // Notifications
+  async updateFCMToken(token, fcmToken) {
+    const response = await fetch(buildUrl('/updateTokenFmc'), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ token: fcmToken }) // Backend expects 'token' field
+    })
+    return handleResponse(response)
+  },
+
+  async getNotifications(token) {
+    // Get notifications for authenticated partner
+    const response = await fetch(buildUrl('/notifications'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async markNotificationsAsRead(token) {
+    const response = await fetch(buildUrl('/notifications/mark-read'), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async markNotificationAsRead(token, notificationId) {
+    const response = await fetch(buildUrl(`/notifications/${notificationId}/mark-read`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
   }
 }
 

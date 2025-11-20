@@ -109,37 +109,37 @@ const SparePartsTab = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Spare Parts</h1>
-          <p className="text-slate-600">Browse and order spare parts for your services</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">Spare Parts</h1>
+          <p className="text-sm sm:text-base text-slate-600">Browse and order spare parts for your services</p>
         </div>
         <button
           onClick={fetchProducts}
-          className="p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200"
+          className="p-2.5 sm:p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200 self-start sm:self-auto"
         >
-          <FiRefreshCw className="text-xl text-slate-600" />
+          <FiRefreshCw className="text-lg sm:text-xl text-slate-600" />
         </button>
       </div>
 
       {/* Search and Filter */}
-      <div className="bg-white rounded-xl shadow-md p-4 border border-slate-200">
-        <div className="flex flex-col md:flex-row gap-4">
+      <div className="bg-white rounded-xl shadow-md p-3 sm:p-4 border border-slate-200">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="flex-1 relative">
             <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
               placeholder="Search spare parts..."
             />
           </div>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="px-3 sm:px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
           >
             <option value="all">All Categories</option>
             {Array.isArray(categories) && categories.map((cat, index) => (
@@ -151,7 +151,7 @@ const SparePartsTab = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Products List */}
         <div className="lg:col-span-2">
           {error ? (
@@ -169,33 +169,33 @@ const SparePartsTab = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {filteredProducts.map((product, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-xl shadow-md p-6 border border-slate-200 hover:shadow-lg transition"
+                  className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200 hover:shadow-lg transition"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-slate-800 mb-2">
+                  <div className="flex items-start justify-between mb-3 sm:mb-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-1 sm:mb-2 truncate">
                         {product.name || 'Spare Part'}
                       </h3>
                       {product.description && (
-                        <p className="text-sm text-slate-600 mb-2">{product.description}</p>
+                        <p className="text-xs sm:text-sm text-slate-600 mb-2 line-clamp-2">{product.description}</p>
                       )}
                     </div>
-                    <div className="bg-primary/10 p-3 rounded-lg">
-                      <FiPackage className="text-primary text-xl" />
+                    <div className="bg-primary/10 p-2 sm:p-3 rounded-lg flex-shrink-0 ml-2">
+                      <FiPackage className="text-primary text-lg sm:text-xl" />
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
                     <div>
-                      <p className="text-2xl font-bold text-primary">
+                      <p className="text-xl sm:text-2xl font-bold text-primary">
                         ₹{product.price?.toLocaleString('en-IN') || 0}
                       </p>
                       {product.stock !== undefined && (
-                        <p className="text-sm text-slate-500">
+                        <p className="text-xs sm:text-sm text-slate-500">
                           Stock: {product.stock} {product.unit || 'units'}
                         </p>
                       )}
@@ -205,10 +205,11 @@ const SparePartsTab = () => {
                   <button
                     onClick={() => addToCart(product)}
                     disabled={product.stock === 0}
-                    className="w-full py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-2 bg-primary text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     <FiShoppingCart />
-                    {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                    <span className="hidden sm:inline">{product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}</span>
+                    <span className="sm:hidden">{product.stock === 0 ? 'Out' : 'Add'}</span>
                   </button>
                 </div>
               ))}
@@ -218,10 +219,10 @@ const SparePartsTab = () => {
 
         {/* Cart Sidebar */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 sticky top-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-800">Cart</h2>
-              <FiShoppingCart className="text-xl text-slate-600" />
+          <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200 lg:sticky lg:top-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800">Cart</h2>
+              <FiShoppingCart className="text-lg sm:text-xl text-slate-600" />
             </div>
 
             {cart.length === 0 ? (
@@ -271,14 +272,14 @@ const SparePartsTab = () => {
                   ))}
                 </div>
 
-                <div className="border-t border-slate-200 pt-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-lg font-semibold text-slate-800">Total:</span>
-                    <span className="text-2xl font-bold text-primary">
+                <div className="border-t border-slate-200 pt-3 sm:pt-4">
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <span className="text-base sm:text-lg font-semibold text-slate-800">Total:</span>
+                    <span className="text-xl sm:text-2xl font-bold text-primary">
                       ₹{cartTotal.toLocaleString('en-IN')}
                     </span>
                   </div>
-                  <button className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition">
+                  <button className="w-full py-2.5 sm:py-3 bg-primary text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-primary-dark transition">
                     Place Order
                   </button>
                 </div>

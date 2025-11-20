@@ -349,11 +349,11 @@ const TeamMembersTab = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Team Members</h1>
-          <p className="text-slate-600">Manage your team members and technicians</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">Team Members</h1>
+          <p className="text-sm sm:text-base text-slate-600">Manage your team members and technicians</p>
         </div>
         <button
           onClick={() => {
@@ -373,36 +373,36 @@ const TeamMembersTab = () => {
             setShowKYC(false)
             setShowAddModal(true)
           }}
-          className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2"
+          className="px-4 sm:px-6 py-2.5 sm:py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2 text-sm sm:text-base self-start sm:self-auto"
         >
-          <FiUserPlus /> Add Team Member
+          <FiUserPlus /> <span className="hidden sm:inline">Add Team Member</span><span className="sm:hidden">Add Member</span>
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-slate-600">Total Members</p>
-            <FiUsers className="text-primary text-xl" />
+            <p className="text-xs sm:text-sm text-slate-600">Total Members</p>
+            <FiUsers className="text-primary text-lg sm:text-xl" />
           </div>
-          <p className="text-3xl font-bold text-slate-800">{teamMembers.length}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-slate-800">{teamMembers.length}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-slate-600">Active Members</p>
-            <FiUsers className="text-green-600 text-xl" />
+            <p className="text-xs sm:text-sm text-slate-600">Active Members</p>
+            <FiUsers className="text-green-600 text-lg sm:text-xl" />
           </div>
-          <p className="text-3xl font-bold text-green-600">
+          <p className="text-2xl sm:text-3xl font-bold text-green-600">
             {teamMembers.filter((m) => m.status === 'active').length}
           </p>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-slate-600">Technicians</p>
-            <FiUsers className="text-blue-600 text-xl" />
+            <p className="text-xs sm:text-sm text-slate-600">Technicians</p>
+            <FiUsers className="text-blue-600 text-lg sm:text-xl" />
           </div>
-          <p className="text-3xl font-bold text-blue-600">
+          <p className="text-2xl sm:text-3xl font-bold text-blue-600">
             {teamMembers.filter((m) => m.role === 'technician').length}
           </p>
         </div>
@@ -411,7 +411,7 @@ const TeamMembersTab = () => {
       {/* Team Members List */}
       <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
         {teamMembers.length > 0 && (
-          <div className="p-4 border-b border-slate-200 flex items-center justify-end">
+          <div className="p-3 sm:p-4 border-b border-slate-200 flex items-center justify-end">
             <button
               onClick={() => {
                 const exportData = teamMembers.map(member => ({
@@ -447,10 +447,11 @@ const TeamMembersTab = () => {
                   columnWidths: [20, 15, 25, 15, 12, 12, 20, 15, 30, 15, 10, 30, 15]
                 })
               }}
-              className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition inline-flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition inline-flex items-center gap-2"
               title="Export to Excel"
+              type="button"
             >
-              <FiDownload /> Export Excel
+              <FiDownload /> <span className="hidden sm:inline">Export Excel</span><span className="sm:hidden">Export</span>
             </button>
           </div>
         )}
@@ -493,55 +494,55 @@ const TeamMembersTab = () => {
               const hubs = member.hubs || []
               
               return (
-                <div key={memberId} className="p-4 hover:bg-slate-50 transition">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4 flex-1">
+                <div key={memberId} className="p-3 sm:p-4 hover:bg-slate-50 transition">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                    <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
                       {/* Profile Image */}
                       {member.profilePicture ? (
                         <img
                           src={member.profilePicture}
                           alt={member.name}
-                          className="w-16 h-16 rounded-full object-cover border-2 border-primary/20"
+                          className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-primary/20 flex-shrink-0"
                         />
                       ) : (
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center font-bold text-xl border-2 border-primary/20">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center font-bold text-lg sm:text-xl border-2 border-primary/20 flex-shrink-0">
                           {member.name.charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-bold text-slate-800">{member.name}</h3>
-                          <span className="px-2 py-1 bg-slate-100 rounded text-xs font-semibold">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                          <h3 className="text-base sm:text-lg font-bold text-slate-800 truncate">{member.name}</h3>
+                          <span className="px-2 py-1 bg-slate-100 rounded text-xs font-semibold whitespace-nowrap">
                             {member.role || 'technician'}
                           </span>
                           {member.kyc && (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold flex items-center gap-1">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold flex items-center gap-1 whitespace-nowrap">
                               <FiShield className="text-xs" />
                               KYC
                             </span>
                           )}
                           {member.status === 'active' && (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold whitespace-nowrap">
                               Active
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 mb-2">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-slate-600 mb-2">
                           {member.email && (
-                            <span className="flex items-center gap-1">
-                              <FiMail className="text-xs" />
-                              {member.email}
+                            <span className="flex items-center gap-1 truncate max-w-full">
+                              <FiMail className="text-xs flex-shrink-0" />
+                              <span className="truncate">{member.email}</span>
                             </span>
                           )}
                           {member.phone && (
-                            <span className="flex items-center gap-1">
-                              <FiPhone className="text-xs" />
+                            <span className="flex items-center gap-1 whitespace-nowrap">
+                              <FiPhone className="text-xs flex-shrink-0" />
                               {member.phone}
                             </span>
                           )}
                           {member.city && (
-                            <span className="flex items-center gap-1">
-                              <FiMapPin className="text-xs" />
+                            <span className="flex items-center gap-1 whitespace-nowrap">
+                              <FiMapPin className="text-xs flex-shrink-0" />
                               {member.city}
                             </span>
                           )}
@@ -550,8 +551,8 @@ const TeamMembersTab = () => {
                           <div className="flex flex-wrap gap-2 mt-2">
                             {categoryNames.map((cat, idx) => (
                               <span key={idx} className="px-2 py-1 bg-primary/10 text-primary rounded text-xs font-medium flex items-center gap-1">
-                                <FiTag className="text-xs" />
-                                {typeof cat === 'object' ? cat.name : cat}
+                                <FiTag className="text-xs flex-shrink-0" />
+                                <span className="truncate">{typeof cat === 'object' ? cat.name : cat}</span>
                               </span>
                             ))}
                           </div>
@@ -563,8 +564,8 @@ const TeamMembersTab = () => {
                               const hubCity = typeof hub === 'object' ? hub.city : (availableHubs.find(h => (h._id || h.id) === hub)?.city || '')
                               return (
                                 <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium flex items-center gap-1">
-                                  <FiMap className="text-xs" />
-                                  {hubName} {hubCity && `(${hubCity})`}
+                                  <FiMap className="text-xs flex-shrink-0" />
+                                  <span className="truncate">{hubName} {hubCity && `(${hubCity})`}</span>
                                 </span>
                               )
                             })}
@@ -572,38 +573,42 @@ const TeamMembersTab = () => {
                         )}
                       </div>
                       {/* Nexo Logo Badge */}
-                      <div className="hidden md:block opacity-40">
+                      <div className="hidden lg:block opacity-40 flex-shrink-0">
                         <Logo className="scale-50" />
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap flex-shrink-0 self-start sm:self-auto">
                       <button
                         onClick={() => setSelectedMemberForIDCard(member)}
-                        className="p-2 hover:bg-green-50 rounded-lg text-green-600 transition"
+                        className="p-2 hover:bg-green-50 rounded-lg text-green-600 transition flex-shrink-0"
                         title="View ID Card"
+                        type="button"
                       >
-                        <FiCreditCard />
+                        <FiCreditCard className="text-base sm:text-lg" />
                       </button>
                       <button
                         onClick={() => handleViewActivities(member)}
-                        className="p-2 hover:bg-purple-50 rounded-lg text-purple-600 transition"
+                        className="p-2 hover:bg-purple-50 rounded-lg text-purple-600 transition flex-shrink-0"
                         title="View Activities"
+                        type="button"
                       >
-                        <FiActivity />
+                        <FiActivity className="text-base sm:text-lg" />
                       </button>
                       <button
                         onClick={() => handleEditMember(member)}
-                        className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition"
+                        className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition flex-shrink-0"
                         title="Edit Member"
+                        type="button"
                       >
-                        <FiEdit2 />
+                        <FiEdit2 className="text-base sm:text-lg" />
                       </button>
                       <button
                         onClick={() => handleDeleteMember(member)}
-                        className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition"
+                        className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition flex-shrink-0"
                         title="Delete Member"
+                        type="button"
                       >
-                        <FiTrash2 />
+                        <FiTrash2 className="text-base sm:text-lg" />
                       </button>
                     </div>
                   </div>
@@ -616,10 +621,10 @@ const TeamMembersTab = () => {
 
       {/* Add/Edit Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-slate-800">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
                 {editingMember ? 'Edit Team Member' : 'Add Team Member'}
               </h2>
               <button
@@ -629,9 +634,10 @@ const TeamMembersTab = () => {
                   setFormData({ name: '', email: '', phone: '', role: 'technician', profilePicture: null })
                   setProfilePicturePreview(null)
                 }}
-                className="p-2 hover:bg-slate-100 rounded-lg transition"
+                className="p-2 hover:bg-slate-100 rounded-lg transition flex-shrink-0"
+                type="button"
               >
-                <FiX className="text-xl" />
+                <FiX className="text-lg sm:text-xl" />
               </button>
             </div>
 
@@ -706,14 +712,14 @@ const TeamMembersTab = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">WhatsApp Number</label>
                   <input
                     type="tel"
                     value={formData.whatsappNumber}
                     onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 sm:px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
                     placeholder="WhatsApp number"
                   />
                 </div>
@@ -723,7 +729,7 @@ const TeamMembersTab = () => {
                     type="text"
                     value={formData.qualification}
                     onChange={(e) => setFormData({ ...formData, qualification: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 sm:px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
                     placeholder="Qualification"
                   />
                 </div>
@@ -733,7 +739,7 @@ const TeamMembersTab = () => {
                     type="number"
                     value={formData.experience}
                     onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 sm:px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
                     placeholder="Years"
                   />
                 </div>
@@ -743,7 +749,7 @@ const TeamMembersTab = () => {
                     type="text"
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 sm:px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm sm:text-base"
                     placeholder="City"
                   />
                 </div>
@@ -775,7 +781,7 @@ const TeamMembersTab = () => {
               {/* Categories Selection */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Service Categories</label>
-                <div className="max-h-40 overflow-y-auto p-3 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-2 gap-2">
+                <div className="max-h-40 overflow-y-auto p-3 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {availableCategories.length > 0 ? (
                   availableCategories.map((cat) => {
                     const isSelected = (formData.categories || []).includes(cat._id || cat.id)
@@ -951,11 +957,12 @@ const TeamMembersTab = () => {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
                   onClick={editingMember ? handleUpdateMember : handleAddMember}
                   disabled={loading}
-                  className="flex-1 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2.5 sm:py-3 bg-primary text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="button"
                 >
                   {loading ? 'Processing...' : (editingMember ? 'Update' : 'Add') + ' Member'}
                 </button>
@@ -977,7 +984,8 @@ const TeamMembersTab = () => {
                     setKycPreviews({})
                     setShowKYC(false)
                   }}
-                  className="px-6 py-3 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200 transition"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 bg-slate-100 text-slate-700 rounded-lg text-sm sm:text-base font-semibold hover:bg-slate-200 transition"
+                  type="button"
                 >
                   Cancel
                 </button>
@@ -998,20 +1006,21 @@ const TeamMembersTab = () => {
 
       {/* Activity Modal */}
       {selectedMemberActivities && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-4 sm:p-6 my-auto max-h-[95vh] overflow-y-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-800 truncate">
                   {selectedMemberActivities.name}'s Activities
                 </h2>
-                <p className="text-sm text-slate-600 mt-1">View all bookings and activities</p>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1">View all bookings and activities</p>
               </div>
               <button
                 onClick={() => setSelectedMemberActivities(null)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition"
+                className="p-2 hover:bg-slate-100 rounded-lg transition flex-shrink-0 self-end sm:self-auto"
+                type="button"
               >
-                <FiX className="text-xl" />
+                <FiX className="text-lg sm:text-xl" />
               </button>
             </div>
 
@@ -1056,7 +1065,7 @@ const TeamMembersTab = () => {
                           {activity.status}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-3 text-xs sm:text-sm">
                         {activity.scheduledDate && (
                           <div>
                             <p className="text-slate-500">Scheduled Date</p>

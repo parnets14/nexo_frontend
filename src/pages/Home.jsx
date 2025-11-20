@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
-  FaWhatsapp, 
+  FaShoppingCart,
+  FaCreditCard,
+  FaFileAlt, 
   FaTools, 
   FaBolt, 
   FaCheckCircle, 
   FaRupeeSign, 
-  FaCreditCard, 
   FaMobileAlt, 
   FaWrench,
   FaSnowflake,
@@ -438,7 +439,7 @@ const Home = () => {
                     ease: "easeInOut",
                   }}
                 >
-                  Now on WhatsApp.
+                  Now just a message away.
                 </motion.span>
               </motion.h1>
               
@@ -457,10 +458,10 @@ const Home = () => {
                   onClick={handleWhatsAppClick}
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-[#25D366]/50 transition-all duration-300 flex items-center gap-2 w-full sm:w-auto justify-center"
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-purple-600/50 transition-all duration-300 flex items-center gap-2 w-full sm:w-auto justify-center"
                 >
-                  <FaWhatsapp className="w-5 h-5 sm:w-6 sm:h-6" />
-                  Book on WhatsApp
+                  <FaShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-current" />
+                  Book Now
                 </motion.button>
                 <motion.a
                   href="/partner/onboard"
@@ -566,10 +567,10 @@ const Home = () => {
                   onClick={handleWhatsAppClick}
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-primary-dark transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
                 >
-                  <FaWhatsapp className="w-5 h-5" />
-                  Start on WhatsApp
+                  <FaShoppingCart className="w-5 h-5 text-current" />
+                  Book Now
                 </motion.button>
               </div>
             </motion.div>
@@ -649,7 +650,7 @@ const Home = () => {
                           whileTap={{ scale: 0.95 }}
                           className="text-primary hover:text-primary-dark font-semibold text-xs sm:text-sm flex items-center gap-1"
                         >
-                          Book Now <FaWhatsapp className="w-3 h-3" />
+                          Book Now <FaShoppingCart className="w-3 h-3 text-current" />
                         </motion.button>
                       </Link>
                     </motion.div>
@@ -723,10 +724,10 @@ const Home = () => {
                   onClick={handleWhatsAppClick}
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-primary-dark transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
                 >
-                  <FaWhatsapp className="w-5 h-5" />
-                  Book Your Service
+                  <FaShoppingCart className="w-5 h-5 text-current" />
+                  Book Now
                 </motion.button>
               </div>
             </motion.div>
@@ -807,8 +808,8 @@ const Home = () => {
                           : 'bg-gray-100 text-primary hover:bg-gray-200'
                       }`}
                     >
-                      <FaWhatsapp className="w-4 h-4" />
-                      Subscribe on WhatsApp
+                      <FaCreditCard className="w-4 h-4 text-current" />
+                      Subscribe
                     </motion.button>
                   </motion.div>
                 )
@@ -855,10 +856,10 @@ const Home = () => {
                     onClick={handleWhatsAppClick}
                     whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-white text-primary px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-gray-100 transition-all duration-300 shadow-lg flex items-center gap-2"
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg flex items-center gap-2"
                   >
-                    <FaWhatsapp className="w-5 h-5" />
-                    Get AMC Quote on WhatsApp
+                    <FaFileAlt className="w-5 h-5 text-current" />
+                    Get AMC Quote
                   </motion.button>
                 </div>
               </div>

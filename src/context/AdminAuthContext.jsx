@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react'
 import { clearAdminDataCache } from '../hooks/useAdminData.js'
+import { useNotifications } from '../hooks/useNotifications'
+import { adminApi } from '../services/adminApi'
 
 const AdminAuthContext = createContext(null)
 
@@ -67,9 +69,13 @@ export const AdminAuthProvider = ({ children }) => {
     }
   }, [])
 
+  // Initialize notifications
+  const notifications = useNotifications(adminApi, state.token, state.isAuthenticated)
+
   const value = useMemo(
     () => ({
       ...state,
+      notifications,
       login: async (loginFn, credentials) => {
         dispatch({ type: 'LOGIN_START' })
         try {
@@ -95,7 +101,7 @@ export const AdminAuthProvider = ({ children }) => {
       },
       clearError: () => dispatch({ type: 'LOGIN_ERROR', payload: null })
     }),
-    [state]
+    [state, notifications]
   )
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react'
 import { partnerApi } from '../services/partnerApi.js'
+import { useNotifications } from '../hooks/useNotifications'
 
 const PartnerAuthContext = createContext(null)
 
@@ -72,9 +73,13 @@ export const PartnerAuthProvider = ({ children }) => {
     }
   }, [])
 
+  // Initialize notifications
+  const notifications = useNotifications(partnerApi, state.token, state.isAuthenticated)
+
   const value = useMemo(
     () => ({
       ...state,
+      notifications,
       login: async (phone, otp) => {
         dispatch({ type: 'LOGIN_START' })
         try {
@@ -86,6 +91,7 @@ export const PartnerAuthProvider = ({ children }) => {
             }
             localStorage.setItem('nexo_partner_auth', JSON.stringify(payload))
             dispatch({ type: 'LOGIN_SUCCESS', payload })
+            
             return payload
           } else {
             throw new Error(response.message || 'Login failed')
@@ -115,7 +121,7 @@ export const PartnerAuthProvider = ({ children }) => {
         }
       }
     }),
-    [state]
+    [state, notifications]
   )
 
   return <PartnerAuthContext.Provider value={value}>{children}</PartnerAuthContext.Provider>

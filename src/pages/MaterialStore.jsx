@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { FaWhatsapp } from 'react-icons/fa'
+import { FaShoppingCart } from 'react-icons/fa'
 import SEO from '../components/SEO'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 
@@ -240,17 +240,17 @@ const MaterialStore = () => {
           >
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 sm:mb-4">Materials for Technicians</h1>
             <p className="text-lg sm:text-xl md:text-2xl mb-6 sm:mb-8 text-white/90">
-              Order materials instantly on WhatsApp
+              Order materials instantly
             </p>
             <div className="flex justify-center">
               <motion.button
                 onClick={handleWhatsAppClick}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-[#25D366]/50 transition-all duration-300 flex items-center gap-2"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-purple-600/50 transition-all duration-300 flex items-center gap-2"
               >
-                <FaWhatsapp className="w-5 h-5 sm:w-6 sm:h-6" />
-                Order Materials on WhatsApp
+                <FaShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-current" />
+                Book Now
               </motion.button>
             </div>
           </motion.div>
@@ -397,12 +397,12 @@ const MaterialStore = () => {
                   onClick={handleWhatsAppClick}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="w-full bg-gradient-to-r from-[#25D366] to-[#20BA5A] text-white py-4 rounded-xl font-bold text-base shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group/btn relative overflow-hidden"
+                      className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-base shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group/btn relative overflow-hidden"
                     >
                       {/* Button shine effect */}
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></div>
-                      <FaWhatsapp className="w-5 h-5 relative z-10" />
-                      <span className="relative z-10">Order on WhatsApp</span>
+                      <FaShoppingCart className="w-5 h-5 relative z-10 text-current" />
+                      <span className="relative z-10">Book Now</span>
                 </motion.button>
                   </div>
 
