@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  FaCheckCircle, 
-  FaUpload, 
+import {
+  FaCheckCircle,
+  FaUpload,
   FaWhatsapp,
   FaArrowRight,
   FaArrowLeft,
@@ -16,12 +16,18 @@ import {
   FaLock,
   FaMapMarkerAlt,
   FaCamera,
-  FaUser
+  FaUser,
+  FaClock,
+  FaShieldAlt,
+  FaCheck,
+  FaHourglassHalf,
+  FaSyncAlt
 } from 'react-icons/fa'
 import SEO from '../components/SEO'
 import { partnerApi } from '../services/partnerApi'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 import { useComingSoon } from '../contexts/ComingSoonContext'
+import PayUPayment from '../components/PayUPayment'
 
 const trades = [
   { id: 'ac-service', name: 'AC Service', icon: '❄️' },
@@ -36,15 +42,528 @@ const defaultMGPlans = [
   { name: 'Platinum', price: 5000, leads: 150, commission: 3, leadFee: 30, minWalletBalance: 100, icon: '💎', color: 'bg-purple-50', borderColor: 'border-purple-300', features: ['Featured listing', 'Daily performance insights', 'Fast-track payouts'] }
 ]
 
+// Profile Review Step Component with Enhanced UI and Auto-checking
+const ProfileReviewStep = ({ currentStep, setCurrentStep, formData, token }) => {
+  const [isApproved, setIsApproved] = useState(false)
+  const [isPaymentVerified, setIsPaymentVerified] = useState(false)
+  const [checkingStatus, setCheckingStatus] = useState(false)
+  const [lastChecked, setLastChecked] = useState(new Date())
+  const [timeElapsed, setTimeElapsed] = useState(0)
+
+  // Auto-check approval status every 1 minute
+  useEffect(() => {
+    const checkApprovalStatus = async () => {
+      if (!token) return
+
+      setCheckingStatus(true)
+      try {
+        // Check partner profile status
+        const response = await partnerApi.getProfile(token)
+        if (response.success && response.profile) {
+          const profile = response.profile
+          console.log('Profile status check:', profile)
+
+          // Check payment verification - check both root level and profile object
+          const paymentVerified = 
+            profile.paymentApproved === true || 
+            profile.registerdFee === true ||
+            profile.profile?.paymentApproved === true ||
+            profile.profile?.registerdFee === true
+
+          // Check profile approval (partner-level status)
+          const profileApproved = profile.status === 'approved' || profile.isApproved === true || profile.approvedAt
+
+          const approved = profileApproved && paymentVerified
+
+          console.log('Payment verified:', paymentVerified, 'Profile approved:', profileApproved, 'Overall approved:', approved)
+
+          setIsApproved(approved)
+          setIsPaymentVerified(paymentVerified)
+          setLastChecked(new Date())
+
+          // If approved, store this step completion in server
+          if (approved) {
+            try {
+              await partnerApi.updateOnboardingStep(token, {
+                step: 9,
+                completed: true,
+                approved: true,
+                approvedAt: new Date().toISOString()
+              })
+            } catch (updateError) {
+              console.error('Error updating step completion:', updateError)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking approval status:', error)
+      } finally {
+        setCheckingStatus(false)
+      }
+    }
+
+    // Initial check
+    checkApprovalStatus()
+
+    // Set up interval to check every 1 minute
+    const interval = setInterval(checkApprovalStatus, 60000)
+
+    return () => clearInterval(interval)
+  }, [token])
+
+  // Update time elapsed
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeElapsed(prev => prev + 1)
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="text-center mb-8">
+        <motion.div
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', duration: 0.8, bounce: 0.4 }}
+          className="w-28 h-28 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl"
+        >
+          <motion.div
+            animate={{
+              rotate: checkingStatus ? 360 : 0,
+              scale: checkingStatus ? [1, 1.2, 1] : [1, 1.1, 1]
+            }}
+            transition={{
+              rotate: { duration: checkingStatus ? 1 : 3, repeat: checkingStatus ? Infinity : Infinity, ease: "linear" },
+              scale: { duration: checkingStatus ? 0.5 : 2, repeat: Infinity, ease: "easeInOut" }
+            }}
+            className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg"
+          >
+            {isApproved ? (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', bounce: 0.5 }}
+              >
+                <FaCheck className="w-10 h-10 text-green-600" />
+              </motion.div>
+            ) : (
+              <FaHourglassHalf className="w-10 h-10 text-blue-600" />
+            )}
+          </motion.div>
+        </motion.div>
+
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-3xl font-bold text-primary mb-2"
+        >
+          {isApproved ? 'Profile Approved!' : isPaymentVerified ? 'Your Account Under Review' : 'Waiting for Payment Verification'}
+        </motion.h2>
+
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="text-gray-600 mb-4"
+        >
+          {isApproved
+            ? 'Congratulations! Your profile has been approved and payment verified. You can now proceed to select your MG plan.'
+            : isPaymentVerified
+              ? 'Your payment has been successfully verified! Your partner account is now under review by our admin team. We will notify you once approved.'
+              : 'Your payment is being verified by our admin team. Once approved, your profile will be reviewed.'
+          }
+        </motion.p>
+
+        {/* Status and Timer */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.7 }}
+          className={`inline-flex items-center gap-3 px-4 py-2 rounded-full text-sm font-medium ${
+            isApproved
+              ? 'bg-green-100 text-green-800 border border-green-200'
+              : isPaymentVerified
+                ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                : 'bg-blue-100 text-blue-800 border border-blue-200'
+          }`}
+        >
+          {checkingStatus ? (
+            <FaSyncAlt className="animate-spin" />
+          ) : isApproved ? (
+            <FaCheckCircle className="text-green-600" />
+          ) : isPaymentVerified ? (
+            <FaCheckCircle className="text-yellow-600" />
+          ) : (
+            <FaClock className="text-blue-600" />
+          )}
+          <span>
+            {checkingStatus
+              ? 'Checking status...'
+              : isApproved
+                ? 'Profile & Payment Approved'
+                : isPaymentVerified
+                  ? 'Payment Verified - Profile Review Pending'
+                  : `Payment Verification Pending • Last checked: ${lastChecked.toLocaleTimeString()}`
+            }
+          </span>
+        </motion.div>
+      </div>
+
+      {/* Payment Details Section - Show if payment verified */}
+      {isPaymentVerified && formData.payment.payId && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="bg-green-50 rounded-2xl p-6 border-2 border-green-200 mb-6"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <FaCheckCircle className="text-green-600 text-2xl" />
+            <h3 className="text-lg font-bold text-green-800">Payment Details</h3>
+          </div>
+          
+          <div className="bg-white rounded-xl p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Transaction ID:</span>
+              <span className="font-mono font-semibold text-gray-800">{formData.payment.payId}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Registration Fee:</span>
+              <span className="font-semibold text-gray-800">₹{formData.payment.registrationFee?.toLocaleString()}</span>
+            </div>
+            {formData.payment.securityDepositSelected && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Security Deposit:</span>
+                <span className="font-semibold text-gray-800">₹{formData.payment.securityDeposit?.toLocaleString()}</span>
+              </div>
+            )}
+            {formData.toolkit.selected && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Toolkit:</span>
+                <span className="font-semibold text-gray-800">₹{formData.toolkit.price?.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="border-t border-gray-200 pt-3 mt-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-gray-700">Total Paid:</span>
+                <span className="font-bold text-lg text-green-600">
+                  ₹{((formData.payment.registrationFee || 0) + 
+                     (formData.payment.securityDepositSelected ? (formData.payment.securityDeposit || 0) : 0) + 
+                     (formData.toolkit.selected ? (formData.toolkit.price || 0) : 0)).toLocaleString()}
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Payment Status:</span>
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                <FaCheckCircle />
+                Verified
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Review Progress Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.9 }}
+        className={`bg-gradient-to-br rounded-2xl p-6 border-2 ${
+          isApproved
+            ? 'from-green-50 to-emerald-100 border-green-200'
+            : isPaymentVerified
+              ? 'from-yellow-50 to-amber-100 border-yellow-200'
+              : 'from-blue-50 to-indigo-100 border-blue-200'
+        }`}
+      >
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            {isApproved ? (
+              <>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-4 h-4 bg-green-500 rounded-full"
+                ></motion.div>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
+                  className="w-4 h-4 bg-green-500 rounded-full"
+                ></motion.div>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: 0.6 }}
+                  className="w-4 h-4 bg-green-500 rounded-full"
+                ></motion.div>
+              </>
+            ) : (
+              <>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="w-4 h-4 bg-blue-500 rounded-full"
+                ></motion.div>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                  className="w-4 h-4 bg-blue-500 rounded-full"
+                ></motion.div>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                  className="w-4 h-4 bg-blue-500 rounded-full"
+                ></motion.div>
+              </>
+            )}
+          </div>
+          <h3 className={`text-xl font-semibold mb-2 ${
+            isApproved ? 'text-green-800' : isPaymentVerified ? 'text-yellow-800' : 'text-blue-800'
+          }`}>
+            {isApproved ? 'Review Completed Successfully' : isPaymentVerified ? 'Profile Review in Progress' : 'Payment Verification Pending'}
+          </h3>
+          <p className={`text-sm ${
+            isApproved ? 'text-green-600' : isPaymentVerified ? 'text-yellow-600' : 'text-blue-600'
+          }`}>
+            {isApproved
+              ? 'All verification checks have been completed successfully'
+              : isPaymentVerified
+                ? 'Your payment has been verified. Our team is now reviewing your profile information.'
+                : 'Your payment is being verified by our admin team before profile review begins.'
+            }
+          </p>
+        </div>
+
+        {/* Review Steps */}
+        <div className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1 }}
+            className="flex items-start gap-3"
+          >
+            <motion.div
+              animate={isPaymentVerified ? { scale: [1, 1.2, 1] } : {}}
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                isPaymentVerified ? 'bg-yellow-100' : 'bg-gray-100'
+              }`}
+            >
+              <FaCreditCard className={`w-4 h-4 ${isPaymentVerified ? 'text-yellow-600' : 'text-gray-400'}`} />
+            </motion.div>
+            <div>
+              <div className="font-medium text-gray-800">Payment Verification</div>
+              <div className="text-sm text-gray-600">Registration fee and payment details verification</div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1.1 }}
+            className="flex items-start gap-3"
+          >
+            <motion.div
+              animate={isApproved ? { scale: [1, 1.2, 1] } : {}}
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                isApproved ? 'bg-green-100' : isPaymentVerified ? 'bg-green-100' : 'bg-gray-100'
+              }`}
+            >
+              <FaCheckCircle className={`w-4 h-4 ${isApproved ? 'text-green-600' : isPaymentVerified ? 'text-green-500' : 'text-gray-400'}`} />
+            </motion.div>
+            <div>
+              <div className="font-medium text-gray-800">Documents Verified</div>
+              <div className="text-sm text-gray-600">KYC documents, address proof, and business details checked</div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1.3 }}
+            className="flex items-start gap-3"
+          >
+            <motion.div
+              animate={isApproved ? { scale: [1, 1.2, 1] } : {}}
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                isApproved ? 'bg-blue-100' : isPaymentVerified ? 'bg-blue-100' : 'bg-gray-100'
+              }`}
+            >
+              <FaShieldAlt className={`w-4 h-4 ${isApproved ? 'text-blue-600' : isPaymentVerified ? 'text-blue-500' : 'text-gray-400'}`} />
+            </motion.div>
+            <div>
+              <div className="font-medium text-gray-800">Background Check</div>
+              <div className="text-sm text-gray-600">Business legitimacy and service category verification</div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1.5 }}
+            className="flex items-start gap-3"
+          >
+            <motion.div
+              animate={isApproved ? { scale: [1, 1.2, 1] } : {}}
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                isApproved ? 'bg-purple-100' : isPaymentVerified ? 'bg-purple-100' : 'bg-gray-100'
+              }`}
+            >
+              <FaUserCheck className={`w-4 h-4 ${isApproved ? 'text-purple-600' : isPaymentVerified ? 'text-purple-500' : 'text-gray-400'}`} />
+            </motion.div>
+            <div>
+              <div className="font-medium text-gray-800">Final Approval</div>
+              <div className="text-sm text-gray-600">Account activation and partner onboarding completion</div>
+            </div>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      {/* Action Button */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.8 }}
+        className="text-center"
+      >
+        {isApproved ? (
+          <motion.button
+            onClick={() => setCurrentStep(11)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="bg-primary text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2 mx-auto"
+          >
+            Proceed to MG Plan Selection
+            <FaArrowRight />
+          </motion.button>
+        ) : (
+          <div className={`border-2 rounded-xl p-4 max-w-md mx-auto ${
+            isPaymentVerified
+              ? 'bg-yellow-50 border-yellow-200'
+              : 'bg-gray-100 border-gray-200'
+          }`}>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <FaClock className={`${
+                isPaymentVerified ? 'text-yellow-500' : 'text-gray-500'
+              }`} />
+              <span className={`text-sm font-medium ${
+                isPaymentVerified ? 'text-yellow-700' : 'text-gray-700'
+              }`}>
+                {isPaymentVerified ? 'Waiting for Profile Approval' : 'Waiting for Payment Verification'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 text-center">
+              {isPaymentVerified
+                ? 'Your payment has been verified! Your profile is now under review by our team.'
+                : 'Your payment is being verified by our admin team. You will be notified once approved.'
+              }
+            </p>
+            <div className="mt-3 text-center">
+              <span className="text-xs text-gray-500">Time elapsed: {formatTime(timeElapsed)}</span>
+            </div>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Help Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2.0 }}
+        className="bg-gray-50 rounded-xl p-4"
+      >
+        <div className="flex items-center gap-3">
+          <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="text-sm">
+            <div className="font-medium text-gray-800">Need Help?</div>
+            <div className="text-gray-600">Contact our support team if you have any questions about your application status.</div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* New Partner Registration Button */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2.2 }}
+        className="border-t border-gray-200 pt-6"
+      >
+        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <div className="text-center mb-3">
+            <h4 className="font-semibold text-gray-800 mb-1">Want to register a new partner?</h4>
+            <p className="text-sm text-gray-600">Clear all saved data and start fresh registration</p>
+          </div>
+          <motion.button
+            onClick={() => {
+              if (window.confirm('Are you sure you want to start a new registration? This will clear all saved data from this device.')) {
+                // Clear all localStorage data
+                localStorage.removeItem('partnerOnboardingStep')
+                localStorage.removeItem('partnerOnboardingFormData')
+                localStorage.removeItem('partnerOnboardingToken')
+                localStorage.removeItem('partnerOnboardingPartnerData')
+                
+                // Reload the page to start fresh
+                window.location.href = '/partner/onboard'
+              }
+            }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition shadow-md"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            Register New Partner
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 const PartnerOnboardingForm = () => {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const fromLeads = searchParams.get('from') === 'leads' || location.state?.fromLeads
   
-  const [currentStep, setCurrentStep] = useState(1)
-  const [token, setToken] = useState(null)
-  const [partnerData, setPartnerData] = useState(null)
-  const [formData, setFormData] = useState({
+  // Load saved data from localStorage on mount
+  const loadSavedData = () => {
+    try {
+      const savedStep = localStorage.getItem('partnerOnboardingStep')
+      const savedToken = localStorage.getItem('partnerOnboardingToken')
+      const savedFormData = localStorage.getItem('partnerOnboardingFormData')
+      const savedPartnerData = localStorage.getItem('partnerOnboardingPartnerData')
+      
+      return {
+        step: savedStep ? parseInt(savedStep) : 1,
+        token: savedToken || null,
+        formData: savedFormData ? JSON.parse(savedFormData) : null,
+        partnerData: savedPartnerData ? JSON.parse(savedPartnerData) : null
+      }
+    } catch (error) {
+      console.error('Error loading saved data:', error)
+      return { step: 1, token: null, formData: null, partnerData: null }
+    }
+  }
+  
+  const savedData = loadSavedData()
+  
+  const [currentStep, setCurrentStep] = useState(savedData.step)
+  const [token, setToken] = useState(savedData.token)
+  const [partnerData, setPartnerData] = useState(savedData.partnerData)
+  const [mgPlanSkipped, setMgPlanSkipped] = useState(false)
+  const [formData, setFormData] = useState(savedData.formData || {
     phone: '',
     otp: '',
     name: '',
@@ -58,6 +577,7 @@ const PartnerOnboardingForm = () => {
     city: '',
     referralCode: '',
     gstNumber: '',
+    partnerType: 'individual', // Default to individual
     trade: '',
     categories: [], // Array for multiple category selection
     categoryNames: [], // Store category names
@@ -88,9 +608,10 @@ const PartnerOnboardingForm = () => {
       price: 2499
     },
     payment: {
-      registrationFee: 500,
-      securityDeposit: 1000,
-      total: 1500,
+      registrationFee: 0, // Will be updated from backend
+      securityDeposit: 0, // Will be updated from backend
+      securityDepositSelected: true, // Default to selected
+      total: 0, // Will be calculated
       payId: '',
       paidBy: 'Self'
     },
@@ -119,8 +640,10 @@ const PartnerOnboardingForm = () => {
   const whatsappNumber = '919590926068'
   const handleWhatsAppClick = useWhatsAppClick()
   const { openDialog: openComingSoon } = useComingSoon()
+  const [payuPaymentData, setPayuPaymentData] = useState(null) // PayU payment data
+  const [processingPayment, setProcessingPayment] = useState(false) // Payment processing state
 
-  const totalSteps = 11
+  const totalSteps = 12
   const selectedPlanMeta = mgPlans.find((plan) => plan.name === formData.selectedPlan)
 
   // OTP Timer
@@ -130,6 +653,236 @@ const PartnerOnboardingForm = () => {
       return () => clearTimeout(timer)
     }
   }, [otpTimer])
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      // Don't save if no meaningful data yet
+      if (formData.phone || formData.name || formData.email) {
+        localStorage.setItem('partnerOnboardingFormData', JSON.stringify(formData))
+      }
+    } catch (error) {
+      console.error('Error saving form data:', error)
+    }
+  }, [formData])
+
+  // Save current step to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('partnerOnboardingStep', currentStep.toString())
+    } catch (error) {
+      console.error('Error saving step:', error)
+    }
+  }, [currentStep])
+
+  // Save token to localStorage
+  useEffect(() => {
+    try {
+      if (token) {
+        localStorage.setItem('partnerOnboardingToken', token)
+      }
+    } catch (error) {
+      console.error('Error saving token:', error)
+    }
+  }, [token])
+
+  // Save partner data to localStorage
+  useEffect(() => {
+    try {
+      if (partnerData) {
+        localStorage.setItem('partnerOnboardingPartnerData', JSON.stringify(partnerData))
+      }
+    } catch (error) {
+      console.error('Error saving partner data:', error)
+    }
+  }, [partnerData])
+
+  // Clear localStorage when onboarding is complete (step 11)
+  useEffect(() => {
+    if (currentStep === 11 && (formData.selectedPlan || mgPlanSkipped)) {
+      try {
+        localStorage.removeItem('partnerOnboardingStep')
+        localStorage.removeItem('partnerOnboardingFormData')
+        localStorage.removeItem('partnerOnboardingToken')
+        localStorage.removeItem('partnerOnboardingPartnerData')
+        console.log('✅ Onboarding complete - localStorage cleared')
+      } catch (error) {
+        console.error('Error clearing localStorage:', error)
+      }
+    }
+  }, [currentStep, formData.selectedPlan, mgPlanSkipped])
+
+  // Handle Payment Callback (Success/Failure)
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment')
+    const txnid = searchParams.get('txnid')
+    const payid = searchParams.get('payid')
+    const reason = searchParams.get('reason')
+
+    if (paymentStatus === 'success' && txnid && payid) {
+      // Payment callback received - verify with backend before showing success
+      console.log('💳 Payment callback received:', { txnid, payid })
+      
+      const verifyPayment = async () => {
+        try {
+          setLoading(true)
+          setError(null)
+          
+          // Verify payment status with backend
+          const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo.works'
+          console.log('🔍 Verifying payment with:', `${apiUrl}/api/payu/payment-status/${txnid}`)
+          
+          const response = await fetch(`${apiUrl}/api/payu/payment-status/${txnid}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          
+          // Check if response is JSON
+          const contentType = response.headers.get('content-type')
+          if (!contentType || !contentType.includes('application/json')) {
+            console.error('❌ API returned non-JSON response:', contentType)
+            throw new Error('Invalid API response format. Please check backend configuration.')
+          }
+          
+          const data = await response.json()
+          console.log('📦 Payment verification response:', data)
+          
+          if (data.success && data.data.status === 'completed' && data.data.approved) {
+            // Payment verified by backend
+            console.log('✅ Payment verified by backend:', data.data)
+            
+            setFormData(prev => ({
+              ...prev,
+              payment: {
+                ...prev.payment,
+                payId: payid,
+                status: 'completed'
+              }
+            }))
+            
+            // Move to step 8 (payment confirmation) to show payment details
+            setTimeout(() => {
+              setCurrentStep(8)
+              // Clear URL parameters
+              window.history.replaceState({}, '', window.location.pathname)
+            }, 100)
+          } else if (data.success && (data.data.status === 'pending' || data.data.status === 'initiated')) {
+            // Payment initiated or received but not yet approved by admin
+            console.log('⏳ Payment status:', data.data.status, '- Waiting for PayU callback or admin approval')
+            
+            setFormData(prev => ({
+              ...prev,
+              payment: {
+                ...prev.payment,
+                payId: payid,
+                status: data.data.status === 'initiated' ? 'pending' : 'pending'
+              }
+            }))
+            
+            // If payment is just initiated, wait a bit and retry
+            if (data.data.status === 'initiated') {
+              setError('Payment is being processed by PayU. Please wait...')
+              
+              // Retry after 3 seconds
+              setTimeout(() => {
+                console.log('🔄 Retrying payment verification...')
+                window.location.reload()
+              }, 3000)
+            } else {
+              // Payment completed, move to step 8
+              setTimeout(() => {
+                setCurrentStep(8)
+                // Clear URL parameters
+                window.history.replaceState({}, '', window.location.pathname)
+              }, 100)
+            }
+          } else {
+            // Payment not found or other error
+            console.log('❌ Payment verification failed:', data)
+            setError(data.message || 'Payment verification failed. Please contact support.')
+            
+            // Move to step 8 with failed status
+            setFormData(prev => ({
+              ...prev,
+              payment: {
+                ...prev.payment,
+                payId: txnid,
+                status: 'failed'
+              }
+            }))
+            
+            setTimeout(() => {
+              setCurrentStep(8)
+              window.history.replaceState({}, '', window.location.pathname)
+            }, 100)
+          }
+        } catch (err) {
+          console.error('Payment verification error:', err)
+          setError(`Failed to verify payment: ${err.message}. Please contact support with transaction ID: ${txnid}`)
+          
+          // Move to step 8 with failed status
+          setFormData(prev => ({
+            ...prev,
+            payment: {
+              ...prev.payment,
+              payId: txnid,
+              status: 'failed'
+            }
+          }))
+          
+          setTimeout(() => {
+            setCurrentStep(8)
+            window.history.replaceState({}, '', window.location.pathname)
+          }, 100)
+        } finally {
+          setLoading(false)
+        }
+      }
+      
+      verifyPayment()
+      
+    } else if (paymentStatus === 'failed') {
+      // Payment failed
+      console.log('❌ Payment failed:', { reason, txnid })
+      
+      // Map PayU error codes to user-friendly messages
+      const errorMessages = {
+        'E4179': 'Payment was cancelled. Please try again.',
+        'E000': 'Payment failed. Please check your payment details and try again.',
+        'E001': 'Unauthorized payment key. Please contact support.',
+        'E002': 'Invalid transaction. Please try again.',
+        'E003': 'Payment declined by bank. Please try a different payment method.',
+        'E004': 'Insufficient funds. Please check your account balance.',
+        'E005': 'Transaction timeout. Please try again.',
+        'payment_failed': 'Payment could not be processed. Please try again.',
+        'invalid_hash': 'Security verification failed. Please contact support.',
+        'server_error': 'Server error occurred. Please try again later.'
+      }
+      
+      const errorMessage = errorMessages[reason] || `Payment failed: ${reason || 'Unknown error'}. Please try again.`
+      setError(errorMessage)
+      
+      // Set payment status to failed and move to step 8 to show failure
+      setFormData(prev => ({
+        ...prev,
+        payment: {
+          ...prev.payment,
+          payId: txnid || '',
+          status: 'failed'
+        }
+      }))
+      
+      // Move to step 8 to show payment failure
+      setTimeout(() => {
+        setCurrentStep(8)
+        // Clear URL parameters
+        window.history.replaceState({}, '', window.location.pathname)
+      }, 100)
+    }
+  }, [searchParams, token])
 
   // Fetch Categories when on step 4 (token optional)
   useEffect(() => {
@@ -156,50 +909,67 @@ const PartnerOnboardingForm = () => {
     fetchCategories()
   }, [currentStep, token])
 
-  // Fetch Pricing Settings when on payment step
+  // Fetch Pricing Settings when on payment step or when partner type changes
   useEffect(() => {
     const fetchPricingSettings = async () => {
-      if (currentStep === 5) {
         try {
           const response = await partnerApi.getPricingSettings()
           if (response.success && response.data) {
-            // Ensure refundable fields are set (backend should always provide these, but ensure they exist)
+            // Get partner type specific fees
+            const partnerType = formData.partnerType || 'individual'
+            const partnerTypeFees = response.data[partnerType] || response.data
+            
+            // Store all pricing data including partner type specific fees
             const pricingData = {
               ...response.data,
-              registrationFeeRefundable: response.data.registrationFeeRefundable !== undefined ? Boolean(response.data.registrationFeeRefundable) : false,
-              securityDepositRefundable: response.data.securityDepositRefundable !== undefined ? Boolean(response.data.securityDepositRefundable) : false,
-              toolkitPriceRefundable: response.data.toolkitPriceRefundable !== undefined ? Boolean(response.data.toolkitPriceRefundable) : false
+              // Store current partner type fees at root level for easy access
+              registrationFee: partnerTypeFees.registrationFee,
+              securityDeposit: partnerTypeFees.securityDeposit,
+              toolkitPrice: partnerTypeFees.toolkitPrice,
+              registrationFeeRefundable: partnerTypeFees.registrationFeeRefundable !== undefined ? Boolean(partnerTypeFees.registrationFeeRefundable) : false,
+              securityDepositRefundable: partnerTypeFees.securityDepositRefundable !== undefined ? Boolean(partnerTypeFees.securityDepositRefundable) : false,
+              toolkitPriceRefundable: partnerTypeFees.toolkitPriceRefundable !== undefined ? Boolean(partnerTypeFees.toolkitPriceRefundable) : false
             }
             setPricingSettings(pricingData)
-            // Update form data with fetched fees
+
+            // Update form data with fetched fees based on partner type
             setFormData(prev => {
-              const registrationFee = response.data.registrationFee || 500
-              const securityDeposit = response.data.securityDeposit || 1000
-              const toolkitPrice = response.data.toolkitPrice || 2499
+              const registrationFee = partnerTypeFees.registrationFee || 500
+              const baseSecurityDeposit = partnerTypeFees.securityDeposit || 1000
+              const securityDeposit = prev.payment.securityDepositSelected ? baseSecurityDeposit : 0
+              const toolkitPrice = partnerTypeFees.toolkitPrice || 2499
               const toolkitSelected = prev.toolkit.selected
+              
+              console.log('Updating fees for partner type:', formData.partnerType, {
+                registrationFee,
+                baseSecurityDeposit,
+                securityDeposit,
+                toolkitPrice,
+                securityDepositSelected: prev.payment.securityDepositSelected,
+                toolkitSelected
+              })
               
               return {
               ...prev,
               payment: {
                 ...prev.payment,
-                  registrationFee: registrationFee,
-                  securityDeposit: securityDeposit,
-                  total: registrationFee + securityDeposit + (toolkitSelected ? toolkitPrice : 0)
+                registrationFee: registrationFee,
+                securityDeposit: securityDeposit,
+                total: registrationFee + securityDeposit + (toolkitSelected ? toolkitPrice : 0)
               },
               toolkit: {
                 ...prev.toolkit,
-                  price: toolkitPrice
+                price: toolkitPrice
               }
               }
             })
           }
         } catch (err) {
           console.error('Failed to fetch pricing settings:', err)
-        }
       }
     }
     fetchPricingSettings()
-  }, [currentStep])
+  }, [formData.partnerType])
 
   // Fetch Available Service Hubs when on step 5
   useEffect(() => {
@@ -432,16 +1202,42 @@ const PartnerOnboardingForm = () => {
     }
   }, [currentStep])
 
-  // Fetch MG Plans when token is available and on step 10
+  // Fetch MG Plans when token is available and on step 11 or 12
   useEffect(() => {
     const fetchPlans = async () => {
-      if (token && currentStep === 10) {
+      if (token && (currentStep === 11 || currentStep === 12)) {
         setLoadingMGPlans(true)
         try {
-          const response = await partnerApi.getMGPlans(token)
-          if (response.success && response.data && Array.isArray(response.data)) {
+          // Fetch both available plans and current plan
+          const [plansResponse, currentPlanResponse] = await Promise.all([
+            partnerApi.getMGPlans(token, formData.partnerType),
+            partnerApi.getCurrentPlan(token).catch(() => null) // Don't fail if no current plan
+          ])
+          
+          // Check if partner already has a plan selected
+          if (currentPlanResponse?.data || currentPlanResponse?.plan) {
+            const currentPlan = currentPlanResponse.data || currentPlanResponse
+            const planData = currentPlan.plan || currentPlan
+            
+            // Update formData with current plan info
+            if (planData && planData.name) {
+              setFormData(prev => ({
+                ...prev,
+                selectedPlan: planData.name,
+                selectedPlanId: planData._id || planData.id || currentPlan.planId
+              }))
+            }
+          }
+          
+          if (plansResponse.success && plansResponse.data && Array.isArray(plansResponse.data)) {
+            // Filter plans by partner type
+            const filteredPlans = plansResponse.data.filter(plan => {
+              if (!plan.partnerType || plan.partnerType === 'both') return true
+              return plan.partnerType === formData.partnerType
+            })
+            
             // Map admin-configured plans dynamically
-            setMgPlans(response.data.map(plan => {
+            setMgPlans(filteredPlans.map(plan => {
               // Determine icon and colors dynamically based on plan name or use defaults
               const planName = plan.name || ''
               const nameLower = planName.toLowerCase()
@@ -480,7 +1276,8 @@ const PartnerOnboardingForm = () => {
               features: plan.features || [],
                 icon: plan.icon || icon,
                 color: plan.color || color,
-                borderColor: plan.borderColor || borderColor
+                borderColor: plan.borderColor || borderColor,
+                partnerType: plan.partnerType || 'individual'
               }
             }))
           } else {
@@ -496,7 +1293,7 @@ const PartnerOnboardingForm = () => {
       }
     }
     fetchPlans()
-  }, [token, currentStep])
+  }, [token, currentStep, formData.partnerType])
 
   const handleSendOTP = async () => {
     if (!formData.phone || formData.phone.length !== 10) {
@@ -508,9 +1305,13 @@ const PartnerOnboardingForm = () => {
     setError(null)
     try {
       const response = await partnerApi.sendOTP(formData.phone)
+      // Display OTP on screen (remove in production)
+      if (response.otp) {
+        alert(`OTP for testing: ${response.otp}`)
+        // Or you could set it to state: setDisplayedOtp(response.otp)
+      }
       setOtpSent(true)
       setOtpTimer(60)
-      alert(`OTP sent to ${formData.phone}. OTP: ${response.otp}`) // Remove in production
     } catch (err) {
       setError(err.message || 'Failed to send OTP')
     } finally {
@@ -563,6 +1364,7 @@ const PartnerOnboardingForm = () => {
               qualification: profile.qualification || prev.qualification,
               experience: profile.experience?.toString() || prev.experience,
               city: profile.city || prev.city,
+              partnerType: profile.partnerType || prev.partnerType,
               // referralCode: Don't auto-fill referral code - let user enter it manually
               modeOfService: profile.modeOfService || prev.modeOfService,
               // Handle categories
@@ -649,7 +1451,7 @@ const PartnerOnboardingForm = () => {
               
               if (allRequiredStepsComplete) {
                 // All required steps completed - show "Already Registered" message
-                setCurrentStep(12) // Already Registered step
+                setCurrentStep(11) // Already Registered step
               } else {
                 // Find first missing step
                 if (!hasPersonalInfo) {
@@ -662,7 +1464,7 @@ const PartnerOnboardingForm = () => {
                   setCurrentStep(6) // Terms
                 } else {
                   // If MG Plan not selected but everything else is done, go to MG Plan
-                  setCurrentStep(8) // MG Plan selection
+                  setCurrentStep(12) // MG Plan selection
                 }
               }
             } else {
@@ -672,7 +1474,7 @@ const PartnerOnboardingForm = () => {
                 setCurrentStep(11) // Success page
               } else if (isProfileCompleted && hasPayment && !hasMGPlan) {
                 // Payment done, need MG Plan
-                setCurrentStep(8) // MG Plan selection
+                setCurrentStep(12) // MG Plan selection
               } else if (isProfileCompleted && !hasPayment) {
                 // Profile done, need payment
                 setCurrentStep(7) // Payment step
@@ -855,6 +1657,7 @@ const PartnerOnboardingForm = () => {
         city: formData.city,
         referralCode: formData.referralCode || '',
         gstNumber: formData.gstNumber || '',
+        partnerType: formData.partnerType || 'individual',
         profilePicture: formData.profilePicture || null
       }
 
@@ -1017,9 +1820,8 @@ const PartnerOnboardingForm = () => {
       const toolkitPrice = formData.toolkit.selected ? (formData.toolkit.price || 0) : 0;
       
       const paymentData = {
-        id: partnerData?._id,
         registerAmount: registrationFee, // Registration fee only, not total
-        payId: formData.payment.payId,
+        // payId will be provided in step 8
         paidBy: formData.payment.paidBy,
         securityDeposit: securityDeposit,
         toolkitPrice: toolkitPrice,
@@ -1031,19 +1833,21 @@ const PartnerOnboardingForm = () => {
         }
       }
 
+      console.log('Sending payment data from onboarding:', paymentData);
+
       const response = await partnerApi.completePayment(token, paymentData)
       if (response.success) {
         // Get partner ID from response or existing partnerData
         const partnerIdValue = response.partnerId || partnerData?._id?.toString() || partnerData?.partnerId || `PRT-${Date.now().toString().slice(-6)}`
         setPartnerId(partnerIdValue)
-        
+
         // Assign selected hubs to partner (using new Hub system)
         // Wait a bit to ensure partner is fully saved
         if (formData.selectedHubs.length > 0 && token) {
           try {
             // Small delay to ensure partner is saved
             await new Promise(resolve => setTimeout(resolve, 500))
-            
+
             const assignmentResults = []
             for (const hub of formData.selectedHubs) {
               // Only assign if hubId exists (from new Hub system)
@@ -1058,7 +1862,7 @@ const PartnerOnboardingForm = () => {
                 }
               }
             }
-            
+
             // Log results for debugging
             const failed = assignmentResults.filter(r => !r.success)
             if (failed.length > 0) {
@@ -1071,8 +1875,8 @@ const PartnerOnboardingForm = () => {
             // Continue even if hub assignment fails - don't block onboarding
           }
         }
-        
-        setCurrentStep(8) // Move to MG Plan selection
+
+        setCurrentStep(8) // Move to Payment Confirmation step
       }
     } catch (err) {
       const errorMessage = err.message || err.data?.message || 'Failed to complete payment'
@@ -1112,9 +1916,15 @@ const PartnerOnboardingForm = () => {
         handleCompleteRegistrationWithoutPayment()
       } else if (fromLeads && currentStep === 7) {
         // Skip step 7 (payment) entirely
+        setCurrentStep(12)
+      } else if (currentStep === 6 && formData.payment.payId && formData.payment.status === 'completed') {
+        // If payment already completed and verified, skip to step 8 (payment confirmation)
         setCurrentStep(8)
+      } else if (currentStep === 8) {
+        // From step 8, call handleUpdatePaymentConfirmation to validate and proceed
+        handleUpdatePaymentConfirmation()
       } else {
-      setCurrentStep(prev => prev + 1)
+        setCurrentStep(prev => prev + 1)
       }
     }
   }
@@ -1124,6 +1934,12 @@ const PartnerOnboardingForm = () => {
       // Skip payment step (7) when going back if from Lead Marketplace
       if (fromLeads && currentStep === 8) {
         setCurrentStep(6) // Go back to terms from MG Plan
+      } else if (currentStep === 9 && formData.payment.payId && formData.payment.status === 'completed') {
+        // If on profile review (step 9) and payment was completed and verified, skip back to step 8 (payment confirmation)
+        setCurrentStep(8)
+      } else if (currentStep === 8 && formData.payment.payId && formData.payment.status === 'completed') {
+        // If on payment confirmation (step 8) and payment was completed and verified, skip back to step 7 (payment options)
+        setCurrentStep(7)
       } else {
         let prevStepNum = currentStep - 1
         
@@ -1160,6 +1976,7 @@ const PartnerOnboardingForm = () => {
         city: formData.city,
         referralCode: formData.referralCode,
         gstNumber: formData.gstNumber,
+        partnerType: formData.partnerType || 'individual',
         categories: formData.categories,
         categoryNames: formData.categoryNames,
         subcategory: formData.subcategory ? (Array.isArray(formData.subcategory) ? formData.subcategory : [formData.subcategory]) : [],
@@ -1244,9 +2061,9 @@ const PartnerOnboardingForm = () => {
         
         // Go to MG Plan selection (step 10 for fromLeads, step 8 for regular flow)
         if (fromLeads) {
-          setCurrentStep(10) // Skip toolkit and success message, go directly to MG Plan
+          setCurrentStep(12) // Skip success message, go directly to MG Plan
         } else {
-          setCurrentStep(8) // Regular flow goes to toolkit first
+          setCurrentStep(12) // Go to MG Plan selection
         }
       }
     } catch (err) {
@@ -1261,11 +2078,58 @@ const PartnerOnboardingForm = () => {
     }
   }
 
+  // Handle PayU Payment
+  const handlePayUPayment = async () => {
+    if (!token) {
+      setError('Please verify your phone number first')
+      return
+    }
+
+    setProcessingPayment(true)
+    setError(null)
+
+    try {
+      const totalAmount = formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)
+      
+      // Call backend to initiate PayU payment
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo.works'
+      console.log('Calling PayU API:', `${apiUrl}/api/payu/initiate-payment`)
+      const response = await fetch(`${apiUrl}/api/payu/initiate-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: totalAmount,
+          phone: formData.phone,
+          name: formData.name,
+          email: formData.email,
+          partnerId: partnerData?._id || partnerId
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Set PayU payment data to trigger form submission
+        setPayuPaymentData(data.data)
+      } else {
+        setError(data.message || 'Failed to initiate payment')
+        setProcessingPayment(false)
+      }
+    } catch (err) {
+      console.error('Payment initiation error:', err)
+      setError('Failed to initiate payment. Please try again.')
+      setProcessingPayment(false)
+    }
+  }
+
   // Check if a step is already completed
   const isStepCompleted = (step) => {
     switch (step) {
       case 2:
-        return !!(formData.name && formData.email && formData.address && formData.pincode && formData.city)
+        return !!(formData.name && formData.email && formData.address && formData.pincode && formData.city && formData.partnerType)
       case 3:
         const hasPanCard = formData.kyc.panCard && (formData.kyc.panCard instanceof File || typeof formData.kyc.panCard === 'string')
         const hasAadhaar = formData.kyc.aadhaar && (formData.kyc.aadhaar instanceof File || typeof formData.kyc.aadhaar === 'string')
@@ -1284,9 +2148,20 @@ const PartnerOnboardingForm = () => {
       case 6:
         return !!(formData.terms.accepted && formData.terms.signature)
       case 7:
-        return !!(formData.payment.payId && formData.payment.registrationFee)
+        return true // Payment initiated - proceed to payment confirmation
       case 8:
-        return !!formData.selectedPlanId
+        return !!(formData.payment.payId && formData.payment.payId.trim().length > 0)
+      case 9:
+        return true // Profile review - always proceed (admin approval handled separately)
+      case 10:
+        // Automatically proceed to MG Plan selection
+        setTimeout(() => setCurrentStep(11), 100)
+        return (
+          <div className="text-center py-12">
+            <FaSpinner className="animate-spin text-4xl text-primary mx-auto mb-4" />
+            <p className="text-gray-600">Redirecting to MG Plan selection...</p>
+          </div>
+        )
       default:
         return false
     }
@@ -1297,7 +2172,7 @@ const PartnerOnboardingForm = () => {
       case 1:
         return otpSent && formData.otp.length === 6
       case 2:
-        return formData.name && formData.email && formData.address && formData.pincode && formData.city
+        return formData.name && formData.email && formData.address && formData.pincode && formData.city && formData.partnerType
       case 3:
         // Check if documents exist (either as File objects or as strings/URLs for existing uploads)
         const hasPanCard = formData.kyc.panCard && (formData.kyc.panCard instanceof File || typeof formData.kyc.panCard === 'string')
@@ -1335,11 +2210,11 @@ const PartnerOnboardingForm = () => {
       case 7:
         return true // Payment handled via WhatsApp
       case 8:
-        return true // Toolkit is optional
+        return !!(formData.payment.payId && formData.payment.payId.trim().length > 0)
       case 9:
-        return true // Success message step - always proceed
+        return true // Profile review - always proceed
       case 10:
-        return formData.selectedPlanId !== null // Plan selection required
+        return true // Success message step - always proceed
       default:
         return false
     }
@@ -1348,9 +2223,30 @@ const PartnerOnboardingForm = () => {
   // Auto-skip step 7 if fromLeads and somehow reached step 7
   useEffect(() => {
     if (fromLeads && currentStep === 7) {
-      setCurrentStep(8)
+      setCurrentStep(12)
     }
   }, [currentStep, fromLeads])
+
+  // Auto-skip payment steps if payment already completed AND verified
+  useEffect(() => {
+    // Only skip if payment is completed AND verified by backend
+    // Check if we're on step 7 and payment is already verified
+    if (currentStep === 7 && formData.payment.payId && formData.payment.status === 'completed') {
+      // Payment already completed and verified, skip to step 8
+      console.log('⏭️ Payment already completed and verified, showing payment confirmation')
+      setCurrentStep(8)
+    }
+  }, [currentStep, formData.payment.payId, formData.payment.status])
+
+  // Auto-proceed from step 10 to step 11 (MG Plan selection)
+  useEffect(() => {
+    if (currentStep === 10) {
+      const timer = setTimeout(() => {
+        setCurrentStep(11)
+      }, 1500) // Show loading for 1.5 seconds then proceed
+      return () => clearTimeout(timer)
+    }
+  }, [currentStep])
 
   // Check if registration is complete and route accordingly (for Lead Marketplace flow)
   useEffect(() => {
@@ -1376,10 +2272,56 @@ const PartnerOnboardingForm = () => {
       
       // If all required steps are complete, show "Already Registered" message
       if (allRequiredStepsComplete && currentStep !== 12) {
-        setCurrentStep(12)
+        setCurrentStep(11)
       }
     }
   }, [formData, fromLeads, token, partnerData, currentStep])
+
+  const handleUpdatePaymentConfirmation = async () => {
+    // Check if payment ID is provided
+    if (!formData.payment.payId || formData.payment.payId.trim().length === 0) {
+      setError('Please enter a valid payment transaction ID')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      // First, ensure payment information is saved/updated
+      const paymentData = {
+        registerAmount: formData.payment.registrationFee || 0,
+        payId: formData.payment.payId,
+        paidBy: formData.payment.paidBy || 'partner',
+        securityDeposit: formData.payment.securityDepositSelected ? formData.payment.securityDeposit : 0,
+        toolkitPrice: formData.toolkit.selected ? formData.toolkit.price : 0,
+        terms: {
+          accepted: formData.terms.accepted,
+          signature: formData.terms.signature,
+          acceptedAt: new Date().toISOString()
+        }
+      }
+
+      // Update onboarding step to mark step 8 as completed
+      const stepResponse = await partnerApi.updateOnboardingStep(token, {
+        step: 8,
+        completed: true,
+        approved: false, // Not approved yet, just completed
+        ...paymentData
+      })
+
+      if (stepResponse.success) {
+        setCurrentStep(9) // Move to profile approval step
+      } else {
+        setError(stepResponse.message || 'Failed to update onboarding step')
+      }
+    } catch (err) {
+      console.error('Payment confirmation error:', err)
+      setError(err.response?.data?.message || err.message || 'An error occurred while confirming payment')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -1488,6 +2430,37 @@ const PartnerOnboardingForm = () => {
               {isStepCompleted(2) && (
                 <p className="text-sm text-green-600 mt-2">✓ Information already saved</p>
               )}
+            </div>
+
+            {/* Partner Type Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-3 text-center">
+                Select Partner Type <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-4 justify-center">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="partnerType"
+                    value="individual"
+                    checked={formData.partnerType === 'individual'}
+                    onChange={(e) => setFormData(prev => ({ ...prev, partnerType: e.target.value }))}
+                    className="w-4 h-4 text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Individual</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="partnerType"
+                    value="franchise"
+                    checked={formData.partnerType === 'franchise'}
+                    onChange={(e) => setFormData(prev => ({ ...prev, partnerType: e.target.value }))}
+                    className="w-4 h-4 text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Franchise</span>
+                </label>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -2688,24 +3661,157 @@ const PartnerOnboardingForm = () => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-primary mb-2">Registration Fee & Security Deposit</h2>
-              <p className="text-gray-600">Complete payment via WhatsApp Pay</p>
+              <h2 className="text-3xl font-bold text-primary mb-2">💳 Payment Options</h2>
+              <p className="text-gray-600">Choose your preferred payment plan and complete via WhatsApp Pay</p>
             </div>
 
+            {/* Payment Status Notification */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3"
+              >
+                <svg className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-red-800 mb-1">Payment Failed</h3>
+                  <p className="text-sm text-red-700">{error}</p>
+                  <button
+                    onClick={() => setError(null)}
+                    className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-6 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-700">Registration Fee</span>
-                <span className="font-semibold text-lg">₹{formData.payment.registrationFee}</span>
+              {/* Registration Fee - Required */}
+              <div className="flex justify-between items-center p-4 bg-white/50 rounded-xl border border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-700">Security Deposit</span>
-                <span className="font-semibold text-lg">₹{formData.payment.securityDeposit}</span>
+                  <div>
+                    <span className="text-gray-800 font-semibold">Registration Fee</span>
+                    <p className="text-xs text-gray-600">One-time onboarding fee</p>
+                  </div>
+                </div>
+                <span className="font-bold text-xl text-primary">₹{formData.payment.registrationFee.toLocaleString()}</span>
+              </div>
+              {/* Enhanced Security Deposit Section */}
+              <div className="relative">
+                <div className={`border-2 rounded-xl p-4 transition-all duration-200 ${
+                  formData.payment.securityDepositSelected
+                    ? 'border-primary bg-primary/5 shadow-md'
+                    : 'border-gray-200 hover:border-primary/50'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+                        formData.payment.securityDepositSelected
+                          ? 'bg-primary border-primary'
+                          : 'border-gray-300 hover:border-primary/70'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          id="securityDeposit"
+                          checked={formData.payment.securityDepositSelected}
+                          onChange={(e) => {
+                            const isSelected = e.target.checked
+                            // Get partner type specific security deposit
+                            const partnerType = formData.partnerType || 'individual'
+                            const partnerTypeFees = pricingSettings?.[partnerType] || pricingSettings
+                            const securityDepositAmount = isSelected ? (partnerTypeFees?.securityDeposit || 1000) : 0
+                            setFormData(prev => ({
+                              ...prev,
+                              payment: {
+                                ...prev.payment,
+                                securityDepositSelected: isSelected,
+                                securityDeposit: securityDepositAmount,
+                                total: prev.payment.registrationFee + securityDepositAmount + (prev.toolkit.selected ? prev.toolkit.price : 0)
+                              }
+                            }))
+                          }}
+                          className="w-3 h-3 text-primary focus:ring-0 opacity-0 absolute"
+                        />
+                        {formData.payment.securityDepositSelected && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor="securityDeposit" className="text-gray-800 font-semibold text-base cursor-pointer flex items-center gap-2">
+                          Include Security Deposit
+                          {formData.payment.securityDepositSelected && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              Selected
+                            </span>
+                          )}
+                        </label>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Refundable security deposit
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {pricingSettings && (
+                        <>
+                          <div className={`text-2xl font-bold transition-colors duration-200 ${
+                            formData.payment.securityDepositSelected ? 'text-primary' : 'text-gray-700'
+                          }`}>
+                            ₹{pricingSettings.securityDeposit.toLocaleString()}
+                          </div>
+                          {!formData.payment.securityDepositSelected && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Click to include
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
               </div>
               
-              {/* Toolkit Option */}
-              <div className="border-t pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
+                  {/* Additional info when selected */}
+                  {formData.payment.securityDepositSelected && (
+                    <div className="mt-3 pt-3 border-t border-primary/20">
+                      <div className="flex items-start gap-2 text-sm text-gray-600">
+                        <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <div>
+                          <p className="font-medium text-gray-800">Why include security deposit?</p>
+                          <p className="text-xs mt-1">Builds trust with customers and partners. Fully refundable upon completion..</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Enhanced Toolkit Option */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className={`border-2 rounded-xl p-4 transition-all duration-200 ${
+                  formData.toolkit.selected
+                    ? 'border-orange-400 bg-orange-50/50 shadow-md'
+                    : 'border-gray-200 hover:border-orange-300'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 cursor-pointer ${
+                        formData.toolkit.selected
+                          ? 'bg-orange-500 border-orange-500'
+                          : 'border-gray-300 hover:border-orange-400'
+                      }`}>
                     <input
                       type="checkbox"
                       id="toolkitCheckbox"
@@ -2714,19 +3820,85 @@ const PartnerOnboardingForm = () => {
                         ...prev,
                         toolkit: { ...prev.toolkit, selected: e.target.checked }
                       }))}
-                      className="w-5 h-5 text-primary border-2 border-gray-300 rounded focus:ring-primary cursor-pointer"
-                    />
-                    <label htmlFor="toolkitCheckbox" className="cursor-pointer flex-1">
-                      <div className="flex items-center gap-2">
-                        <FaToolbox className="text-primary text-lg" />
-                        <span className="text-gray-700 font-semibold">Professional Toolkit (Optional)</span>
+                          className="w-3 h-3 text-primary focus:ring-0 opacity-0 absolute cursor-pointer"
+                        />
+                        {formData.toolkit.selected && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <div>
+                        <label htmlFor="toolkitCheckbox" className="cursor-pointer">
+                      <div className="flex items-center gap-2">
+                            <FaToolbox className={`text-lg transition-colors duration-200 ${
+                              formData.toolkit.selected ? 'text-orange-600' : 'text-orange-500'
+                            }`} />
+                            <span className={`font-semibold transition-colors duration-200 ${
+                              formData.toolkit.selected ? 'text-gray-800' : 'text-gray-700'
+                            }`}>
+                              Professional Toolkit (Optional)
+                              {formData.toolkit.selected && (
+                                <span className="inline-flex items-center ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                  Selected
+                                </span>
+                              )}
+                            </span>
+                      </div>
+                          <p className="text-sm text-gray-600 mt-1">
                         Professional-grade tools and equipment to get started faster
                       </p>
                     </label>
                   </div>
-                  <span className="font-semibold text-lg">₹{formData.toolkit.price}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-2xl font-bold transition-colors duration-200 ${
+                        formData.toolkit.selected ? 'text-orange-600' : 'text-gray-700'
+                      }`}>
+                        ₹{formData.toolkit.price.toLocaleString()}
+                      </div>
+                      {!formData.toolkit.selected && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Optional add-on
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Additional benefits when selected */}
+                  {formData.toolkit.selected && (
+                    <div className="mt-3 pt-3 border-t border-orange-200">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          <span className="text-gray-700">Quality Tools</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          <span className="text-gray-700">Faster Setup</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          <span className="text-gray-700">Professional Look</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          <span className="text-gray-700">Customer Trust</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {formData.toolkit.selected && pricingSettings && pricingSettings.toolkitPriceRefundable === true && (
                   <div className="ml-8 mt-2 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
@@ -2736,11 +3908,45 @@ const PartnerOnboardingForm = () => {
                 )}
               </div>
 
-              <div className="border-t pt-4 flex justify-between items-center">
-                <span className="text-lg font-bold text-primary">Total Amount</span>
-                <span className="text-2xl font-bold text-primary">
-                  ₹{formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)}
+              {/* Enhanced Total Section */}
+              <div className="border-t-2 border-primary/30 pt-6 mt-6">
+                <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl p-4 border border-primary/20">
+                  {/* Total Header */}
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xl font-bold text-gray-800">Total Amount</span>
+                    <span className="text-3xl font-bold text-primary">
+                      ₹{(formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)).toLocaleString()}
                 </span>
+                  </div>
+
+                  {/* Cost Breakdown */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-gray-600">Registration Fee</span>
+                      <span className="font-medium">₹{formData.payment.registrationFee.toLocaleString()}</span>
+                    </div>
+                    {formData.payment.securityDepositSelected && (
+                      <div className="flex justify-between items-center py-1">
+                        <span className="text-gray-600">Security Deposit</span>
+                        <span className="font-medium">₹{formData.payment.securityDeposit.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {formData.toolkit.selected && (
+                      <div className="flex justify-between items-center py-1">
+                        <span className="text-gray-600">Toolkit Price</span>
+                        <span className="font-medium">₹{formData.toolkit.price.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-gray-300 pt-2 mt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-800">Total</span>
+                        <span className="font-bold text-lg text-primary">
+                          ₹{(formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               {/* Refundable Fees Section - Always show if any fee is refundable */}
               {pricingSettings && (
@@ -2772,137 +3978,536 @@ const PartnerOnboardingForm = () => {
               )}
             </div>
 
-            <motion.button
-              onClick={handlePayment}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full bg-[#25D366] text-white py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transition"
-            >
-              <FaWhatsapp className="text-2xl" />
-              Pay via WhatsApp Pay
-            </motion.button>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Payment Transaction ID
-                </label>
-                <input
-                  type="text"
-                  value={formData.payment.payId}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    payment: { ...prev.payment, payId: e.target.value }
-                  }))}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-primary"
-                  placeholder="Enter payment transaction ID"
-                />
+            {/* Payment Gateway Section */}
+            <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-6 border-2 border-blue-200">
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Secure Payment Gateway</h3>
+                <p className="text-sm text-gray-600">Complete your payment securely using PayU payment gateway</p>
               </div>
-            </div>
 
-            <p className="text-sm text-gray-500 text-center">
-              After payment, enter the transaction ID above and click "Complete Payment"
-            </p>
+              <div className="bg-white rounded-xl p-6 mb-4">
+                <div className="flex items-center justify-center gap-4 mb-4">
+                  <svg className="w-12 h-12 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <div className="text-left">
+                    <h4 className="font-semibold text-gray-800">Secure & Encrypted</h4>
+                    <p className="text-sm text-gray-600">Your payment information is safe with us</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-gray-600 mb-1">Credit Card</p>
+                    <svg className="w-8 h-8 text-blue-600 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                      <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-gray-600 mb-1">Debit Card</p>
+                    <svg className="w-8 h-8 text-green-600 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                      <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-gray-600 mb-1">UPI</p>
+                    <svg className="w-8 h-8 text-purple-600 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-gray-600 mb-1">Net Banking</p>
+                    <svg className="w-8 h-8 text-orange-600 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 10-2 0v1H8a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <p className="text-sm text-blue-800 text-center">
+                    <strong>Note:</strong> You will be redirected to PayU secure payment page to complete your transaction
+                  </p>
+                </div>
+              </div>
+
+              <motion.button
+                onClick={handlePayUPayment}
+                disabled={processingPayment}
+                whileHover={{ scale: processingPayment ? 1 : 1.05 }}
+                whileTap={{ scale: processingPayment ? 1 : 0.95 }}
+                className="w-full bg-primary text-white py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {processingPayment ? (
+                  <>
+                    <FaSpinner className="animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <FaCreditCard />
+                    Pay ₹{(formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)).toLocaleString()} Securely
+                    <FaArrowRight />
+                  </>
+                )}
+              </motion.button>
+            </div>
 
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
                 {error}
               </div>
             )}
+
+            {/* New Partner Registration Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="border-t border-gray-200 pt-6 mt-6"
+            >
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <div className="text-center mb-3">
+                  <h4 className="font-semibold text-gray-800 mb-1">Want to register a new partner?</h4>
+                  <p className="text-sm text-gray-600">Clear all saved data and start fresh registration</p>
+                </div>
+                <motion.button
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to start a new registration? This will clear all saved data from this device.')) {
+                      // Clear all localStorage data
+                      localStorage.removeItem('partnerOnboardingStep')
+                      localStorage.removeItem('partnerOnboardingFormData')
+                      localStorage.removeItem('partnerOnboardingToken')
+                      localStorage.removeItem('partnerOnboardingPartnerData')
+                      
+                      // Reload the page to start fresh
+                      window.location.href = '/partner/onboard'
+                    }
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition shadow-md"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  Register New Partner
+                </motion.button>
+              </div>
+            </motion.div>
           </div>
         )
 
       case 8:
+        // Check payment status
+        const hasOnlinePayment = formData.payment.payId && formData.payment.payId.length > 0
+        const paymentSuccess = formData.payment.status === 'completed'
+        const paymentFailed = formData.payment.status === 'failed'
+        
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-primary mb-2">Optional Toolkit</h2>
-              <p className="text-gray-600">Add professional toolkit to get started faster</p>
+              {paymentFailed ? (
+                <>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', duration: 0.5 }}
+                    className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"
+                  >
+                    <svg className="w-12 h-12 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </motion.div>
+                  <h2 className="text-3xl font-bold text-red-600 mb-2">Payment Failed!</h2>
+                  <p className="text-gray-600">Your payment could not be processed. Please try again.</p>
+                </>
+              ) : hasOnlinePayment ? (
+                <>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', duration: 0.5 }}
+                    className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
+                  >
+                    <FaCheckCircle className="text-4xl text-green-600" />
+                  </motion.div>
+                  <h2 className="text-3xl font-bold text-green-600 mb-2">Payment Received!</h2>
+                  <p className="text-gray-600">Your payment has been received and is being verified by our team</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-3xl font-bold text-primary mb-2">Payment Confirmation</h2>
+                  <p className="text-gray-600">Enter your payment transaction ID to complete registration</p>
+                </>
+              )}
             </div>
 
-            <div className={`border-2 rounded-2xl p-6 transition-all ${
-              formData.toolkit.selected 
-                ? 'border-primary bg-primary/5' 
-                : 'border-gray-200'
-            }`}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-4">
-                  <FaToolbox className="text-3xl text-primary mt-1" />
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-1">
-                      {formData.categoryNames.length > 0 ? formData.categoryNames.join(', ') : 'Professional'} Toolkit
-                    </h3>
-                    <p className="text-gray-600 text-sm">
-                      Professional-grade tools and equipment
-                    </p>
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-6 space-y-4">
+              {/* Payment Summary */}
+              <div className="bg-white/50 rounded-xl p-4 border border-primary/20">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Payment {hasOnlinePayment ? 'Completed' : 'Summary'}
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Registration Fee</span>
+                    <span className="font-medium">₹{formData.payment.registrationFee.toLocaleString()}</span>
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-primary">₹{formData.toolkit.price}</div>
+                  {formData.payment.securityDepositSelected && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Security Deposit</span>
+                      <span className="font-medium">₹{formData.payment.securityDeposit.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {formData.toolkit.selected && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Professional Toolkit</span>
+                      <span className="font-medium">₹{formData.toolkit.price.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-gray-300 pt-2 mt-2">
+                    <div className="flex justify-between font-semibold">
+                      <span>Total {hasOnlinePayment ? 'Paid' : 'Amount'}</span>
+                      <span className="text-primary">₹{(formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)).toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <button
-                onClick={handleToolkitToggle}
-                className={`w-full py-3 rounded-xl font-semibold transition ${
-                  formData.toolkit.selected
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {formData.toolkit.selected ? 'Remove Toolkit' : 'Add Toolkit'}
-              </button>
+              {/* Payment Details - Show based on payment status */}
+              {paymentFailed ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-50 rounded-xl p-4 border-2 border-red-200"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <h4 className="text-lg font-semibold text-red-800">Payment Failed</h4>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-3 space-y-2">
+                      {formData.payment.payId && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Transaction ID:</span>
+                          <span className="font-mono font-semibold text-gray-800">{formData.payment.payId}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Amount:</span>
+                        <span className="font-semibold text-gray-800">₹{(formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Status:</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                          Failed
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-red-100 border border-red-300 rounded-lg p-3 mt-3">
+                      <p className="text-sm text-red-800">
+                        <strong>❌ Payment Failed:</strong> {error || 'Your payment could not be processed. Please try again or contact support if the issue persists.'}
+                      </p>
+                    </div>
+
+                    <motion.button
+                      onClick={() => {
+                        // Clear payment data and go back to step 7
+                        setFormData(prev => ({
+                          ...prev,
+                          payment: {
+                            ...prev.payment,
+                            payId: '',
+                            status: ''
+                          }
+                        }))
+                        setError(null)
+                        setCurrentStep(7)
+                      }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full bg-red-600 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-700 transition"
+                    >
+                      <FaArrowLeft />
+                      Try Payment Again
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ) : hasOnlinePayment ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-green-50 rounded-xl p-4 border-2 border-green-200"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FaCheckCircle className="text-green-600 text-xl" />
+                      <h4 className="text-lg font-semibold text-green-800">Payment Details</h4>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Transaction ID:</span>
+                        <span className="font-mono font-semibold text-gray-800">{formData.payment.payId}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Amount Paid:</span>
+                        <span className="font-semibold text-green-600">₹{(formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Payment Method:</span>
+                        <span className="font-semibold text-gray-800">Online Payment (PayU)</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Status:</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
+                          <FaClock />
+                          Pending Verification
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
+                      <p className="text-sm text-yellow-800">
+                        <strong>⏳ Payment Pending Verification:</strong> Your payment has been received successfully. Our admin team will verify it shortly. You can proceed to the next step where you'll wait for approval.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                /* Payment Transaction ID Input - Show if manual payment */
+                <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v8H4V6z" clipRule="evenodd" />
+                      </svg>
+                      <label className="text-base font-semibold text-gray-800">
+                        Payment Transaction ID
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.payment.payId}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        payment: { ...prev.payment, payId: e.target.value }
+                      }))}
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+                      placeholder="Enter payment transaction ID from WhatsApp Pay"
+                      required
+                    />
+                    <p className="text-sm text-gray-600">
+                      Enter the transaction ID you received after completing the payment via WhatsApp Pay to complete your registration.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )
 
       case 9:
+        // Profile Under Review - Waiting for Admin Approval
         return (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
+          <ProfileReviewStep
+            currentStep={currentStep}
+            setCurrentStep={setCurrentStep}
+            formData={formData}
+            token={token}
+          />
+        )
+
+      case 11:
+        // Show success message if plan is selected OR if user skipped
+        if (formData.selectedPlan || mgPlanSkipped) {
+          return (
+            <div className="space-y-6 text-center">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{ type: "spring", duration: 0.6 }}
-                className="inline-block mb-6"
+                transition={{ type: 'spring', duration: 0.5 }}
+                className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto"
               >
-                <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                  <FaCheckCircle className="w-12 h-12 text-green-500" />
-                </div>
+                <FaUserCheck className="text-4xl text-green-600" />
               </motion.div>
-              <h2 className="text-3xl font-bold text-primary mb-3">Profile Successfully Registered!</h2>
-              <p className="text-lg text-gray-600 mb-2">Your profile is under review</p>
-              <p className="text-base text-gray-500 mb-6">
-                Our team will review your application and get back to you soon. In the meantime, would you like to choose an MG Plan to get started?
-              </p>
-            </div>
 
-            <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-6 border-2 border-primary/20">
-              <h3 className="text-xl font-semibold text-primary mb-3 text-center">Benefits of MG Plans</h3>
-              <ul className="space-y-2 text-gray-700">
-                <li className="flex items-center gap-2">
-                  <FaCheckCircle className="text-green-500 flex-shrink-0" />
-                  <span>Guaranteed leads every month</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <FaCheckCircle className="text-green-500 flex-shrink-0" />
-                  <span>Lower commission rates</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <FaCheckCircle className="text-green-500 flex-shrink-0" />
-                  <span>Priority support and faster payouts</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        )
+              <div>
+                <h2 className="text-3xl font-bold text-primary mb-2">
+                  {formData.selectedPlan ? 'Thank You!' : 'Registration Complete!'}
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  {formData.selectedPlan 
+                    ? `Thank you for subscribing to the ${formData.selectedPlan} plan! Your lead subscription is now active.`
+                    : 'Your partner registration is complete! You can subscribe to an MG plan anytime from your dashboard.'
+                  }
+                </p>
+              </div>
 
-      case 10:
+              <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-6">
+                <div className="text-sm text-gray-600 mb-2">Your Partner ID</div>
+                <div className="text-3xl font-bold text-primary">{partnerId || partnerData?._id?.toString().slice(-8) || partnerData?.partnerId || 'PRT-XXXXXX'}</div>
+              </div>
+
+              {formData.categoryNames && formData.categoryNames.length > 0 && (
+                <div className="bg-white border-2 border-primary rounded-2xl p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Selected Categories</h3>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {formData.categoryNames.map((catName, idx) => (
+                      <span key={idx} className="bg-primary/10 text-primary px-4 py-2 rounded-full font-semibold">
+                        {catName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {formData.selectedPlan && (
+                <div className="bg-white border-2 border-primary rounded-2xl p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Your MG Plan</h3>
+                  <div className="text-center">
+                    <div className="text-4xl mb-3">
+                      {formData.selectedPlan === 'Silver' ? '🥈' : formData.selectedPlan === 'Gold' ? '🥇' : '💎'}
+                    </div>
+                    <div className="text-2xl font-bold text-primary mb-2">{formData.selectedPlan} Plan</div>
+                    <p className="text-gray-600">
+                      You've successfully subscribed to the {formData.selectedPlan} plan. You'll receive guaranteed leads and commission benefits.
+                    </p>
+                    {selectedPlanMeta && (
+                      <p className="text-sm text-gray-500 mt-3">
+                        Lead fee ₹{selectedPlanMeta.leadFee ?? 0} · Maintain wallet ≥ ₹{selectedPlanMeta.minWalletBalance ?? 0} to keep leads flowing.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-4 justify-center">
+                <motion.a
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleWhatsAppClick(e)
+                  }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-green-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                >
+                  <FaWhatsapp className="text-lg" />
+                  Contact Support
+                </motion.a>
+                <motion.button
+                  onClick={() => navigate('/partner/login')}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-primary text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                >
+                  Go to Dashboard
+                  <FaArrowRight />
+                </motion.button>
+              </div>
+            </div>
+          )
+        }
+
+        // Show plan selection if no plan selected yet
         return (
           <div className="space-y-6">
+            {/* Show Activated Plan Section if plan already selected */}
+            {formData.selectedPlan && selectedPlanMeta && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6 mb-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                      <FaCheckCircle className="text-white text-2xl" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-green-800">Your Activated Plan</h3>
+                      <p className="text-sm text-green-600">Currently active and receiving leads</p>
+                    </div>
+                  </div>
+                  <div className="text-4xl">{selectedPlanMeta.icon}</div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-4 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-2xl font-bold text-primary">{formData.selectedPlan} Plan</h4>
+                    <span className="text-2xl font-bold text-green-600">₹{selectedPlanMeta.price.toLocaleString('en-IN')}/mo</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="bg-green-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 mb-1">Guaranteed Leads</p>
+                      <p className="text-xl font-bold text-green-700">{selectedPlanMeta.leads}/month</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 mb-1">Commission Rate</p>
+                      <p className="text-xl font-bold text-blue-700">{selectedPlanMeta.commission}%</p>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 mb-1">Lead Fee</p>
+                      <p className="text-xl font-bold text-purple-700">₹{selectedPlanMeta.leadFee}</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 mb-1">Min Wallet Balance</p>
+                      <p className="text-xl font-bold text-orange-700">₹{selectedPlanMeta.minWalletBalance}</p>
+                    </div>
+                  </div>
+                  
+                  {selectedPlanMeta.features?.length > 0 && (
+                    <div className="border-t border-gray-200 pt-3">
+                      <p className="text-xs font-semibold text-gray-600 mb-2">Plan Features:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedPlanMeta.features.map((feature, idx) => (
+                          <span key={idx} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                            ✓ {feature}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+                  <FaCheckCircle />
+                  <span className="font-medium">Plan is active and you're receiving leads</span>
+                </div>
+              </motion.div>
+            )}
+
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-primary mb-2">Choose Your MG Plan</h2>
-              <p className="text-gray-600">Select a Minimum Guarantee plan to get started</p>
+              <h2 className="text-3xl font-bold text-primary mb-2">
+                {formData.selectedPlan ? 'Change Your MG Plan' : 'Choose Your MG Plan'}
+              </h2>
+              <p className="text-gray-600">
+                {formData.selectedPlan 
+                  ? 'Select a different plan below to upgrade or change your subscription'
+                  : 'Select a Minimum Guarantee plan to get started'
+                }
+              </p>
+              {formData.partnerType && (
+                <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl">
+                  <span className="text-2xl">{formData.partnerType === 'individual' ? '👤' : '🏢'}</span>
+                  <span className="text-sm font-semibold text-blue-700">
+                    Showing plans for {formData.partnerType === 'individual' ? 'Individual' : 'Franchise'} Partners
+                  </span>
+                </div>
+              )}
             </div>
 
             {loadingMGPlans ? (
@@ -2914,7 +4519,10 @@ const PartnerOnboardingForm = () => {
               <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
                 <p className="text-gray-600 font-medium mb-2">No MG Plans Available</p>
                 <p className="text-sm text-gray-500">
-                  No Minimum Guarantee plans have been configured yet. Please contact admin or proceed without a plan.
+                  {formData.partnerType 
+                    ? `No plans available for ${formData.partnerType === 'individual' ? 'Individual' : 'Franchise'} partners yet.`
+                    : 'No Minimum Guarantee plans have been configured yet.'
+                  } Please contact admin or skip this step.
                 </p>
               </div>
             ) : (
@@ -2967,8 +4575,8 @@ const PartnerOnboardingForm = () => {
                         openComingSoon()
                       }
                       
-                      // Go to success page with thanks message
-                      setCurrentStep(11)
+                      // Stay on same step to show success message
+                      // The UI will automatically show success content since selectedPlan is now set
                       setError(null)
                     } catch (err) {
                       console.error('Failed to subscribe to plan:', err)
@@ -2980,13 +4588,26 @@ const PartnerOnboardingForm = () => {
                   disabled={loading}
                   whileHover={{ scale: loading ? 1 : 1.05 }}
                   whileTap={{ scale: loading ? 1 : 0.95 }}
-                  className={`${plan.color} border-2 rounded-2xl p-6 text-left transition ${
+                  className={`${plan.color} border-2 rounded-2xl p-6 text-left transition relative ${
                     formData.selectedPlan === plan.name 
-                      ? `${plan.borderColor} border-4 shadow-lg` 
+                      ? `${plan.borderColor} border-4 shadow-lg ring-4 ring-green-200` 
                       : 'border-gray-200 hover:border-primary'
                   } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <div className="text-4xl mb-3">{plan.icon}</div>
+                  {formData.selectedPlan === plan.name && (
+                    <div className="absolute -top-3 -right-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1 animate-pulse">
+                      <FaCheckCircle />
+                      Active Plan
+                    </div>
+                  )}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="text-4xl">{plan.icon}</div>
+                    {plan.partnerType === 'both' && (
+                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-semibold">
+                        All Partners
+                      </span>
+                    )}
+                  </div>
                   <div className="font-bold text-xl text-gray-800 mb-2">{plan.name}</div>
                   <div className="text-3xl font-bold text-primary mb-3">₹{plan.price.toLocaleString('en-IN')}</div>
                   <div className="space-y-2 text-sm">
@@ -3036,92 +4657,34 @@ const PartnerOnboardingForm = () => {
             </div>
             )}
 
-            {!formData.selectedPlanId && (
+            {formData.selectedPlan ? (
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-5 text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                    <FaCheckCircle className="text-white" />
+                  </div>
+                  <p className="text-green-800 font-bold text-lg">Your {formData.selectedPlan} Plan is Active</p>
+                </div>
+                <p className="text-sm text-green-700 mb-3">
+                  You're currently receiving leads with this plan. Click on any other plan above to upgrade or change your subscription.
+                </p>
+                <div className="flex items-center justify-center gap-4 text-xs text-green-600">
+                  <span className="flex items-center gap-1">
+                    <FaCheckCircle className="text-green-500" />
+                    Leads Active
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <FaCheckCircle className="text-green-500" />
+                    Commission Enabled
+                  </span>
+                </div>
+              </div>
+            ) : (
               <p className="text-sm text-gray-500 text-center">Please select a plan to continue</p>
             )}
           </div>
         )
 
-      case 11:
-        return (
-          <div className="space-y-6 text-center">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto"
-            >
-              <FaUserCheck className="text-4xl text-green-600" />
-            </motion.div>
-
-            <div>
-              <h2 className="text-3xl font-bold text-primary mb-2">
-                {formData.selectedPlan ? 'Thank You!' : 'Welcome to NEXO!'}
-              </h2>
-              <p className="text-gray-600 mb-6">
-                {formData.selectedPlan 
-                  ? `Thank you for subscribing to the ${formData.selectedPlan} plan! Your lead subscription is now active.`
-                  : 'Your partner account has been created successfully'}
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-6">
-              <div className="text-sm text-gray-600 mb-2">Your Partner ID</div>
-              <div className="text-3xl font-bold text-primary">{partnerId || partnerData?._id?.toString().slice(-8) || partnerData?.partnerId || 'PRT-XXXXXX'}</div>
-            </div>
-
-            {formData.categoryNames.length > 0 && (
-              <div className="bg-white border-2 border-primary rounded-2xl p-6">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Selected Categories</h3>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {formData.categoryNames.map((catName, idx) => (
-                    <span key={idx} className="bg-primary/10 text-primary px-4 py-2 rounded-full font-semibold">
-                      {catName}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="bg-white border-2 border-primary rounded-2xl p-6">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Your MG Plan</h3>
-              {formData.selectedPlan ? (
-                <div className="text-center">
-                  <div className="text-4xl mb-3">
-                    {formData.selectedPlan === 'Silver' ? '🥈' : formData.selectedPlan === 'Gold' ? '🥇' : '💎'}
-                  </div>
-                  <div className="text-2xl font-bold text-primary mb-2">{formData.selectedPlan} Plan</div>
-                  <p className="text-gray-600">
-                    You've successfully subscribed to the {formData.selectedPlan} plan. You'll receive guaranteed leads and commission benefits.
-                  </p>
-                  {selectedPlanMeta && (
-                    <p className="text-sm text-gray-500 mt-3">
-                      Lead fee ₹{selectedPlanMeta.leadFee ?? 0} · Maintain wallet ≥ ₹{selectedPlanMeta.minWalletBalance ?? 0} to keep leads flowing.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-gray-600 text-center">
-                  Default plan assigned. You can upgrade your plan anytime from your partner dashboard.
-                </p>
-              )}
-            </div>
-
-            <div className="flex gap-4 justify-center">
-              <motion.a
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleWhatsAppClick(e)
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-[#25D366] text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2"
-              >
-                <FaWhatsapp /> Contact Support
-              </motion.a>
-            </div>
-          </div>
-        )
 
       case 12:
         // Already Registered - for Lead Marketplace flow when registration is complete
@@ -3161,24 +4724,73 @@ const PartnerOnboardingForm = () => {
               </div>
             )}
 
-            <div className="bg-white border-2 border-primary rounded-2xl p-6">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Your MG Plan</h3>
-              {formData.selectedPlan ? (
-                <div className="text-center">
-                  <div className="text-4xl mb-3">
-                    {formData.selectedPlan === 'Silver' ? '🥈' : formData.selectedPlan === 'Gold' ? '🥇' : '💎'}
+            {/* Show Activated Plan Section if plan exists */}
+            {formData.selectedPlan && selectedPlanMeta ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                      <FaCheckCircle className="text-white text-2xl" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-xl font-bold text-green-800">Your Activated Plan</h3>
+                      <p className="text-sm text-green-600">Currently active and receiving leads</p>
+                    </div>
                   </div>
-                  <div className="text-2xl font-bold text-primary mb-2">{formData.selectedPlan} Plan</div>
-                  <p className="text-gray-600">
-                    You're subscribed to the {formData.selectedPlan} plan. You'll receive guaranteed leads and commission benefits.
-                  </p>
-                  {selectedPlanMeta && (
-                    <p className="text-sm text-gray-500 mt-3">
-                      Lead fee ₹{selectedPlanMeta.leadFee ?? 0} · Maintain wallet ≥ ₹{selectedPlanMeta.minWalletBalance ?? 0} to keep leads flowing.
-                    </p>
+                  <div className="text-4xl">{selectedPlanMeta.icon}</div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-4 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-2xl font-bold text-primary">{formData.selectedPlan} Plan</h4>
+                    <span className="text-2xl font-bold text-green-600">₹{selectedPlanMeta.price.toLocaleString('en-IN')}/mo</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="bg-green-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 mb-1">Guaranteed Leads</p>
+                      <p className="text-xl font-bold text-green-700">{selectedPlanMeta.leads}/month</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 mb-1">Commission Rate</p>
+                      <p className="text-xl font-bold text-blue-700">{selectedPlanMeta.commission}%</p>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 mb-1">Lead Fee</p>
+                      <p className="text-xl font-bold text-purple-700">₹{selectedPlanMeta.leadFee}</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 mb-1">Min Wallet Balance</p>
+                      <p className="text-xl font-bold text-orange-700">₹{selectedPlanMeta.minWalletBalance}</p>
+                    </div>
+                  </div>
+                  
+                  {selectedPlanMeta.features?.length > 0 && (
+                    <div className="border-t border-gray-200 pt-3">
+                      <p className="text-xs font-semibold text-gray-600 mb-2">Plan Features:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedPlanMeta.features.map((feature, idx) => (
+                          <span key={idx} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                            ✓ {feature}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-              ) : (
+                
+                <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+                  <FaCheckCircle />
+                  <span className="font-medium">Plan is active and you're receiving leads</span>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="bg-white border-2 border-primary rounded-2xl p-6">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">Your MG Plan</h3>
                 <div className="space-y-6">
                   <div className="text-center">
                     <p className="text-gray-600 mb-6">
@@ -3293,12 +4905,12 @@ const PartnerOnboardingForm = () => {
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="flex gap-4 justify-center">
               <motion.a
-                href="/partner/dashboard"
+                href="/partner/login"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-primary text-white px-6 py-3 rounded-xl font-semibold"
@@ -3317,6 +4929,48 @@ const PartnerOnboardingForm = () => {
                 <FaWhatsapp /> Contact Support
               </motion.a>
             </div>
+
+            {/* Register New Partner Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="border-t border-gray-200 pt-6 mt-6"
+            >
+              <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
+                <div className="text-center mb-4">
+                  <h4 className="font-semibold text-gray-800 mb-2 flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    Want to register a new partner?
+                  </h4>
+                  <p className="text-sm text-gray-600">Clear all saved data and start fresh registration</p>
+                </div>
+                <motion.button
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to start a new registration? This will clear all saved data from this device.')) {
+                      // Clear all localStorage data
+                      localStorage.removeItem('partnerOnboardingStep')
+                      localStorage.removeItem('partnerOnboardingFormData')
+                      localStorage.removeItem('partnerOnboardingToken')
+                      localStorage.removeItem('partnerOnboardingPartnerData')
+                      
+                      // Reload the page to start fresh
+                      window.location.href = '/partner/onboard'
+                    }
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition shadow-md"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  Register New Partner
+                </motion.button>
+              </div>
+            </motion.div>
           </div>
         )
 
@@ -3333,6 +4987,22 @@ const PartnerOnboardingForm = () => {
         keywords="partner onboarding, become partner, service partner registration"
         url="/partner/onboard"
       />
+
+      {/* PayU Payment Component */}
+      {payuPaymentData && (
+        <PayUPayment
+          paymentData={payuPaymentData}
+          onSuccess={() => {
+            setPayuPaymentData(null)
+            setProcessingPayment(false)
+          }}
+          onFailure={() => {
+            setPayuPaymentData(null)
+            setProcessingPayment(false)
+            setError('Payment failed. Please try again.')
+          }}
+        />
+      )}
 
       <div className="min-h-screen bg-gray-50 py-4 sm:py-6 px-4 sm:px-6 pt-20 sm:pt-24">
         <div className="max-w-4xl mx-auto">
@@ -3373,7 +5043,7 @@ const PartnerOnboardingForm = () => {
             </AnimatePresence>
 
             {/* Navigation Buttons */}
-            {currentStep < 11 && currentStep !== 12 && (
+            {currentStep < 12 && currentStep !== 13 && (
               <div className="flex justify-between items-center mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
                 <button
                   onClick={prevStep}
@@ -3418,7 +5088,7 @@ const PartnerOnboardingForm = () => {
                         // For Lead Marketplace flow, complete registration without payment
                         await handleCompleteRegistrationWithoutPayment()
                       } else {
-                        // Regular flow - go to payment step
+                        // Regular flow - check if payment already completed
                       setLoading(true)
                       try {
                         if (token && formData.terms.signature) {
@@ -3428,6 +5098,42 @@ const PartnerOnboardingForm = () => {
                           //   acceptedAt: new Date().toISOString()
                           // })
                         }
+                        
+                        // Check if payment is already completed
+                        if (token) {
+                          try {
+                            const profileResponse = await partnerApi.getProfile(token)
+                            if (profileResponse.success && profileResponse.profile) {
+                              const profile = profileResponse.profile
+                              const paymentCompleted = 
+                                profile.paymentApproved === true || 
+                                profile.registerdFee === true ||
+                                profile.profile?.paymentApproved === true ||
+                                profile.profile?.registerdFee === true
+                              
+                              if (paymentCompleted) {
+                                console.log('✅ Payment already completed, skipping payment step')
+                                // Skip payment step and go directly to step 8 (payment confirmation)
+                                setFormData(prev => ({
+                                  ...prev,
+                                  payment: {
+                                    ...prev.payment,
+                                    status: 'completed',
+                                    payId: profile.profile?.payId || profile.payId || 'COMPLETED'
+                                  }
+                                }))
+                                setCurrentStep(9) // Go directly to profile review
+                                setLoading(false)
+                                return
+                              }
+                            }
+                          } catch (checkError) {
+                            console.error('Error checking payment status:', checkError)
+                            // Continue to payment step if check fails
+                          }
+                        }
+                        
+                        // Payment not completed, go to payment step
                         setCurrentStep(7)
                       } catch (err) {
                         setError(err.message || 'Failed to accept terms')
@@ -3444,18 +5150,18 @@ const PartnerOnboardingForm = () => {
                 ) : currentStep === 7 && !fromLeads ? (
                   <button
                     onClick={handleCompletePayment}
-                    disabled={loading || !formData.payment.payId}
+                    disabled={loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? <FaSpinner className="animate-spin" /> : 'Complete Payment'} <FaArrowRight />
                   </button>
-                ) : currentStep === 8 ? (
+                ) : currentStep === 8 && formData.payment.status !== 'failed' ? (
                   <button
-                    onClick={nextStep}
-                    disabled={loading}
+                    onClick={handleUpdatePaymentConfirmation}
+                    disabled={loading || !formData.payment.payId}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Continue <FaArrowRight />
+                    {loading ? <FaSpinner className="animate-spin" /> : 'Confirm Payment & Continue'} <FaArrowRight />
                   </button>
                 ) : currentStep === 9 ? (
                   <div className="flex gap-3 justify-center">
@@ -3469,6 +5175,7 @@ const PartnerOnboardingForm = () => {
                     <button
                       onClick={() => {
                         // Skip MG Plan and go to final step
+                        setMgPlanSkipped(true)
                         setCurrentStep(11)
                       }}
                       disabled={loading}
@@ -3504,3 +5211,4 @@ const PartnerOnboardingForm = () => {
 }
 
 export default PartnerOnboardingForm
+

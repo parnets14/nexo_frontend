@@ -76,6 +76,13 @@ export const useNotifications = (api, token, isAuthenticated) => {
       setUnreadCount(unread);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      // Don't show error if it's a connection refused (server might be down)
+      if (error.message && !error.message.includes('ERR_CONNECTION_REFUSED')) {
+        // Only log non-connection errors
+      }
+      // Set empty notifications on error to prevent UI issues
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setIsLoading(false);
     }

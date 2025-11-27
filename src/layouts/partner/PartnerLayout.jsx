@@ -31,6 +31,18 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
 
   const partnerName = partner?.profile?.name || partner?.name || 'Partner'
   const partnerInitial = partnerName.charAt(0).toUpperCase()
+  const partnerType = partner?.partnerType || 'individual'
+  const showTeamTab = partnerType === 'franchise'
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Partner Layout - Partner Data:', {
+      partnerType,
+      showTeamTab,
+      hasPartner: !!partner,
+      partnerKeys: partner ? Object.keys(partner) : []
+    })
+  }, [partner, partnerType, showTeamTab])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
@@ -99,7 +111,7 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
             <NavLink to="/partner/dashboard" icon={FiHome} label="Dashboard" />
             <NavLink to="/partner/dashboard/profile" icon={FiUser} label="Profile" />
             <NavLink to="/partner/dashboard/wallet" icon={FiDollarSign} label="Wallet" />
-            <NavLink to="/partner/dashboard/team" icon={FiUsers} label="Team" />
+            {showTeamTab && <NavLink to="/partner/dashboard/team" icon={FiUsers} label="Team" />}
             <NavLink to="/partner/dashboard/jobs" icon={FiBriefcase} label="Jobs" />
             <NavLink to="/partner/dashboard/subscription" icon={FiCreditCard} label="MG Plan" />
             <NavLink to="/partner/dashboard/spare-parts" icon={FiPackage} label="Spare Parts" />
@@ -160,7 +172,7 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
                 <MobileNavLink to="/partner/dashboard" icon={FiHome} label="Dashboard" onClick={() => setMobileMenuOpen(false)} />
                 <MobileNavLink to="/partner/dashboard/profile" icon={FiUser} label="Profile" onClick={() => setMobileMenuOpen(false)} />
                 <MobileNavLink to="/partner/dashboard/wallet" icon={FiDollarSign} label="Wallet" onClick={() => setMobileMenuOpen(false)} />
-                <MobileNavLink to="/partner/dashboard/team" icon={FiUsers} label="Team" onClick={() => setMobileMenuOpen(false)} />
+                {showTeamTab && <MobileNavLink to="/partner/dashboard/team" icon={FiUsers} label="Team" onClick={() => setMobileMenuOpen(false)} />}
                 <MobileNavLink to="/partner/dashboard/jobs" icon={FiBriefcase} label="Jobs" onClick={() => setMobileMenuOpen(false)} />
                 <MobileNavLink to="/partner/dashboard/subscription" icon={FiCreditCard} label="MG Plan" onClick={() => setMobileMenuOpen(false)} />
                 <MobileNavLink to="/partner/dashboard/spare-parts" icon={FiPackage} label="Spare Parts" onClick={() => setMobileMenuOpen(false)} />

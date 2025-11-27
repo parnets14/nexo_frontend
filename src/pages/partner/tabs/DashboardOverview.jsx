@@ -23,6 +23,9 @@ import {
 
 const DashboardOverview = () => {
   const { partner, token } = usePartnerAuth()
+  const partnerType = partner?.partnerType || 'individual'
+  const showTeamSection = partnerType === 'franchise'
+  
   const [stats, setStats] = useState({
     walletBalance: 0,
     totalJobs: 0,
@@ -73,14 +76,16 @@ const DashboardOverview = () => {
         const completedJobs = allBookings.filter(b => b?.status === 'completed').length
         const pendingJobs = allBookings.filter(b => ['pending', 'accepted', 'in_progress'].includes(b?.status)).length
 
-        // Fetch team members count
+        // Fetch team members count (only for franchise partners)
         let teamMembersCount = 0
-        try {
-          const teamRes = await partnerApi.getTeamMembers(token)
-          const teamMembers = teamRes?.data || teamRes || []
-          teamMembersCount = Array.isArray(teamMembers) ? teamMembers.filter(tm => tm.status === 'active').length : 0
-        } catch (err) {
-          console.error('Error fetching team members:', err)
+        if (showTeamSection) {
+          try {
+            const teamRes = await partnerApi.getTeamMembers(token)
+            const teamMembers = teamRes?.data || teamRes || []
+            teamMembersCount = Array.isArray(teamMembers) ? teamMembers.filter(tm => tm.status === 'active').length : 0
+          } catch (err) {
+            console.error('Error fetching team members:', err)
+          }
         }
 
         // Calculate total earnings from completed jobs
@@ -229,7 +234,7 @@ const DashboardOverview = () => {
     }
 
     fetchStats()
-  }, [token])
+  }, [token, showTeamSection])
 
   // Circular Progress Component
   const CircularProgress = ({ percentage, size = 80, strokeWidth = 8, color, children }) => {
@@ -292,7 +297,7 @@ const DashboardOverview = () => {
   const teamUtilization = Math.min(Math.round((stats.teamMembers / 10) * 100), 100) // Assuming max 10 members
   const earningsProgress = Math.min(Math.round((stats.totalEarnings / 100000) * 100), 100) // Assuming 1L as reference
 
-  const statCards = [
+  const allStatCards = [
     {
       label: 'Wallet Balance',
       value: `₹${stats.walletBalance.toLocaleString('en-IN')}`,
@@ -351,9 +356,15 @@ const DashboardOverview = () => {
       bgColor: 'bg-indigo-500',
       link: '/partner/dashboard/team',
       percentage: teamUtilization,
-      subtitle: 'Active members'
+      subtitle: 'Active members',
+      showOnlyForFranchise: true
     }
   ]
+
+  // Filter stat cards based on partner type
+  const statCards = allStatCards.filter(card => 
+    !card.showOnlyForFranchise || showTeamSection
+  )
 
   const COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ef4444']
 

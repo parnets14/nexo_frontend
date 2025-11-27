@@ -19,6 +19,7 @@ import { partnerApi } from '../services/partnerApi'
 
 const PartnerOnboarding = () => {
   const [selectedCategory, setSelectedCategory] = useState('ac-technician')
+  const [selectedPartnerType, setSelectedPartnerType] = useState('all')
   const whatsappNumber = "919590926068"
 
   const categories = {
@@ -31,30 +32,7 @@ const PartnerOnboarding = () => {
   }
 
   const [mgPlans, setMgPlans] = useState([
-    {
-      name: 'Silver',
-      price: 1000,
-      leads: 20,
-      commission: 5,
-      icon: '🥈',
-      features: ['20 Guaranteed Leads/month', '5% Commission Rate', 'Priority Support']
-    },
-    {
-      name: 'Gold',
-      price: 2000,
-      leads: 50,
-      commission: 4,
-      icon: '🥇',
-      features: ['50 Guaranteed Leads/month', '4% Commission Rate', 'Priority Support', 'Weekly Reports']
-    },
-    {
-      name: 'Platinum',
-      price: 5000,
-      leads: 150,
-      commission: 3,
-      icon: '💎',
-      features: ['150 Guaranteed Leads/month', '3% Commission Rate', 'Premium Support', 'Daily Reports', 'Featured Listing']
-    },
+   
   ])
 
   // Fetch MG Plans from backend
@@ -107,7 +85,8 @@ const PartnerOnboarding = () => {
                 leads: plan.leads || 0,
                 commission: plan.commission || 0,
                 icon: icon,
-                features: features
+                features: features,
+                partnerType: plan.partnerType || 'both'
               }
             })
             
@@ -520,13 +499,73 @@ const PartnerOnboarding = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.6 }}
-              className="text-center mb-12 sm:mb-16"
+              className="text-center mb-8 sm:mb-12"
             >
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-3 sm:mb-4">MG Plan</h2>
+              
+              {/* Partner Type Filter */}
+              <div className="flex justify-center gap-2 sm:gap-3 mt-6">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedPartnerType('all')}
+                  className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-sm sm:text-base font-semibold transition-all ${
+                    selectedPartnerType === 'all'
+                      ? 'bg-primary text-white shadow-lg'
+                      : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-primary'
+                  }`}
+                >
+                  👥 All Plans
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedPartnerType('individual')}
+                  className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-sm sm:text-base font-semibold transition-all ${
+                    selectedPartnerType === 'individual'
+                      ? 'bg-primary text-white shadow-lg'
+                      : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-primary'
+                  }`}
+                >
+                  👤 Individual
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedPartnerType('franchise')}
+                  className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-sm sm:text-base font-semibold transition-all ${
+                    selectedPartnerType === 'franchise'
+                      ? 'bg-primary text-white shadow-lg'
+                      : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-primary'
+                  }`}
+                >
+                  🏢 Franchise
+                </motion.button>
+              </div>
             </motion.div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {mgPlans.map((plan, index) => (
+            {mgPlans.filter(plan => {
+              if (selectedPartnerType === 'all') return true
+              return plan.partnerType === selectedPartnerType || plan.partnerType === 'both'
+            }).length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center py-12 bg-white rounded-2xl shadow-lg border-2 border-dashed border-gray-300"
+              >
+                <p className="text-gray-600 text-lg font-medium mb-2">No plans available</p>
+                <p className="text-gray-500 text-sm">
+                  No plans found for {selectedPartnerType === 'individual' ? 'Individual' : 'Franchise'} partners.
+                </p>
+              </motion.div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                {mgPlans
+                  .filter(plan => {
+                    if (selectedPartnerType === 'all') return true
+                    return plan.partnerType === selectedPartnerType || plan.partnerType === 'both'
+                  })
+                  .map((plan, index) => (
                 <motion.div
                   key={plan.name}
                   initial={{ opacity: 0, y: 30 }}
@@ -538,7 +577,22 @@ const PartnerOnboarding = () => {
                     plan.name === 'Platinum' ? 'border-primary scale-105 lg:scale-105 sm:scale-100' : 'border-gray-200'
                   }`}
                 >
-                  <div className="text-4xl mb-3">{plan.icon}</div>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="text-4xl">{plan.icon}</div>
+                    {plan.partnerType && (
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${
+                        plan.partnerType === 'individual' 
+                          ? 'bg-slate-100 text-slate-700' 
+                          : plan.partnerType === 'franchise' 
+                          ? 'bg-purple-100 text-purple-700' 
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {plan.partnerType === 'individual' ? '👤 Individual' : 
+                         plan.partnerType === 'franchise' ? '🏢 Franchise' : 
+                         '👥 All Partners'}
+                      </span>
+                    )}
+                  </div>
                   <h3 className="text-xl sm:text-2xl font-bold text-primary mb-2">{plan.name}</h3>
                   <div className="mb-4 sm:mb-6">
                     <span className="text-3xl sm:text-4xl font-bold text-primary">₹{plan.price.toLocaleString('en-IN')}</span>
@@ -574,8 +628,9 @@ const PartnerOnboarding = () => {
                     Choose {plan.name} Plan
                   </motion.a>
                 </motion.div>
-              ))}
-            </div>
+                  ))}
+              </div>
+            )}
           </div>
         </section>
 

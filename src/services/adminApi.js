@@ -256,6 +256,15 @@ export const adminApi = {
     return handleResponse(response)
   },
 
+  async approvePartnerPayment(token, partnerId, paymentData) {
+    const response = await fetch(buildUrl(`/api/admin/partners/${partnerId}/approve-payment`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(paymentData)
+    })
+    return handleResponse(response)
+  },
+
   async suspendPartner(token, partnerId) {
     const response = await fetch(buildUrl(`/api/admin/partner/${partnerId}/status`), {
       method: 'PUT',
@@ -1212,6 +1221,39 @@ export const adminApi = {
     return handleResponse(response)
   },
 
+  // Quotations
+  async getAllQuotations(token, params = {}) {
+    const queryParams = new URLSearchParams(params).toString()
+    const response = await fetch(buildUrl(`/api/admin/quotations?${queryParams}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getQuotationById(token, quotationId) {
+    const response = await fetch(buildUrl(`/api/admin/quotations/${quotationId}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async approveQuotation(token, quotationId) {
+    const response = await fetch(buildUrl(`/api/admin/quotations/${quotationId}/approve`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async rejectQuotation(token, quotationId, reason) {
+    const response = await fetch(buildUrl(`/api/admin/quotations/${quotationId}/reject`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ rejectionReason: reason })
+    })
+    return handleResponse(response)
+  },
+
   async markNotificationsAsRead(token) {
     const response = await fetch(buildUrl('/api/firebase/mark-read'), {
       method: 'PUT',
@@ -1224,6 +1266,75 @@ export const adminApi = {
     const response = await fetch(buildUrl(`/api/firebase/${notificationId}/mark-read`), {
       method: 'PUT',
       headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // WhatsApp Management
+  async initializeWhatsApp(token) {
+    const response = await fetch(buildUrl('/api/admin/whatsapp/initialize'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getWhatsAppQRCode(token) {
+    const response = await fetch(buildUrl('/api/admin/whatsapp/qr-code'), {
+      method: 'GET',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getWhatsAppStatus(token) {
+    const response = await fetch(buildUrl('/api/admin/whatsapp/status'), {
+      method: 'GET',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async disconnectWhatsApp(token) {
+    const response = await fetch(buildUrl('/api/admin/whatsapp/disconnect'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async sendTestWhatsAppMessage(token, phoneNumber, message) {
+    const response = await fetch(buildUrl('/api/admin/whatsapp/test-message'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ phoneNumber, message })
+    })
+    return handleResponse(response)
+  },
+
+  async reconnectWhatsApp(token) {
+    const response = await fetch(buildUrl('/api/admin/whatsapp/reconnect'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async setAutoReconnect(token, enabled) {
+    const response = await fetch(buildUrl('/api/admin/whatsapp/auto-reconnect'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ enabled })
+    })
+    return handleResponse(response)
+  },
+
+  // Manual Partner Registration
+  async manualPartnerRegistration(token, partnerData) {
+    const response = await fetch(buildUrl('/api/admin/partners/manual-register'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(partnerData)
     })
     return handleResponse(response)
   }

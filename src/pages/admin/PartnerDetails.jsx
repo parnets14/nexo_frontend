@@ -25,7 +25,8 @@ import {
   FiUpload,
   FiImage,
   FiCheck,
-  FiEye
+  FiEye,
+  FiLoader
 } from 'react-icons/fi'
 import PartnerIDCard from '../../components/PartnerIDCard.jsx'
 import ModuleHeader from '../../components/admin/ModuleHeader.jsx'
@@ -75,6 +76,7 @@ const PartnerDetails = () => {
     whatsappNumber: '',
     qualification: '',
     experience: '',
+    partnerType: 'individual',
     address: '',
     landmark: '',
     pincode: '',
@@ -94,11 +96,14 @@ const PartnerDetails = () => {
     // Payment Info
     registerAmount: '',
     payId: '',
-    paidBy: ''
+    paidBy: '',
+    // Profile Status
+    profileCompleted: false
   })
   const [categories, setCategories] = useState([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [updateLoading, setUpdateLoading] = useState(false)
+  const [paymentApprovalLoading, setPaymentApprovalLoading] = useState(false)
   const [updateError, setUpdateError] = useState('')
   const [updateSuccess, setUpdateSuccess] = useState('')
   const [showKYCModal, setShowKYCModal] = useState(false)
@@ -113,6 +118,26 @@ const PartnerDetails = () => {
   })
   const [profileImage, setProfileImage] = useState(null)
   const [uploading, setUploading] = useState(false)
+  
+  // MG Plan states
+  const [showMGPlanModal, setShowMGPlanModal] = useState(false)
+  const [mgPlans, setMgPlans] = useState([])
+  const [selectedMGPlanId, setSelectedMGPlanId] = useState(null)
+  const [mgPlanSubmitting, setMgPlanSubmitting] = useState(false)
+  const [mgPlanPaymentMethod, setMgPlanPaymentMethod] = useState('cash')
+  const [mgPlanCollectedBy, setMgPlanCollectedBy] = useState('')
+  const [mgPlanTransactionId, setMgPlanTransactionId] = useState('')
+  
+  // Update payment details for current plan
+  const [showUpdatePaymentDetails, setShowUpdatePaymentDetails] = useState(false)
+  const [updatePaymentMethod, setUpdatePaymentMethod] = useState('cash')
+  const [updateCollectedBy, setUpdateCollectedBy] = useState('')
+  const [updateTransactionId, setUpdateTransactionId] = useState('')
+  const [updatingPayment, setUpdatingPayment] = useState(false)
+  
+  // Payment tracking states
+  const [paymentMode, setPaymentMode] = useState('cash')
+  const [transactionId, setTransactionId] = useState('')
   const [showTransactionsModal, setShowTransactionsModal] = useState(false)
   const [showFeeTransactionsModal, setShowFeeTransactionsModal] = useState(false)
   const [showIDCard, setShowIDCard] = useState(false)
@@ -223,6 +248,75 @@ const PartnerDetails = () => {
     fetchCategories()
   }, [token])
 
+  // Fetch MG Plans filtered by partner type
+  useEffect(() => {
+    const fetchMGPlans = async () => {
+      // Get partner data from the data sources
+      const fullPartner = partnerDetailsData?.partner || {}
+      const earningsPartner = earningsData?.partner || {}
+      const partnerData = { ...earningsPartner, ...fullPartner }
+      
+      if (!token || !partnerData?._id) return
+      
+      try {
+        const response = await adminApi.fetchMGPlans(token)
+        const plans = response.plans || response.data || []
+        
+        // Filter by partner type
+        const partnerType = partnerData?.partnerType || 'individual'
+        const filteredPlans = plans.filter(plan => {
+          if (!plan.partnerType || plan.partnerType === 'both') return true
+          return plan.partnerType === partnerType
+        })
+        
+        setMgPlans(filteredPlans)
+      } catch (error) {
+        console.error('Error fetching MG plans:', error)
+      }
+    }
+    
+    fetchMGPlans()
+  }, [token, partnerDetailsData, earningsData])
+
+  const handlePaymentApproval = async () => {
+    if (!partner?.profile?.payId) {
+      alert('Payment ID is required for approval')
+      return
+    }
+
+    setPaymentApprovalLoading(true)
+    try {
+      // Create payment approval data
+      const paymentData = {
+        id: partnerId,
+        registerAmount: updateForm.registerAmount || partner?.profile?.registerAmount || 0,
+        payId: updateForm.payId || partner?.profile?.payId,
+        paidBy: updateForm.paidBy || partner?.profile?.paidBy || 'Manual Approval',
+        securityDeposit: updateForm.securityDeposit || partner?.profile?.securityDeposit || 0,
+        toolkitPrice: updateForm.toolkitPrice || partner?.profile?.toolkitPrice || 0,
+        paymentApproved: true,
+        approvedBy: 'Admin',
+        approvedAt: new Date().toISOString()
+      }
+
+      // Call the complete payment API to approve the payment
+      const response = await adminApi.approvePartnerPayment(token, partnerId, paymentData)
+
+      if (response.success) {
+        alert('Payment approved successfully!')
+        // Refresh the partner data
+        window.location.reload()
+      } else {
+        alert('Failed to approve payment: ' + (response.message || 'Unknown error'))
+      }
+    } catch (error) {
+      console.error('Payment approval error:', error)
+      alert('Error approving payment: ' + error.message)
+    } finally {
+      setPaymentApprovalLoading(false)
+    }
+  }
+
   const handleAddTransaction = async (e) => {
     e.preventDefault()
     if (!transactionAmount || !transactionDescription) {
@@ -237,6 +331,8 @@ const PartnerDetails = () => {
         amount: Number(transactionAmount),
         description: transactionDescription,
         reference: transactionReference || undefined,
+        paymentMode: paymentMode, // NEW
+        transactionId: transactionId || undefined, // NEW
         partner: partnerId
       })
       
@@ -244,6 +340,8 @@ const PartnerDetails = () => {
       setTransactionAmount('')
       setTransactionDescription('')
       setTransactionReference('')
+      setPaymentMode('cash') // NEW - Reset
+      setTransactionId('') // NEW - Reset
       setShowTransactionModal(false)
       
       // Refetch wallet data
@@ -255,6 +353,127 @@ const PartnerDetails = () => {
       alert(error.message || 'Failed to add transaction')
     } finally {
       setSubmitting(false)
+    }
+  }
+  
+  // Handle updating payment details for current plan
+  const handleUpdatePaymentDetails = async () => {
+    // Validate payment details based on method
+    if (updatePaymentMethod === 'cash' && !updateCollectedBy.trim()) {
+      alert('Please enter who collected the payment')
+      return
+    }
+    
+    if ((updatePaymentMethod === 'online' || updatePaymentMethod === 'upi') && !updateTransactionId.trim()) {
+      alert('Please enter the transaction ID')
+      return
+    }
+    
+    setUpdatingPayment(true)
+    try {
+      const paymentDetails = {
+        paymentMethod: updatePaymentMethod,
+        ...(updatePaymentMethod === 'cash' 
+          ? { collectedBy: updateCollectedBy }
+          : { transactionId: updateTransactionId }
+        )
+      }
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/partners/${partnerId}/mg-plan/payment-details`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(paymentDetails)
+        }
+      )
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        alert('Payment details updated successfully!')
+        setShowUpdatePaymentDetails(false)
+        setUpdatePaymentMethod('cash')
+        setUpdateCollectedBy('')
+        setUpdateTransactionId('')
+        // Refresh partner data
+        window.location.reload()
+      } else {
+        alert(data.message || 'Failed to update payment details')
+      }
+    } catch (error) {
+      console.error('Error updating payment details:', error)
+      alert('Error updating payment details')
+    } finally {
+      setUpdatingPayment(false)
+    }
+  }
+  
+  // Handle MG Plan Assignment
+  const handleAssignMGPlan = async () => {
+    if (!selectedMGPlanId) {
+      alert('Please select an MG plan')
+      return
+    }
+    
+    // Validate payment details based on method
+    if (mgPlanPaymentMethod === 'cash' && !mgPlanCollectedBy.trim()) {
+      alert('Please enter who collected the payment')
+      return
+    }
+    
+    if ((mgPlanPaymentMethod === 'online' || mgPlanPaymentMethod === 'upi') && !mgPlanTransactionId.trim()) {
+      alert('Please enter the transaction ID')
+      return
+    }
+    
+    setMgPlanSubmitting(true)
+    try {
+      const paymentDetails = {
+        paymentMethod: mgPlanPaymentMethod,
+        ...(mgPlanPaymentMethod === 'cash' 
+          ? { collectedBy: mgPlanCollectedBy }
+          : { transactionId: mgPlanTransactionId }
+        )
+      }
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/mg-plans/${selectedMGPlanId}/subscribe`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ 
+            partnerId,
+            ...paymentDetails
+          })
+        }
+      )
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        alert('MG Plan assigned successfully!')
+        setShowMGPlanModal(false)
+        setSelectedMGPlanId(null)
+        setMgPlanPaymentMethod('cash')
+        setMgPlanCollectedBy('')
+        setMgPlanTransactionId('')
+        // Refresh partner data
+        window.location.reload()
+      } else {
+        alert(data.message || 'Failed to assign MG plan')
+      }
+    } catch (error) {
+      console.error('Error assigning MG plan:', error)
+      alert('Error assigning MG plan')
+    } finally {
+      setMgPlanSubmitting(false)
     }
   }
 
@@ -321,11 +540,24 @@ const PartnerDetails = () => {
 
   // Consolidate partner data from all sources - use fullPartner as primary, fallback to earningsData partner
   const fullPartner = partnerDetailsData?.partner || {}
+
   const earningsPartner = earningsData?.partner || {}
   const partner = { ...earningsPartner, ...fullPartner } // Merge with fullPartner taking precedence
   const mgPlanSummary = partner?.mgPlanSummary || {}
   
-  // Get all partner data - consolidated to avoid repetition
+  // Debug logging for payment data
+  console.log('Partner Payment Data:', {
+    partnerId: partner?._id,
+    registerAmount: partner?.profile?.registerAmount,
+    payId: partner?.profile?.payId,
+    paidBy: partner?.profile?.paidBy,
+    registerdFee: partner?.profile?.registerdFee,
+    paymentApproved: partner?.profile?.paymentApproved,
+    securityDeposit: partner?.profile?.securityDeposit,
+    toolkitPrice: partner?.profile?.toolkitPrice
+  });
+
+  // Get all partner data - consolida ted to avoid repetition
   const partnerProfile = partner?.profile || {}
   const partnerKYC = partner?.kyc || {}
   const partnerBankDetails = partner?.bankDetails || {}
@@ -1431,6 +1663,7 @@ const PartnerDetails = () => {
                 whatsappNumber: partner?.whatsappNumber || '',
                 qualification: partner?.qualification || '',
                 experience: partner?.experience?.toString() || '',
+                partnerType: partner?.partnerType || 'individual',
                 address: partnerProfile?.address || '',
                 landmark: partnerProfile?.landmark || '',
                 pincode: partnerProfile?.pincode || '',
@@ -1448,9 +1681,13 @@ const PartnerDetails = () => {
                 kycStatus: partnerKYC?.status || '',
                 kycRemarks: partnerKYC?.remarks || '',
                 // Payment Info
-                registerAmount: partnerProfile?.registerAmount?.toString() || '',
-                payId: partnerProfile?.payId || '',
-                paidBy: partnerProfile?.paidBy || ''
+                registerAmount: partner?.profile?.registerAmount?.toString() || '',
+                payId: partner?.profile?.payId || '',
+                paidBy: partner?.profile?.paidBy || '',
+                securityDeposit: partner?.profile?.securityDeposit?.toString() || '',
+                toolkitPrice: partner?.profile?.toolkitPrice?.toString() || '',
+                // Profile Status
+                profileCompleted: partner?.profileCompleted || false
               })
               setShowUpdateModal(true)
               setUpdateError('')
@@ -1630,12 +1867,51 @@ const PartnerDetails = () => {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Profile Status</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                      partner?.profileCompleted
+                        ? 'bg-emerald-500/10 text-emerald-600 status-badge status-approved'
+                        : 'bg-amber-500/10 text-amber-600 status-badge status-pending'
+                    }`}>
+                      {partner?.profileCompleted ? 'COMPLETED' : 'INCOMPLETE'}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        const newStatus = !partner?.profileCompleted
+                        const confirmMessage = newStatus 
+                          ? 'Mark this profile as COMPLETED?' 
+                          : 'Mark this profile as INCOMPLETE?'
+                        
+                        if (window.confirm(confirmMessage)) {
+                          try {
+                            setUpdateLoading(true)
+                            await adminApi.updatePartnerProfile(token, partnerId, {
+                              profileCompleted: newStatus
+                            })
+                            alert('Profile status updated successfully!')
+                            window.location.reload()
+                          } catch (error) {
+                            alert('Failed to update profile status: ' + error.message)
+                          } finally {
+                            setUpdateLoading(false)
+                          }
+                        }
+                      }}
+                      className="print:hidden p-1.5 text-slate-600 hover:text-primary hover:bg-slate-100 rounded-lg transition"
+                      title="Toggle Profile Status"
+                    >
+                      <FiEdit2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Partner Type</p>
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                    partner?.profileCompleted
-                      ? 'bg-emerald-500/10 text-emerald-600 status-badge status-approved'
-                      : 'bg-amber-500/10 text-amber-600 status-badge status-pending'
+                    partner?.partnerType === 'franchise'
+                      ? 'bg-purple-500/10 text-purple-600 status-badge'
+                      : 'bg-blue-500/10 text-blue-600 status-badge'
                   }`}>
-                    {partner?.profileCompleted ? 'COMPLETED' : 'INCOMPLETE'}
+                    {partner?.partnerType === 'franchise' ? 'FRANCHISE' : 'INDIVIDUAL'}
                   </span>
                 </div>
               </div>
@@ -1707,13 +1983,13 @@ const PartnerDetails = () => {
                 <div>
                   <p className="text-sm font-semibold text-slate-500 mb-1 print-label">KYC Status</p>
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                    partnerKYC?.status === 'approved'
+                    (partnerKYC?.status === 'approved' || partner?.status === 'approved')
                       ? 'bg-emerald-500/10 text-emerald-600 status-badge status-approved'
-                      : partnerKYC?.status === 'rejected'
+                      : (partnerKYC?.status === 'rejected' || partner?.status === 'rejected')
                       ? 'bg-rose-500/10 text-rose-600 status-badge status-rejected'
                       : 'bg-amber-500/10 text-amber-600 status-badge status-pending'
                   }`}>
-                    {partnerKYC?.status?.toUpperCase() || 'PENDING'}
+                    {(partnerKYC?.status || partner?.status || 'pending').toUpperCase()}
                   </span>
                 </div>
                 {partnerKYC?.remarks && (
@@ -1922,6 +2198,65 @@ const PartnerDetails = () => {
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Information */}
+            <div className="print-section border-t border-slate-200 pt-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4 print-section-title flex items-center gap-2">
+                <FiCreditCard className="w-5 h-5" />
+                Payment Information
+              </h2>
+              <div className="grid md:grid-cols-2 gap-6 print-grid">
+                <div>
+                  <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Registration Amount</p>
+                  <p className="text-base text-slate-900 print-value">
+                    ₹{(partner?.profile?.registerAmount || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Payment ID</p>
+                  <p className="text-base text-slate-900 print-value font-mono">
+                    {partner?.profile?.payId || 'Not Provided'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Security Deposit</p>
+                  <p className="text-base text-slate-900 print-value">
+                    ₹{(partner?.profile?.securityDeposit || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Toolkit Price</p>
+                  <p className="text-base text-slate-900 print-value">
+                    ₹{(partner?.profile?.toolkitPrice || 0).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Paid By</p>
+                  <p className="text-base text-slate-900 print-value">
+                    {partner?.profile?.paidBy || 'Not Specified'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Payment Status</p>
+                  {partner?.profile?.paymentApproved ? (
+                    <p className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold print-value bg-emerald-500/10 text-emerald-600">
+                      Paid
+                    </p>
+                  ) : (
+                    <button
+                      onClick={handlePaymentApproval}
+                      disabled={paymentApprovalLoading}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {paymentApprovalLoading ? (
+                        <FiLoader className="w-3 h-3 animate-spin mr-1" />
+                      ) : null}
+                      {paymentApprovalLoading ? 'Verifying...' : 'Verify Payment'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -2657,7 +2992,7 @@ const PartnerDetails = () => {
             <p className="text-xs text-slate-500 mb-2">MG Plan</p>
             <div className="flex items-center gap-2">
               <FiAward className="w-5 h-5 text-purple-600" />
-              <div>
+              <div className="flex-1">
                 <p className="text-lg font-bold text-purple-600">
                   {mgPlan?.name || 'No Plan Assigned'}
                 </p>
@@ -2667,6 +3002,12 @@ const PartnerDetails = () => {
                   </p>
                 )}
               </div>
+              <button
+                onClick={() => setShowMGPlanModal(true)}
+                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-semibold"
+              >
+                {mgPlan?.name ? 'Change Plan' : 'Assign Plan'}
+              </button>
             </div>
           </div>
         </div>
@@ -2972,6 +3313,40 @@ const PartnerDetails = () => {
                 />
               </div>
 
+              {/* Payment Mode */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Payment Mode <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={paymentMode}
+                  onChange={(e) => setPaymentMode(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                  required
+                >
+                  <option value="cash">Cash</option>
+                  <option value="online">Online</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                </select>
+              </div>
+
+              {/* Transaction ID (show only for online payments) */}
+              {paymentMode === 'online' && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Transaction ID
+                  </label>
+                  <input
+                    type="text"
+                    value={transactionId}
+                    onChange={(e) => setTransactionId(e.target.value)}
+                    placeholder="Enter transaction/reference ID"
+                    className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                  />
+                </div>
+              )}
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -3034,6 +3409,7 @@ const PartnerDetails = () => {
                     whatsappNumber: updateForm.whatsappNumber,
                     qualification: updateForm.qualification,
                     experience: updateForm.experience,
+                    partnerType: updateForm.partnerType || 'individual',
                     address: updateForm.address,
                     landmark: updateForm.landmark,
                     pincode: updateForm.pincode,
@@ -3155,6 +3531,20 @@ const PartnerDetails = () => {
                     className="w-full px-4 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary"
                     min="0"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Partner Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={updateForm.partnerType || 'individual'}
+                    onChange={(e) => setUpdateForm(prev => ({ ...prev, partnerType: e.target.value }))}
+                    className="w-full px-4 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary"
+                    required
+                  >
+                    <option value="individual">Individual</option>
+                    <option value="franchise">Franchise</option>
+                  </select>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -3429,6 +3819,38 @@ const PartnerDetails = () => {
                 </div>
               </div>
 
+              {/* Profile Status Section */}
+              <div className="border-b border-slate-200 pb-6">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <FiUser className="w-5 h-5" />
+                  Profile Status
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Profile Completion Status
+                    </label>
+                    <select
+                      value={updateForm.profileCompleted ? 'completed' : 'incomplete'}
+                      onChange={(e) => setUpdateForm(prev => ({ ...prev, profileCompleted: e.target.value === 'completed' }))}
+                      className="w-full px-4 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-primary"
+                    >
+                      <option value="incomplete">INCOMPLETE</option>
+                      <option value="completed">COMPLETED</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <div className={`px-4 py-2 rounded-lg text-sm font-semibold ${
+                      updateForm.profileCompleted
+                        ? 'bg-emerald-500/10 text-emerald-600'
+                        : 'bg-amber-500/10 text-amber-600'
+                    }`}>
+                      Current: {updateForm.profileCompleted ? 'COMPLETED' : 'INCOMPLETE'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Payment Information Section */}
               <div className="pb-6">
                 <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
@@ -3472,6 +3894,49 @@ const PartnerDetails = () => {
                       placeholder="e.g., UPI, Bank Transfer, Cash"
                     />
                   </div>
+                </div>
+
+                {/* Payment Status & Approval */}
+                <div className="mt-6 pt-4 border-t border-slate-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Payment Status
+                      </label>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                        partner?.registerdFee && partner?.payId
+                          ? 'bg-emerald-500/10 text-emerald-600'
+                          : 'bg-amber-500/10 text-amber-600'
+                      }`}>
+                        {partner?.registerdFee && partner?.payId ? 'Verified' : 'Pending Verification'}
+                      </span>
+                    </div>
+
+                    {(!partner?.registerdFee || !partner?.payId) && (
+                      <button
+                        type="button"
+                        onClick={handlePaymentApproval}
+                        disabled={paymentApprovalLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                        {paymentApprovalLoading ? (
+                          <FiLoader className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <FiCheckCircle className="w-4 h-4" />
+                        )}
+                        {paymentApprovalLoading ? 'Approving...' : 'Approve Payment'}
+                      </button>
+                    )}
+                  </div>
+
+                  {partner?.registerdFee && partner?.payId && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-emerald-700">
+                        <FiCheckCircle className="w-4 h-4" />
+                        <span className="text-sm font-medium">Payment has been verified and approved</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3950,6 +4415,371 @@ const PartnerDetails = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MG Plan Assignment Modal */}
+      {showMGPlanModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  {mgPlan?.name ? 'Change MG Plan' : 'Assign MG Plan'}
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Select a plan and provide payment details
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowMGPlanModal(false)
+                  setSelectedMGPlanId(null)
+                  setMgPlanPaymentMethod('cash')
+                  setMgPlanCollectedBy('')
+                  setMgPlanTransactionId('')
+                }}
+                className="p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <FiX className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            {/* Show existing plan details if assigned */}
+            {mgPlan?.name && (
+              <div className="mb-6 space-y-4">
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FiAward className="w-5 h-5 text-purple-600" />
+                      <h3 className="font-semibold text-purple-900">Current Plan</h3>
+                    </div>
+                    {!mgPlanSummary?.paymentMethod && (
+                      <button
+                        type="button"
+                        onClick={() => setShowUpdatePaymentDetails(!showUpdatePaymentDetails)}
+                        className="text-xs px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold flex items-center gap-1"
+                      >
+                        <FiEdit2 className="w-3 h-3" />
+                        {showUpdatePaymentDetails ? 'Cancel' : 'Add Payment Details'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                    <div>
+                      <p className="text-slate-500">Plan Name</p>
+                      <p className="font-semibold text-slate-900">{mgPlan.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Leads</p>
+                      <p className="font-semibold text-slate-900">{mgPlan.leads || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Commission</p>
+                      <p className="font-semibold text-slate-900">{mgPlan.commission || 0}%</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Price</p>
+                      <p className="font-semibold text-slate-900">₹{mgPlan.price?.toLocaleString('en-IN') || 0}</p>
+                    </div>
+                    {mgPlanSummary?.paymentMethod && (
+                      <>
+                        <div>
+                          <p className="text-slate-500">Payment Method</p>
+                          <p className="font-semibold text-slate-900 capitalize">{mgPlanSummary.paymentMethod}</p>
+                        </div>
+                        {mgPlanSummary.paymentMethod === 'cash' && mgPlanSummary.collectedBy && (
+                          <div>
+                            <p className="text-slate-500">Collected By</p>
+                            <p className="font-semibold text-slate-900">{mgPlanSummary.collectedBy}</p>
+                          </div>
+                        )}
+                        {(mgPlanSummary.paymentMethod === 'online' || mgPlanSummary.paymentMethod === 'upi') && mgPlanSummary.transactionId && (
+                          <div>
+                            <p className="text-slate-500">Transaction ID</p>
+                            <p className="font-semibold text-slate-900 font-mono text-xs">{mgPlanSummary.transactionId}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Update Payment Details Form */}
+                  {!mgPlanSummary?.paymentMethod && showUpdatePaymentDetails && (
+                    <div className="border-t border-purple-200 pt-4 space-y-4">
+                      <h4 className="text-sm font-semibold text-purple-900">Add Payment Details</h4>
+                      
+                      {/* Payment Method Selection */}
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-2">
+                          Payment Method *
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {['cash', 'online', 'upi'].map((method) => (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() => {
+                                setUpdatePaymentMethod(method)
+                                setUpdateCollectedBy('')
+                                setUpdateTransactionId('')
+                              }}
+                              className={`px-3 py-2 rounded-lg font-semibold text-xs transition ${
+                                updatePaymentMethod === method
+                                  ? 'bg-purple-600 text-white'
+                                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                              }`}
+                            >
+                              {method.toUpperCase()}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Collected By (for cash) */}
+                      {updatePaymentMethod === 'cash' && (
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-2">
+                            Collected By *
+                          </label>
+                          <input
+                            type="text"
+                            value={updateCollectedBy}
+                            onChange={(e) => setUpdateCollectedBy(e.target.value)}
+                            placeholder="Enter name of person who collected payment"
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                          />
+                        </div>
+                      )}
+
+                      {/* Transaction ID (for online/upi) */}
+                      {(updatePaymentMethod === 'online' || updatePaymentMethod === 'upi') && (
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-2">
+                            Transaction ID *
+                          </label>
+                          <input
+                            type="text"
+                            value={updateTransactionId}
+                            onChange={(e) => setUpdateTransactionId(e.target.value)}
+                            placeholder="Enter transaction ID"
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent font-mono"
+                          />
+                        </div>
+                      )}
+
+                      {/* Update Button */}
+                      <button
+                        type="button"
+                        onClick={handleUpdatePaymentDetails}
+                        disabled={updatingPayment}
+                        className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                      >
+                        {updatingPayment ? (
+                          <>
+                            <FiLoader className="w-4 h-4 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <FiCheck className="w-4 h-4" />
+                            Update Payment Details
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Warning if payment details are missing and form not shown */}
+                {!mgPlanSummary?.paymentMethod && !showUpdatePaymentDetails && (
+                  <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <FiAlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-amber-900 mb-1">Payment Details Missing</h4>
+                        <p className="text-sm text-amber-700 mb-2">
+                          This MG plan doesn't have payment details recorded. Click "Add Payment Details" above to add them now.
+                        </p>
+                        <p className="text-xs text-amber-600 italic">
+                          Note: When you change the plan below, you'll be required to provide payment details for the new plan.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <form onSubmit={(e) => { e.preventDefault(); handleAssignMGPlan(); }} className="space-y-6">
+              {/* Plan Selection */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">
+                  Select MG Plan *
+                </label>
+                {mgPlans.length === 0 ? (
+                  <div className="text-center py-8 bg-slate-50 rounded-xl">
+                    <p className="text-slate-500">No MG plans available for this partner type</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {mgPlans.map((plan) => {
+                      const isSelected = selectedMGPlanId === plan._id
+                      return (
+                        <div
+                          key={plan._id}
+                          className={`border-2 rounded-xl p-4 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-purple-600 bg-purple-50'
+                              : 'border-slate-200 hover:border-purple-300 bg-white'
+                          }`}
+                          onClick={() => setSelectedMGPlanId(plan._id)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="radio"
+                              checked={isSelected}
+                              onChange={() => setSelectedMGPlanId(plan._id)}
+                              className="mt-1 w-4 h-4 text-purple-600 border-slate-300 focus:ring-purple-600"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold text-slate-800">{plan.name}</h4>
+                                <span className="text-lg font-bold text-purple-600">
+                                  ₹{plan.price?.toLocaleString('en-IN') || 0}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                <div>
+                                  <p className="text-slate-500">Leads</p>
+                                  <p className="font-semibold text-slate-700">{plan.leads || 0}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Commission</p>
+                                  <p className="font-semibold text-slate-700">{plan.commission || 0}%</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Duration</p>
+                                  <p className="font-semibold text-slate-700">{plan.duration || 0} days</p>
+                                </div>
+                              </div>
+                              {plan.description && (
+                                <p className="text-xs text-slate-500 mt-2">{plan.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Details */}
+              {selectedMGPlanId && (
+                <div className="border-t border-slate-200 pt-6 space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-3">Payment Details</h3>
+                  
+                  {/* Payment Method */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Payment Method *
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {['cash', 'online', 'upi'].map((method) => (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => {
+                            setMgPlanPaymentMethod(method)
+                            setMgPlanCollectedBy('')
+                            setMgPlanTransactionId('')
+                          }}
+                          className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
+                            mgPlanPaymentMethod === method
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          {method.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Collected By (for cash) */}
+                  {mgPlanPaymentMethod === 'cash' && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Collected By *
+                      </label>
+                      <input
+                        type="text"
+                        value={mgPlanCollectedBy}
+                        onChange={(e) => setMgPlanCollectedBy(e.target.value)}
+                        placeholder="Enter name of person who collected payment"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Transaction ID (for online/upi) */}
+                  {(mgPlanPaymentMethod === 'online' || mgPlanPaymentMethod === 'upi') && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Transaction ID *
+                      </label>
+                      <input
+                        type="text"
+                        value={mgPlanTransactionId}
+                        onChange={(e) => setMgPlanTransactionId(e.target.value)}
+                        placeholder="Enter transaction ID"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent font-mono"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMGPlanModal(false)
+                    setSelectedMGPlanId(null)
+                    setMgPlanPaymentMethod('cash')
+                    setMgPlanCollectedBy('')
+                    setMgPlanTransactionId('')
+                  }}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={mgPlanSubmitting || !selectedMGPlanId || mgPlans.length === 0}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {mgPlanSubmitting ? (
+                    <>
+                      <FiLoader className="w-4 h-4 animate-spin" />
+                      Assigning...
+                    </>
+                  ) : (
+                    <>
+                      <FiCheck className="w-4 h-4" />
+                      {mgPlan?.name ? 'Change Plan' : 'Assign Plan'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

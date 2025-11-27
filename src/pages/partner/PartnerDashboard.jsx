@@ -8,15 +8,20 @@ import SparePartsTab from './tabs/SparePartsTab'
 import TransactionsTab from './tabs/TransactionsTab'
 import DashboardOverview from './tabs/DashboardOverview'
 import ProfileTab from './tabs/ProfileTab'
+import { usePartnerAuth } from '../../context/PartnerAuthContext'
 
 const PartnerDashboard = () => {
+  const { partner } = usePartnerAuth()
+  const partnerType = partner?.partnerType || 'individual'
+  const showTeamTab = partnerType === 'franchise'
+
   return (
     <div className="space-y-6">
       <Routes>
         <Route index element={<DashboardOverview />} />
         <Route path="profile" element={<ProfileTab />} />
         <Route path="wallet" element={<WalletTab />} />
-        <Route path="team" element={<TeamMembersTab />} />
+        {showTeamTab && <Route path="team" element={<TeamMembersTab />} />}
         <Route path="jobs" element={<JobsManagementTab />} />
         <Route path="subscription" element={<SubscriptionPlanTab />} />
         <Route path="spare-parts" element={<SparePartsTab />} />

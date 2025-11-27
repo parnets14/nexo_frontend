@@ -48,7 +48,7 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const Home = () => {
   const whatsappNumber = "919590926068"
@@ -126,7 +126,7 @@ const Home = () => {
   useEffect(() => {
     const fetchSubscriptionPlans = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'http://localhost:9088'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
         const response = await fetch(`${apiUrl}/api/public/subscription-plans`)
         const data = await response.json()
         
@@ -191,7 +191,7 @@ const Home = () => {
   useEffect(() => {
     const fetchFeaturedReviews = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'http://localhost:9088'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
         const response = await fetch(`${apiUrl}/api/public/featured-reviews`)
         const data = await response.json()
         

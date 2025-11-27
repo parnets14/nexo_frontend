@@ -4,7 +4,7 @@ import { partnerApi } from '../../../services/partnerApi.js'
 import { FiCreditCard, FiCheck, FiX, FiRefreshCw, FiCalendar } from 'react-icons/fi'
 
 const SubscriptionPlanTab = () => {
-  const { token } = usePartnerAuth()
+  const { token, partner } = usePartnerAuth()
   const [currentPlan, setCurrentPlan] = useState(null)
   const [availablePlans, setAvailablePlans] = useState([])
   const [loading, setLoading] = useState(true)
@@ -20,9 +20,11 @@ const SubscriptionPlanTab = () => {
     setLoading(true)
     setError(null)
     try {
+      // Pass partner type to filter available plans
+      const partnerType = partner?.partnerType || null
       const [currentRes, plansRes] = await Promise.all([
         partnerApi.getCurrentPlan(token).catch(() => null),
-        partnerApi.getMGPlans(token).catch(() => null)
+        partnerApi.getMGPlans(token, partnerType).catch(() => null)
       ])
 
       if (currentRes?.data) {
@@ -99,8 +101,17 @@ const SubscriptionPlanTab = () => {
         <div className="bg-gradient-to-br from-primary to-primary-dark rounded-2xl shadow-xl p-6 sm:p-8 text-white">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Current Plan</h2>
-              <p className="text-sm sm:text-base text-white/80">{currentPlan.name || 'MG Plan'}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <h2 className="text-xl sm:text-2xl font-bold">Current Plan</h2>
+                {currentPlan.plan?.partnerType && (
+                  <span className="text-xs px-2 py-1 bg-white/20 rounded-full font-semibold">
+                    {currentPlan.plan.partnerType === 'individual' ? '👤 Individual' : 
+                     currentPlan.plan.partnerType === 'franchise' ? '🏢 Franchise' : 
+                     '👥 Both'}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm sm:text-base text-white/80">{currentPlan.plan?.name || currentPlan.name || 'MG Plan'}</p>
             </div>
             <div className="bg-white/20 p-3 sm:p-4 rounded-xl self-start sm:self-auto">
               <FiCreditCard className="text-3xl sm:text-4xl" />
@@ -168,7 +179,18 @@ const SubscriptionPlanTab = () => {
       {/* Available Plans */}
       {!currentPlan && (
         <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-3 sm:mb-4">Available Plans</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800">Available Plans</h2>
+            {partner?.partnerType && (
+              <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
+                partner.partnerType === 'individual' 
+                  ? 'bg-slate-100 text-slate-700' 
+                  : 'bg-purple-100 text-purple-700'
+              }`}>
+                {partner.partnerType === 'individual' ? '👤 Individual' : '🏢 Franchise'}
+              </span>
+            )}
+          </div>
           {error ? (
             <div className="text-center text-red-600 py-8">{error}</div>
           ) : availablePlans.length === 0 ? (
@@ -183,7 +205,22 @@ const SubscriptionPlanTab = () => {
                   key={index}
                   className="border-2 border-slate-200 rounded-xl p-4 sm:p-6 hover:border-primary transition"
                 >
-                  <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-2">{plan.name || 'Plan'}</h3>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-800">{plan.name || 'Plan'}</h3>
+                    {plan.partnerType && (
+                      <span className={`text-xs px-2 py-1 rounded-full font-semibold flex-shrink-0 ${
+                        plan.partnerType === 'individual' 
+                          ? 'bg-slate-100 text-slate-700' 
+                          : plan.partnerType === 'franchise' 
+                          ? 'bg-purple-100 text-purple-700' 
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {plan.partnerType === 'individual' ? '👤 Individual' : 
+                         plan.partnerType === 'franchise' ? '🏢 Franchise' : 
+                         '👥 Both'}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-2xl sm:text-3xl font-bold text-primary mb-3 sm:mb-4">
                     ₹{plan.price?.toLocaleString('en-IN') || 0}
                   </p>

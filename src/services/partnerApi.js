@@ -161,6 +161,15 @@ export const partnerApi = {
     return handleResponse(response)
   },
 
+  async updateOnboardingStep(token, stepData) {
+    const response = await fetch(buildUrl('/profile/onboarding-step'), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(stepData)
+    })
+    return handleResponse(response)
+  },
+
   // Update profile
   async updateProfile(token, profileData) {
     // Check if profileData is FormData
@@ -208,8 +217,11 @@ export const partnerApi = {
   },
 
   // MG Plans
-  async getMGPlans(token) {
-    const response = await fetch(buildUrl('/mg-plans'), {
+  async getMGPlans(token, partnerType = null) {
+    const url = partnerType 
+      ? buildUrl(`/mg-plans?partnerType=${partnerType}`)
+      : buildUrl('/mg-plans')
+    const response = await fetch(url, {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
@@ -241,7 +253,7 @@ export const partnerApi = {
 
   // Get Pricing Settings
   async getPricingSettings() {
-    const response = await fetch(`${API_BASE_URL}/api/registerFee/getPricingSettings`, {
+    const response = await fetch(`${API_BASE_URL}/api/registerFee/fees`, {
       headers: getDefaultHeaders()
     })
     return handleResponse(response)
@@ -580,6 +592,69 @@ export const partnerApi = {
   async markNotificationAsRead(token, notificationId) {
     const response = await fetch(buildUrl(`/notifications/${notificationId}/mark-read`), {
       method: 'PUT',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Complete job with photos, videos, and remark
+  async completeJob(token, bookingId, formData) {
+    const response = await fetch(buildUrl(`/bookings/${bookingId}/complete`), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Don't set Content-Type, let browser set it with boundary for FormData
+      },
+      body: formData
+    })
+    return handleResponse(response)
+  },
+
+  // Pause job
+  async pauseJob(token, bookingId, pauseData) {
+    const response = await fetch(buildUrl(`/bookings/${bookingId}/pause`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(pauseData)
+    })
+    return handleResponse(response)
+  },
+
+  // Resume job
+  async resumeJob(token, bookingId) {
+    const response = await fetch(buildUrl(`/bookings/${bookingId}/resume`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Quotation methods
+  async createQuotation(token, bookingId, quotationData) {
+    const response = await fetch(buildUrl(`/bookings/${bookingId}/quotation`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(quotationData)
+    })
+    return handleResponse(response)
+  },
+
+  async getQuotationsByBooking(token, bookingId) {
+    const response = await fetch(buildUrl(`/bookings/${bookingId}/quotations`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getPartnerQuotations(token) {
+    const response = await fetch(buildUrl('/quotations'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getQuotationById(token, quotationId) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}`), {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)

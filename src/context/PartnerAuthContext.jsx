@@ -58,19 +58,49 @@ export const PartnerAuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState)
 
   useEffect(() => {
-    const saved = localStorage.getItem('nexo_partner_auth')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        dispatch({ type: 'INIT', payload: parsed })
-      } catch (error) {
-        console.error('Failed to parse partner auth cache', error)
-        localStorage.removeItem('nexo_partner_auth')
+    const initAuth = async () => {
+      const saved = localStorage.getItem('nexo_partner_auth')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          dispatch({ type: 'INIT', payload: parsed })
+          
+          // Fetch fresh profile data to ensure we have the latest partnerType
+          if (parsed.token) {
+            try {
+              const profileResponse = await partnerApi.getProfile(parsed.token)
+              if (profileResponse.success && profileResponse.profile) {
+                const updatedPartner = {
+                  ...parsed.partner,
+                  ...profileResponse.profile,
+                  profile: {
+                    ...parsed.partner?.profile,
+                    ...profileResponse.profile
+                  }
+                }
+                const updatedPayload = {
+                  token: parsed.token,
+                  partner: updatedPartner
+                }
+                localStorage.setItem('nexo_partner_auth', JSON.stringify(updatedPayload))
+                dispatch({ type: 'UPDATE_PARTNER', payload: updatedPartner })
+              }
+            } catch (profileError) {
+              console.error('Failed to fetch profile on init:', profileError)
+              // Continue with cached data if profile fetch fails
+            }
+          }
+        } catch (error) {
+          console.error('Failed to parse partner auth cache', error)
+          localStorage.removeItem('nexo_partner_auth')
+          dispatch({ type: 'INIT', payload: null })
+        }
+      } else {
         dispatch({ type: 'INIT', payload: null })
       }
-    } else {
-      dispatch({ type: 'INIT', payload: null })
     }
+    
+    initAuth()
   }, [])
 
   // Initialize notifications
@@ -85,9 +115,29 @@ export const PartnerAuthProvider = ({ children }) => {
         try {
           const response = await partnerApi.verifyOTP(phone, otp)
           if (response.success && response.partner) {
+            // Fetch complete profile data to ensure we have all fields including partnerType
+            let completePartner = response.partner
+            try {
+              const profileResponse = await partnerApi.getProfile(response.partner.token)
+              if (profileResponse.success && profileResponse.profile) {
+                // Merge the profile data with the login response
+                completePartner = {
+                  ...response.partner,
+                  ...profileResponse.profile,
+                  profile: {
+                    ...response.partner.profile,
+                    ...profileResponse.profile
+                  }
+                }
+              }
+            } catch (profileError) {
+              console.error('Failed to fetch complete profile:', profileError)
+              // Continue with the login response data if profile fetch fails
+            }
+            
             const payload = {
               token: response.partner.token,
-              partner: response.partner
+              partner: completePartner
             }
             localStorage.setItem('nexo_partner_auth', JSON.stringify(payload))
             dispatch({ type: 'LOGIN_SUCCESS', payload })
@@ -118,6 +168,32 @@ export const PartnerAuthProvider = ({ children }) => {
           } catch (error) {
             console.error('Failed to update partner data', error)
           }
+        }
+      },
+      refreshProfile: async () => {
+        if (!state.token) return
+        try {
+          const profileResponse = await partnerApi.getProfile(state.token)
+          if (profileResponse.success && profileResponse.profile) {
+            const updatedPartner = {
+              ...state.partner,
+              ...profileResponse.profile,
+              profile: {
+                ...state.partner?.profile,
+                ...profileResponse.profile
+              }
+            }
+            const saved = localStorage.getItem('nexo_partner_auth')
+            if (saved) {
+              const parsed = JSON.parse(saved)
+              parsed.partner = updatedPartner
+              localStorage.setItem('nexo_partner_auth', JSON.stringify(parsed))
+            }
+            dispatch({ type: 'UPDATE_PARTNER', payload: updatedPartner })
+            return updatedPartner
+          }
+        } catch (error) {
+          console.error('Failed to refresh profile:', error)
         }
       }
     }),

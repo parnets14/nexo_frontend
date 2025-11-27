@@ -234,6 +234,33 @@ const PartnerControl = () => {
     }
   }
 
+  const handlePaymentApproval = async (partnerId, partnerName) => {
+    if (!confirm(`Are you sure you want to approve payment for ${partnerName}?`)) {
+      return
+    }
+
+    try {
+      const paymentData = {
+        paymentApproved: true,
+        approvedBy: 'Admin',
+        approvedAt: new Date().toISOString()
+      }
+
+      const response = await adminApi.approvePartnerPayment(token, partnerId, paymentData)
+
+      if (response.success) {
+        alert(`Payment approved successfully for ${partnerName}!`)
+        // Refresh the partners list
+        fetchAllPartners()
+      } else {
+        alert(`Failed to approve payment: ${response.message || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Payment approval error:', error)
+      alert(`Error approving payment: ${error.message}`)
+    }
+  }
+
   const handleExportToExcel = () => {
     if (!walletTransactions || walletTransactions.length === 0) {
       alert('No transactions to export')
@@ -291,7 +318,7 @@ const PartnerControl = () => {
     {
       label: 'Active Partners',
       value: partners.filter(p => {
-        const status = p.Profile?.KYC?.status || p.kyc?.status || 'Pending'
+        const status = p.Profile?.KYC?.status || p.kyc?.status || p.status || 'pending'
         return status === 'approved'
       }).length,
       trend: 'Verified and active',
@@ -311,10 +338,19 @@ const PartnerControl = () => {
 
   return (
     <div>
-      <ModuleHeader
-        title="Partner Control"
-        subtitle="Manage the partner lifecycle end-to-end with unified KYC, wallet management, penalty controls, and payouts."
-      />
+      <div className="flex items-center justify-between mb-6">
+        <ModuleHeader
+          title="Partner Control"
+          subtitle="Manage the partner lifecycle end-to-end with unified KYC, wallet management, penalty controls, and payouts."
+        />
+        <button
+          onClick={() => navigate('/admin/partners/manual-register')}
+          className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition flex items-center gap-2 font-semibold shadow-sm"
+        >
+          <FiUsers className="w-5 h-5" />
+          Add New Partner
+        </button>
+      </div>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4 mb-10">
         {partnerStats.map((stat) => (
@@ -400,9 +436,11 @@ const PartnerControl = () => {
                               'Name': partner.Profile?.name || partner.profile?.name || 'N/A',
                               'Email': partner.Profile?.email || partner.profile?.email || 'N/A',
                               'Phone': partner.Profile?.phone || partner.phone || 'N/A',
+                              'Partner Type': (partner.partnerType || partner.Profile?.partnerType || 'individual') === 'franchise' ? 'Franchise' : 'Individual',
                               'City': partner.Profile?.address?.split(',')?.pop()?.trim() || partner.profile?.city || 'N/A',
                               'Total Earnings (₹)': partner.Earnings?.totalEarnings || 0,
-                              'KYC Status': partner.Profile?.KYC?.status || partner.kyc?.status || 'Pending',
+                              'KYC Status': partner.Profile?.KYC?.status || partner.kyc?.status || partner.status || 'pending',
+                              'Payment Status': partner.registerdFee && partner.payId ? 'Verified' : 'Pending',
                               'Status': (partner.Profile?.KYC?.status === 'approved' || partner.kyc?.status === 'approved') ? 'Active' : (partner.Profile?.KYC?.status === 'Pending' || partner.kyc?.status === 'Pending') ? 'KYC Pending' : 'Inactive',
                               'MG Plan': mgPlan?.name || 'No Plan',
                               'Leads Guaranteed': leadsGuaranteed,
@@ -416,9 +454,11 @@ const PartnerControl = () => {
                             { header: 'Name', accessor: 'Name' },
                             { header: 'Email', accessor: 'Email' },
                             { header: 'Phone', accessor: 'Phone' },
+                            { header: 'Partner Type', accessor: 'Partner Type' },
                             { header: 'City', accessor: 'City' },
                             { header: 'Total Earnings (₹)', accessor: 'Total Earnings (₹)' },
                             { header: 'KYC Status', accessor: 'KYC Status' },
+                            { header: 'Payment Status', accessor: 'Payment Status' },
                             { header: 'Status', accessor: 'Status' },
                             { header: 'MG Plan', accessor: 'MG Plan' },
                             { header: 'Leads Guaranteed', accessor: 'Leads Guaranteed' },
@@ -426,7 +466,7 @@ const PartnerControl = () => {
                             { header: 'Leads Remaining', accessor: 'Leads Remaining' },
                             { header: 'Plan Expires', accessor: 'Plan Expires' }
                           ], 'Partners_List', 'Partners', {
-                            columnWidths: [15, 25, 25, 15, 20, 18, 15, 15, 20, 15, 15, 15, 15]
+                            columnWidths: [15, 25, 25, 15, 15, 20, 18, 15, 15, 20, 15, 15, 15, 15, 15]
                           })
                         } catch (err) {
                           console.error('Export error:', err)
@@ -468,6 +508,19 @@ const PartnerControl = () => {
                 const needsRenewal = isExpired || daysUntilRenewal <= 7
                 const planStatus = !mgPlan ? 'No Plan' : isExpired ? 'Expired' : needsRenewal ? 'Needs Renewal' : 'Active'
                 
+                  // Debug: Log partner structure to find partnerType location
+                  if (!partner._partnerTypeLogged) {
+                    console.log('Partner structure:', {
+                      hasPartnerType: !!partner.partnerType,
+                      partnerType: partner.partnerType,
+                      hasProfilePartnerType: !!partner.Profile?.partnerType,
+                      profilePartnerType: partner.Profile?.partnerType,
+                      partnerKeys: Object.keys(partner),
+                      profileKeys: partner.Profile ? Object.keys(partner.Profile) : []
+                    })
+                    partner._partnerTypeLogged = true
+                  }
+
                   const partnerData = {
                   id: partner.Profile?.id || partner._id || partner.id,
                   _id: partner.Profile?.id || partner._id || partner.id,
@@ -475,11 +528,12 @@ const PartnerControl = () => {
                   city: partner.Profile?.address?.split(',')?.pop()?.trim() || partner.profile?.city || partner.profile?.address?.split(',')?.pop()?.trim() || 'N/A',
                   walletBalance: partner.Earnings?.totalEarnings ? `₹${partner.Earnings.totalEarnings.toLocaleString('en-IN')}` : '₹0',
                   totalEarnings: partner.Earnings?.totalEarnings || 0,
-                  complianceScore: (partner.Profile?.KYC?.status === 'approved' || partner.kyc?.status === 'approved') ? '100%' : '0%',
-                  status: (partner.Profile?.KYC?.status === 'approved' || partner.kyc?.status === 'approved') ? 'Active' : (partner.Profile?.KYC?.status === 'Pending' || partner.kyc?.status === 'Pending') ? 'KYC Pending' : 'Inactive',
-                  kycStatus: partner.Profile?.KYC?.status || partner.kyc?.status || 'Pending',
+                  complianceScore: (partner.Profile?.KYC?.status === 'approved' || partner.kyc?.status === 'approved' || partner.status === 'approved') ? '100%' : '0%',
+                  status: (partner.Profile?.KYC?.status === 'approved' || partner.kyc?.status === 'approved' || partner.status === 'approved') ? 'Active' : (partner.Profile?.KYC?.status === 'pending' || partner.kyc?.status === 'pending' || partner.status === 'pending') ? 'KYC Pending' : 'Inactive',
+                  kycStatus: partner.Profile?.KYC?.status || partner.kyc?.status || partner.status || 'pending',
                   email: partner.Profile?.email || partner.profile?.email || 'N/A',
                   phone: partner.Profile?.phone || partner.phone || 'N/A',
+                  partnerType: partner.partnerType || partner.Profile?.partnerType || 'individual',
                   mgPlan: mgPlan ? {
                     name: mgPlan.name || 'N/A',
                     status: planStatus,
@@ -518,12 +572,21 @@ const PartnerControl = () => {
                       className={`px-2.5 py-1 rounded-full font-semibold ${
                             partnerData.status === 'Active'
                           ? 'bg-emerald-500/10 text-emerald-600'
-                              : partnerData.status === 'KYC Pending'
+                              : partnerData.status === 'KYC Pending' || partnerData.kycStatus === 'pending'
                           ? 'bg-amber-500/10 text-amber-600'
                           : 'bg-rose-500/10 text-rose-600'
                       }`}
                     >
                           {partnerData.status}
+                    </span>
+                    <span
+                      className={`px-2.5 py-1 rounded-full font-semibold ${
+                        partnerData.partnerType === 'franchise'
+                          ? 'bg-purple-500/10 text-purple-600'
+                          : 'bg-blue-500/10 text-blue-600'
+                      }`}
+                    >
+                      {partnerData.partnerType === 'franchise' ? 'Franchise' : 'Individual'}
                     </span>
                         {partnerData.mgPlan && (
                       <span
@@ -542,9 +605,32 @@ const PartnerControl = () => {
                             {partnerData.mgPlan.name} {partnerData.mgPlan.status !== 'No Plan' && `(${partnerData.mgPlan.leadsRemaining} left)`}
                       </span>
                     )}
-                    <span className="text-xs text-slate-500 ml-auto">
-                      Click to view details →
-                    </span>
+                    {/* Payment Status and Actions */}
+                    <div className="flex items-center gap-2 ml-auto">
+                      {partnerData['Payment Status'] === 'Pending' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePaymentApproval(partnerData.id, partnerData.name)
+                          }}
+                          className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
+                          title="Approve Payment"
+                        >
+                          <FiCheckCircle className="w-3 h-3" />
+                          Approve Payment
+                        </button>
+                      )}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        partnerData['Payment Status'] === 'Verified'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {partnerData['Payment Status']}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        Click to view details →
+                      </span>
+                    </div>
                   </div>
                 </div>
                   )

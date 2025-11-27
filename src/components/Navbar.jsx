@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import Logo from './Logo'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FaWhatsapp, FaBars, FaTimes, FaUserCheck, FaSignInAlt } from 'react-icons/fa'
+import { FaWhatsapp, FaBars, FaTimes, FaUserCheck } from 'react-icons/fa'
 import { useHashNavigation } from '../utils/hashNavigation'
 
 const Navbar = () => {
@@ -204,22 +204,6 @@ const Navbar = () => {
 
           {/* Right Side - CTA Button */}
           <div className="flex-shrink-0 flex items-center gap-3">
-            {/* Desktop Login Button */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.25 }}
-              className="hidden lg:block"
-            >
-              <Link
-                to="/partner/login"
-                className="text-primary border-2 border-primary px-4 xl:px-5 py-2 xl:py-2.5 rounded-full hover:bg-primary hover:text-white transition-all duration-300 font-semibold shadow-md hover:shadow-lg flex items-center gap-2 text-xs xl:text-sm whitespace-nowrap"
-              >
-                <FaSignInAlt className="w-3 h-3 xl:w-4 xl:h-4" />
-                <span className="hidden 2xl:inline">Login</span>
-                <span className="2xl:hidden">Login</span>
-              </Link>
-            </motion.div>
             {/* Desktop CTA */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
@@ -328,14 +312,6 @@ const Navbar = () => {
                   transition={{ duration: 0.3, delay: navLinks.length * 0.1 }}
                   className="pt-2 space-y-2"
                 >
-                  <Link
-                    to="/partner/login"
-                    onClick={() => setIsOpen(false)}
-                    className="block mx-4 border-2 border-primary text-primary px-6 py-3 rounded-full text-center font-semibold shadow-md hover:bg-primary hover:text-white transition-all duration-300 flex items-center justify-center gap-2"
-                  >
-                    <FaSignInAlt className="w-4 h-4" />
-                    Login
-                  </Link>
                   <Link
                     to="/partner/onboard"
                     onClick={() => setIsOpen(false)}

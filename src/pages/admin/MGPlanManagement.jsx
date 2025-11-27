@@ -25,6 +25,7 @@ const MGPlanManagement = () => {
     features: '',
     validityType: 'monthly',
     validityMonths: '',
+    partnerType: 'individual',
     isDefault: false,
     isActive: true
   })
@@ -46,6 +47,7 @@ const MGPlanManagement = () => {
       features: '',
       validityType: 'monthly',
       validityMonths: '',
+      partnerType: 'individual',
       isDefault: false,
       isActive: true
     })
@@ -66,6 +68,7 @@ const MGPlanManagement = () => {
       features: plan.features?.join('\n') || '',
       validityType: plan.validityType || 'monthly',
       validityMonths: plan.validityType === 'custom' ? (plan.validityMonths || '') : '',
+      partnerType: plan.partnerType || 'individual',
       isDefault: plan.isDefault || false,
       isActive: plan.isActive !== undefined ? plan.isActive : true
     })
@@ -244,7 +247,7 @@ const MGPlanManagement = () => {
                   </div>
                 ) : null}
 
-                <div className="pt-3 border-t">
+                <div className="pt-3 border-t flex items-center gap-2 flex-wrap">
                   <span
                     className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                       plan.isActive
@@ -253,6 +256,17 @@ const MGPlanManagement = () => {
                     }`}
                   >
                     {plan.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      plan.partnerType === 'franchise'
+                        ? 'bg-purple-500/10 text-purple-600'
+                        : plan.partnerType === 'both'
+                        ? 'bg-blue-500/10 text-blue-600'
+                        : 'bg-slate-500/10 text-slate-600'
+                    }`}
+                  >
+                    {plan.partnerType === 'franchise' ? 'Franchise' : plan.partnerType === 'both' ? 'Both' : 'Individual'}
                   </span>
                 </div>
               </div>
@@ -281,10 +295,28 @@ const MGPlanManagement = () => {
                   className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
                   placeholder="Enter plan name (e.g., Silver, Gold, Platinum, Basic, Premium, etc.)"
                   required
-                  disabled={!!editingPlan}
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  Enter any custom plan name. Common examples: Silver, Gold, Platinum, Basic, Premium, Enterprise
+                  You can use the same name for different partner types (e.g., "Silver" for Individual and "Silver" for Franchise)
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Partner Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.partnerType}
+                  onChange={(e) => setFormData(prev => ({ ...prev, partnerType: e.target.value }))}
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                  required
+                >
+                  <option value="individual">Individual Partner</option>
+                  <option value="franchise">Franchise Partner</option>
+                  <option value="both">Both (Individual & Franchise)</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Select which partner type can subscribe to this plan
                 </p>
               </div>
 

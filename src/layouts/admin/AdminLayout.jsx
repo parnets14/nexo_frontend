@@ -45,7 +45,8 @@ const navItems = [
   { label: 'Fee Transactions', icon: FiCreditCard, to: '/admin/fee-transactions' },
   { label: 'Reports', icon: FiSettings, to: '/admin/reports' },
   { label: 'Notifications', icon: FiBell, to: '/admin/notifications' },
-  { label: 'Refund Management', icon: FiRefreshCw, to: '/admin/refunds' }
+  { label: 'Refund Management', icon: FiRefreshCw, to: '/admin/refunds' },
+  { label: 'WhatsApp Settings', icon: FiMessageSquare, to: '/admin/whatsapp-settings' }
 ]
 
 const AdminLayout = () => {

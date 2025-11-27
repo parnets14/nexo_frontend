@@ -24,6 +24,7 @@ import RequireAdminAuth from './layouts/admin/RequireAdminAuth.jsx'
 import AdminOverview from './pages/admin/AdminOverview.jsx'
 import PartnerControl from './pages/admin/PartnerControl.jsx'
 import PartnerDetails from './pages/admin/PartnerDetails.jsx'
+import ManualPartnerRegistration from './pages/admin/ManualPartnerRegistration.jsx'
 import VendorManagement from './pages/admin/VendorManagement.jsx'
 import VendorDetails from './pages/admin/VendorDetails.jsx'
 import CustomerBookings from './pages/admin/CustomerBookings.jsx'
@@ -43,6 +44,7 @@ import PopularServicesManagement from './pages/admin/PopularServicesManagement.j
 import SubscriptionPlanManagement from './pages/admin/SubscriptionPlanManagement.jsx'
 import FeaturedReviewsManagement from './pages/admin/FeaturedReviewsManagement.jsx'
 import AMCPlanManagement from './pages/admin/AMCPlanManagement.jsx'
+import WhatsAppSettings from './pages/admin/WhatsAppSettings.jsx'
 import PartnerLogin from './pages/PartnerLogin.jsx'
 import PartnerDashboard from './pages/partner/PartnerDashboard.jsx'
 import PartnerLayout from './layouts/partner/PartnerLayout.jsx'
@@ -73,6 +75,7 @@ function App() {
           <Route path="/brand-partnerships" element={<BrandPartnerships />} />
           {/* <Route path="/admin-dashboard" element={<AdminMarketingPage />} /> */}
           <Route path="/partner/onboard" element={<PartnerOnboardingForm />} />
+          <Route path="/partner-onboarding" element={<PartnerOnboardingForm />} />
           <Route path="/partner-terms" element={<PartnerTerms />} />
           <Route path="/terms" element={<CustomerTerms />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -89,6 +92,7 @@ function App() {
           <Route element={<AdminLayout />}>
             <Route path="/admin/dashboard" element={<AdminOverview />} />
                   <Route path="/admin/partners" element={<PartnerControl />} />
+                  <Route path="/admin/partners/manual-register" element={<ManualPartnerRegistration />} />
                   <Route path="/admin/partners/:partnerId" element={<PartnerDetails />} />
             <Route path="/admin/vendors" element={<VendorManagement />} />
             <Route path="/admin/vendors/:vendorId" element={<VendorDetails />} />
@@ -109,6 +113,7 @@ function App() {
             <Route path="/admin/subscription-plans" element={<SubscriptionPlanManagement />} />
             <Route path="/admin/amc-plans" element={<AMCPlanManagement />} />
             <Route path="/admin/featured-reviews" element={<FeaturedReviewsManagement />} />
+            <Route path="/admin/whatsapp-settings" element={<WhatsAppSettings />} />
           </Route>
         </Route>
 

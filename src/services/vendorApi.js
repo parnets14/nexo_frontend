@@ -1,5 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_VENDOR_API_BASE_URL ||
   (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const buildUrl = (path) => {
@@ -45,12 +46,22 @@ const handleResponse = async (response) => {
 export const vendorApi = {
   // Authentication
   async sendOTP(phone) {
-    const response = await fetch(buildUrl('/auth/send-otp'), {
-      method: 'POST',
-      headers: getDefaultHeaders(),
-      body: JSON.stringify({ phone })
-    })
-    return handleResponse(response)
+    try {
+      const url = buildUrl('/auth/send-otp')
+      console.log('📤 Vendor OTP API call:', { url, phone })
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: getDefaultHeaders(),
+        body: JSON.stringify({ phone })
+      })
+      
+      console.log('📥 Vendor OTP API response status:', response.status)
+      return handleResponse(response)
+    } catch (error) {
+      console.error('❌ Vendor OTP API fetch error:', error)
+      throw error
+    }
   },
 
   async verifyOTP(phone, otp) {
@@ -209,10 +220,19 @@ export const vendorApi = {
 
   // Notifications
   async getNotifications(token) {
-    const response = await fetch(buildUrl('/notifications'), {
-      headers: getDefaultHeaders(token)
-    })
-    return handleResponse(response)
+    try {
+      const response = await fetch(buildUrl('/notifications'), {
+        headers: getDefaultHeaders(token)
+      })
+      return handleResponse(response)
+    } catch (error) {
+      // Handle connection errors gracefully
+      console.error('Error fetching vendor notifications:', error)
+      if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED'))) {
+        return { success: false, notifications: [], message: 'Unable to connect to server' }
+      }
+      throw error
+    }
   },
 
   async markNotificationAsRead(token, notificationId) {

@@ -16,6 +16,7 @@ const Footer = () => {
       { name: 'About Us', path: '/#about' },
       { name: 'Services', path: '/#services' },
       { name: 'Partner Program', path: '/partner' },
+      { name: 'Partner Login', path: '/partner/login' },
       { name: 'Vendor Login', path: '/vendor/login' },
       { name: 'AMC Plans', path: '/amc' },
     ],
@@ -362,7 +363,8 @@ const Footer = () => {
           className="border-t border-white/20 mt-8 pt-8 text-center"
         >
           <p className="text-sm text-white/60">
-            &copy; {new Date().getFullYear()} Nexo. All rights reserved. | Connect. Work. Grow | Crafted by- <a href='https://parnetsgroup.com' target='_blank' rel='noopener noreferrer' className='hover:text-white transition-colors'><span style={{ color: '#2a017d' }}>Par</span><span style={{ color: '#f65c0d' }}>Nets</span> Software India PVT LTD</a>.
+            &copy; {new Date().getFullYear()} Nexo. All rights reserved. | Connect. Work. Grow 
+            {/* | Crafted by- <a href='https://parnetsgroup.com' target='_blank' rel='noopener noreferrer' className='hover:text-white transition-colors'><span style={{ color: '#2a017d' }}>Par</span><span style={{ color: '#f65c0d' }}>Nets</span> Software India PVT LTD</a>. */}
           </p>
         </motion.div>
       </div>

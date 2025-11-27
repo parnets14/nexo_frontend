@@ -20,7 +20,6 @@ const VendorLogin = () => {
   const [localError, setLocalError] = useState(null)
   const [otpSent, setOtpSent] = useState(false)
   const [otpTimer, setOtpTimer] = useState(0)
-  const [displayOTP, setDisplayOTP] = useState(null)
 
   // OTP Timer
   React.useEffect(() => {
@@ -37,6 +36,7 @@ const VendorLogin = () => {
 
   const handlePhoneSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
     setLocalError(null)
     clearError()
 
@@ -47,20 +47,23 @@ const VendorLogin = () => {
 
     setSubmitting(true)
     try {
+      console.log('📱 Vendor OTP request initiated for:', formData.phone)
       const response = await vendorApi.sendOTP(formData.phone)
-      if (response.success) {
+      console.log('📱 Vendor OTP API response:', response)
+      
+      if (response && response.success) {
         setOtpSent(true)
         setStep(2)
         setOtpTimer(60)
-        if (response.otp) {
-          setDisplayOTP(response.otp)
-          console.log('OTP for development:', response.otp)
-        }
       } else {
-        setLocalError(response.message || 'Failed to send OTP')
+        const errorMsg = response?.message || response?.error || 'Failed to send OTP'
+        setLocalError(errorMsg)
+        console.error('❌ Vendor OTP failed:', errorMsg)
       }
     } catch (err) {
-      setLocalError(err.message || 'Failed to send OTP. Please try again.')
+      console.error('❌ Vendor OTP error:', err)
+      const errorMsg = err.message || err.data?.message || 'Failed to send OTP. Please try again.'
+      setLocalError(errorMsg)
     } finally {
       setSubmitting(false)
     }
@@ -99,10 +102,6 @@ const VendorLogin = () => {
       const response = await vendorApi.sendOTP(formData.phone)
       if (response.success) {
         setOtpTimer(60)
-        if (response.otp) {
-          setDisplayOTP(response.otp)
-          console.log('OTP for development:', response.otp)
-        }
       } else {
         setLocalError(response.message || 'Failed to resend OTP')
       }
@@ -315,27 +314,6 @@ const VendorLogin = () => {
           {/* OTP Step */}
           {loginMethod === 'otp' && step === 2 && (
             <form onSubmit={handleOTPSubmit} className="space-y-6">
-              {displayOTP && (
-                <div className="bg-yellow-500/20 border-2 border-yellow-500/50 rounded-xl p-4 mb-4">
-                  <p className="text-xs text-yellow-200 mb-2 font-semibold uppercase tracking-wide">
-                    Development Mode - OTP
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-2xl font-bold text-yellow-100 font-mono tracking-widest">
-                      {displayOTP}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, otp: displayOTP }))
-                      }}
-                      className="px-4 py-2 bg-yellow-500/30 hover:bg-yellow-500/40 text-yellow-100 rounded-lg text-sm font-semibold transition"
-                    >
-                      Fill OTP
-                    </button>
-                  </div>
-                </div>
-              )}
               <div>
                 <label className="block text-sm font-semibold text-slate-200 mb-2">
                   Enter OTP
