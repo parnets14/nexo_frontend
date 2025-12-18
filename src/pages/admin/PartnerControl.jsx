@@ -153,6 +153,14 @@ const PartnerControl = () => {
   const [error, setError] = useState(null)
   const [walletTransactions, setWalletTransactions] = useState([])
   const [walletTransactionsLoading, setWalletTransactionsLoading] = useState(false)
+  const [revenueStats, setRevenueStats] = useState({
+    totalRegistrationFees: 0,
+    totalSecurityDeposit: 0,
+    totalToolkitFees: 0,
+    totalMGPlanRevenue: 0,
+    totalPartnerEarnings: 0,
+    totalRevenue: 0
+  })
 
   // Fetch partners with search and pagination
   useEffect(() => {
@@ -184,6 +192,24 @@ const PartnerControl = () => {
 
       return () => clearTimeout(timer)
   }, [currentPage, searchQuery, statusFilter, token, pageSize])
+
+  // Fetch revenue statistics
+  useEffect(() => {
+    if (!token) return
+    
+    const fetchRevenueStats = async () => {
+      try {
+        const data = await adminApi.fetchPartnerRevenueStats(token)
+        if (data?.success && data?.stats) {
+          setRevenueStats(data.stats)
+        }
+      } catch (err) {
+        console.error('Fetch revenue stats error:', err)
+      }
+    }
+
+    fetchRevenueStats()
+  }, [token])
 
   // Fetch wallet transactions
   useEffect(() => {
@@ -307,6 +333,14 @@ const PartnerControl = () => {
     XLSX.writeFile(wb, filename)
   }
 
+  // Use revenue stats from API (calculated from ALL partners, not just current page)
+  const totalRegistrationFees = revenueStats.totalRegistrationFees
+  const totalSecurityDeposit = revenueStats.totalSecurityDeposit
+  const totalToolkitFees = revenueStats.totalToolkitFees
+  const totalMGPlanRevenue = revenueStats.totalMGPlanRevenue
+  const totalPartnerEarnings = revenueStats.totalPartnerEarnings
+  const totalRevenue = revenueStats.totalRevenue
+
   const partnerStats = [
     {
       label: 'Total Partners',
@@ -324,6 +358,46 @@ const PartnerControl = () => {
       trend: 'Verified and active',
       icon: FiCheckCircle,
       description: 'Approved partners',
+      intent: 'positive'
+    },
+    {
+      label: 'Total Revenue',
+      value: `₹${totalRevenue.toLocaleString('en-IN')}`,
+      trend: `Reg: ₹${totalRegistrationFees.toLocaleString('en-IN')} | SD: ₹${totalSecurityDeposit.toLocaleString('en-IN')} | TK: ₹${totalToolkitFees.toLocaleString('en-IN')}`,
+      description: 'All revenue streams combined',
+      icon: FiAward,
+      intent: 'positive'
+    },
+    {
+      label: 'Registration Fees',
+      value: `₹${totalRegistrationFees.toLocaleString('en-IN')}`,
+      trend: 'Partner onboarding fees',
+      description: 'Total registration revenue',
+      icon: FiCheckCircle,
+      intent: 'positive'
+    },
+    {
+      label: 'Security Deposit',
+      value: `₹${totalSecurityDeposit.toLocaleString('en-IN')}`,
+      trend: 'Refundable deposits',
+      description: 'Total security deposits',
+      icon: FiCheckCircle,
+      intent: 'positive'
+    },
+    {
+      label: 'Toolkit Fees',
+      value: `₹${totalToolkitFees.toLocaleString('en-IN')}`,
+      trend: 'Equipment & tools',
+      description: 'Total toolkit revenue',
+      icon: FiCheckCircle,
+      intent: 'positive'
+    },
+    {
+      label: 'MG Plan Revenue',
+      value: `₹${totalMGPlanRevenue.toLocaleString('en-IN')}`,
+      trend: 'From MG plan subscriptions',
+      description: 'Total MG plan revenue',
+      icon: FiAward,
       intent: 'positive'
     },
     {
@@ -440,8 +514,13 @@ const PartnerControl = () => {
                               'City': partner.Profile?.address?.split(',')?.pop()?.trim() || partner.profile?.city || 'N/A',
                               'Total Earnings (₹)': partner.Earnings?.totalEarnings || 0,
                               'KYC Status': partner.Profile?.KYC?.status || partner.kyc?.status || partner.status || 'pending',
-                              'Payment Status': partner.registerdFee && partner.payId ? 'Verified' : 'Pending',
+                              'Payment Status': (partner.registerAmount > 0 && partner.payId && partner.payId !== 'N/A') ? 'Verified' : 'Pending',
                               'Status': (partner.Profile?.KYC?.status === 'approved' || partner.kyc?.status === 'approved') ? 'Active' : (partner.Profile?.KYC?.status === 'Pending' || partner.kyc?.status === 'Pending') ? 'KYC Pending' : 'Inactive',
+                              'Registration Amount (₹)': partner.registerAmount || 0,
+                              'Security Deposit (₹)': partner.securityDeposit || 0,
+                              'Toolkit Price (₹)': partner.toolkitPrice || 0,
+                              'Pay ID': partner.payId || 'N/A',
+                              'Paid By': partner.paidBy || 'N/A',
                               'MG Plan': mgPlan?.name || 'No Plan',
                               'Leads Guaranteed': leadsGuaranteed,
                               'Leads Used': leadsUsed,
@@ -460,13 +539,18 @@ const PartnerControl = () => {
                             { header: 'KYC Status', accessor: 'KYC Status' },
                             { header: 'Payment Status', accessor: 'Payment Status' },
                             { header: 'Status', accessor: 'Status' },
+                            { header: 'Registration Amount (₹)', accessor: 'Registration Amount (₹)' },
+                            { header: 'Security Deposit (₹)', accessor: 'Security Deposit (₹)' },
+                            { header: 'Toolkit Price (₹)', accessor: 'Toolkit Price (₹)' },
+                            { header: 'Pay ID', accessor: 'Pay ID' },
+                            { header: 'Paid By', accessor: 'Paid By' },
                             { header: 'MG Plan', accessor: 'MG Plan' },
                             { header: 'Leads Guaranteed', accessor: 'Leads Guaranteed' },
                             { header: 'Leads Used', accessor: 'Leads Used' },
                             { header: 'Leads Remaining', accessor: 'Leads Remaining' },
                             { header: 'Plan Expires', accessor: 'Plan Expires' }
                           ], 'Partners_List', 'Partners', {
-                            columnWidths: [15, 25, 25, 15, 15, 20, 18, 15, 15, 20, 15, 15, 15, 15, 15]
+                            columnWidths: [15, 25, 25, 15, 15, 20, 18, 15, 15, 20, 18, 18, 15, 15, 15, 15, 15, 15, 15, 15]
                           })
                         } catch (err) {
                           console.error('Export error:', err)
@@ -534,6 +618,13 @@ const PartnerControl = () => {
                   email: partner.Profile?.email || partner.profile?.email || 'N/A',
                   phone: partner.Profile?.phone || partner.phone || 'N/A',
                   partnerType: partner.partnerType || partner.Profile?.partnerType || 'individual',
+                  // Registration data - access from root level, not Profile
+                  registerAmount: partner.registerAmount || 0,
+                  securityDeposit: partner.securityDeposit || 0,
+                  toolkitPrice: partner.toolkitPrice || 0,
+                  payId: partner.payId || 'N/A',
+                  paidBy: partner.paidBy || 'N/A',
+                  paymentStatus: (partner.registerAmount > 0 && partner.payId && partner.payId !== 'N/A') ? 'Verified' : 'Pending',
                   mgPlan: mgPlan ? {
                     name: mgPlan.name || 'N/A',
                     status: planStatus,
@@ -588,6 +679,22 @@ const PartnerControl = () => {
                     >
                       {partnerData.partnerType === 'franchise' ? 'Franchise' : 'Individual'}
                     </span>
+                    {/* Registration Data Display */}
+                    {partnerData.registerAmount > 0 && (
+                      <span className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 font-semibold">
+                        Reg: ₹{partnerData.registerAmount.toLocaleString('en-IN')}
+                      </span>
+                    )}
+                    {partnerData.securityDeposit > 0 && (
+                      <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 font-semibold">
+                        SD: ₹{partnerData.securityDeposit.toLocaleString('en-IN')}
+                      </span>
+                    )}
+                    {partnerData.toolkitPrice > 0 && (
+                      <span className="px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-600 font-semibold">
+                        TK: ₹{partnerData.toolkitPrice.toLocaleString('en-IN')}
+                      </span>
+                    )}
                         {partnerData.mgPlan && (
                       <span
                         className={`px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${
@@ -607,7 +714,7 @@ const PartnerControl = () => {
                     )}
                     {/* Payment Status and Actions */}
                     <div className="flex items-center gap-2 ml-auto">
-                      {partnerData['Payment Status'] === 'Pending' && (
+                      {partnerData.paymentStatus === 'Pending' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -621,12 +728,17 @@ const PartnerControl = () => {
                         </button>
                       )}
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        partnerData['Payment Status'] === 'Verified'
+                        partnerData.paymentStatus === 'Verified'
                           ? 'bg-emerald-100 text-emerald-700'
                           : 'bg-amber-100 text-amber-700'
                       }`}>
-                        {partnerData['Payment Status']}
+                        {partnerData.paymentStatus}
                       </span>
+                      {partnerData.payId && partnerData.payId !== 'N/A' && (
+                        <span className="text-xs text-slate-500">
+                          Pay ID: {partnerData.payId}
+                        </span>
+                      )}
                       <span className="text-xs text-slate-500">
                         Click to view details →
                       </span>

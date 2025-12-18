@@ -5,6 +5,7 @@ import App from './App.jsx'
 import { AdminAuthProvider } from './context/AdminAuthContext.jsx'
 import { PartnerAuthProvider } from './context/PartnerAuthContext.jsx'
 import { VendorAuthProvider } from './context/VendorAuthContext.jsx'
+import { UserAuthProvider } from './context/UserAuthContext.jsx'
 import PageLoader from './components/PageLoader.jsx'
 import './index.css'
 
@@ -24,7 +25,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AdminAuthProvider>
       <PartnerAuthProvider>
         <VendorAuthProvider>
-          <App />
+          <UserAuthProvider>
+            <App />
+          </UserAuthProvider>
         </VendorAuthProvider>
       </PartnerAuthProvider>
     </AdminAuthProvider>

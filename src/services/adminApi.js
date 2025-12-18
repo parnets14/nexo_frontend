@@ -210,6 +210,14 @@ export const adminApi = {
     const data = await handleResponse(response)
     return data
   },
+
+  async fetchPartnerRevenueStats(token) {
+    const response = await fetch(buildUrl('/partners-revenue-stats'), {
+      headers: getDefaultHeaders(token)
+    })
+    const data = await handleResponse(response)
+    return data
+  },
   
   async fetchPendingKYC(token) {
     const response = await fetch(buildUrl('/api/admin/partners/kyc/pending'), {
@@ -298,7 +306,8 @@ export const adminApi = {
       limit: params.limit || 10,
       status: params.status || 'all',
       ...(params.fromDate && { fromDate: params.fromDate }),
-      ...(params.toDate && { toDate: params.toDate })
+      ...(params.toDate && { toDate: params.toDate }),
+      ...(params.search && { search: params.search })
     }).toString()
     
     // Backend route is /api/admin/bookings/bookings
@@ -702,6 +711,30 @@ export const adminApi = {
     return handleResponse(response)
   },
 
+  async fetchAMCSubscribers(token) {
+    const response = await fetch(buildUrl('/api/admin/amc-subscribers'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async assignAMCSubscriptionToPartner(token, subscriptionData) {
+    const response = await fetch(buildUrl('/api/admin/amc-subscribers/assign-partner'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(subscriptionData)
+    })
+    return handleResponse(response)
+  },
+
+  async generateAMCPlansFromServices(token) {
+    const response = await fetch(buildUrl('/api/admin/amc-plans/generate-from-services'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
   // Featured Reviews Management
   async fetchFeaturedReviews(token) {
     const response = await fetch(buildUrl('/api/admin/featured-reviews'), {
@@ -997,6 +1030,14 @@ export const adminApi = {
       method: 'PUT',
       headers: getDefaultHeaders(token),
       body: JSON.stringify({ services })
+    })
+    return handleResponse(response)
+  },
+
+  // City Management
+  async fetchAllCities(token) {
+    const response = await fetch(buildUrl('/api/cities/all'), {
+      headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
   },
@@ -1337,6 +1378,37 @@ export const adminApi = {
       body: JSON.stringify(partnerData)
     })
     return handleResponse(response)
+  },
+
+  // Customers Management
+  async fetchCustomers(token, params = {}) {
+    const queryParams = new URLSearchParams({
+      page: params.page || 1,
+      limit: params.limit || 10,
+      ...(params.search && { search: params.search }),
+      ...(params.status && { status: params.status })
+    }).toString()
+    
+    const response = await fetch(buildUrl(`/api/admin/customers?${queryParams}`), {
+      headers: getDefaultHeaders(token)
+    })
+    const data = await handleResponse(response)
+    return data
+  },
+
+  // Customer Bookings - Partner wise details
+  async getCustomerBookingsPartnerWise(token, filters = {}) {
+    const queryParams = new URLSearchParams({
+      ...(filters.dateRange && { dateRange: filters.dateRange }),
+      ...(filters.status && filters.status !== 'all' && { status: filters.status }),
+      ...(filters.partnerType && filters.partnerType !== 'all' && { partnerType: filters.partnerType })
+    }).toString()
+    
+    const response = await fetch(buildUrl(`/api/admin/customer-bookings/partner-wise?${queryParams}`), {
+      headers: getDefaultHeaders(token)
+    })
+    const data = await handleResponse(response)
+    return data
   }
 }
 

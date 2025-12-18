@@ -21,6 +21,7 @@ const FeeTransactions = () => {
   const [filters, setFilters] = useState({
     feeType: 'all',
     status: 'all',
+    source: 'all', // 'all', 'partner', 'user', 'admin'
     startDate: '',
     endDate: ''
   })
@@ -126,6 +127,7 @@ const FeeTransactions = () => {
     setFilters({
       feeType: 'all',
       status: 'all',
+      source: 'all',
       startDate: '',
       endDate: ''
     })
@@ -144,8 +146,32 @@ const FeeTransactions = () => {
         return 'bg-green-500/10 text-green-600'
       case 'lead_fee':
         return 'bg-orange-500/10 text-orange-600'
+      case 'amc_plan':
+        return 'bg-indigo-500/10 text-indigo-600'
+      case 'subscription':
+        return 'bg-pink-500/10 text-pink-600'
+      case 'wallet_recharge':
+        return 'bg-teal-500/10 text-teal-600'
       default:
         return 'bg-slate-500/10 text-slate-600'
+    }
+  }
+
+  const getSourceBadge = (source, metadata) => {
+    const isManualApproval = metadata?.manualApproval === true;
+    
+    switch (source) {
+      case 'partner':
+        return { color: 'bg-blue-500/10 text-blue-600', label: 'Partner Payment' }
+      case 'user':
+        return { color: 'bg-green-500/10 text-green-600', label: 'User Payment' }
+      case 'admin':
+        if (isManualApproval) {
+          return { color: 'bg-orange-500/10 text-orange-600', label: 'Manual Approval', icon: '👤' }
+        }
+        return { color: 'bg-purple-500/10 text-purple-600', label: 'Admin Entry' }
+      default:
+        return { color: 'bg-slate-500/10 text-slate-600', label: 'Unknown' }
     }
   }
 
@@ -205,8 +231,11 @@ const FeeTransactions = () => {
                 onClick={() => {
                   const exportData = transactions.map(txn => ({
                     'Date & Time': new Date(txn.createdAt).toLocaleString('en-IN'),
-                    'Partner Name': txn.partner?.name || txn.metadata?.partnerName || 'Unknown',
-                    'Partner Phone': txn.partner?.phone || txn.metadata?.partnerPhone || txn.partnerId || 'N/A',
+                    'Name': txn.partner?.name || txn.user?.name || txn.metadata?.partnerName || txn.metadata?.userName || 'Unknown',
+                    'Phone': txn.partner?.phone || txn.user?.phone || txn.metadata?.partnerPhone || txn.metadata?.userPhone || txn.partnerId || txn.userId || 'N/A',
+                    'Source': getSourceBadge(txn.source || txn.metadata?.source || 'partner', txn.metadata).label,
+                    'Manual Approval': txn.metadata?.manualApproval ? 'Yes' : 'No',
+                    'Approved By': txn.metadata?.approvedBy || 'N/A',
                     'Amount (₹)': txn.amount || 0,
                     'Status': txn.status?.charAt(0).toUpperCase() + txn.status?.slice(1) || 'Unknown',
                     'Payment Method': txn.paymentMethod?.charAt(0).toUpperCase() + txn.paymentMethod?.slice(1) || 'N/A',
@@ -216,8 +245,11 @@ const FeeTransactions = () => {
                   }))
                   exportToExcel(exportData, [
                     { header: 'Date & Time', accessor: 'Date & Time' },
-                    { header: 'Partner Name', accessor: 'Partner Name' },
-                    { header: 'Partner Phone', accessor: 'Partner Phone' },
+                    { header: 'Name', accessor: 'Name' },
+                    { header: 'Phone', accessor: 'Phone' },
+                    { header: 'Source', accessor: 'Source' },
+                    { header: 'Manual Approval', accessor: 'Manual Approval' },
+                    { header: 'Approved By', accessor: 'Approved By' },
                     { header: 'Amount (₹)', accessor: 'Amount (₹)' },
                     { header: 'Status', accessor: 'Status' },
                     { header: 'Payment Method', accessor: 'Payment Method' },
@@ -225,7 +257,7 @@ const FeeTransactions = () => {
                     { header: 'Description', accessor: 'Description' },
                     { header: 'Fee Type', accessor: 'Fee Type' }
                   ], 'Fee_Transactions', 'Transactions', {
-                    columnWidths: [20, 20, 15, 15, 12, 15, 25, 30, 15]
+                    columnWidths: [20, 20, 15, 12, 12, 15, 15, 12, 15, 25, 30, 15]
                   })
                 }}
                 disabled={!hasTransactions}
@@ -247,7 +279,7 @@ const FeeTransactions = () => {
 
       {/* Statistics Cards - Show even when no data to indicate filter results */}
       {!isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-slate-500">Total Amount</p>
@@ -270,6 +302,19 @@ const FeeTransactions = () => {
               ₹{(stats.successAmount || 0).toLocaleString('en-IN')}
             </p>
             <p className="text-xs text-slate-500 mt-1">{(stats.successCount || 0)} transaction{(stats.successCount || 0) !== 1 ? 's' : ''}</p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-slate-500">Manual Approvals</p>
+              <div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center">
+                <span className="text-xs">👤</span>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-orange-600">
+              {transactions.filter(txn => txn.metadata?.manualApproval).length}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">Admin approved</p>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
@@ -324,7 +369,28 @@ const FeeTransactions = () => {
               <option value="toolkit">Toolkit</option>
               <option value="mg_plan">MG Plan</option>
               <option value="lead_fee">Lead Fee</option>
+              <option value="amc_plan">AMC Plan</option>
+              <option value="subscription">Subscription</option>
+              <option value="wallet_recharge">Wallet Recharge</option>
               <option value="other">Other</option>
+            </select>
+          </div>
+
+          {/* Source Filter */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-2">
+              Transaction Source
+            </label>
+            <select
+              value={filters.source}
+              onChange={(e) => handleFilterChange('source', e.target.value)}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+            >
+              <option value="all">All Sources</option>
+              <option value="partner">Partner Payments</option>
+              <option value="user">User Payments</option>
+              <option value="admin">Admin Manual Entry</option>
+              <option value="manual_approval">Manual Approvals</option>
             </select>
           </div>
 
@@ -376,7 +442,7 @@ const FeeTransactions = () => {
         </div>
 
         {/* Reset Filters Button */}
-        {(filters.feeType !== 'all' || filters.status !== 'all' || filters.startDate || filters.endDate) && (
+        {(filters.feeType !== 'all' || filters.status !== 'all' || filters.source !== 'all' || filters.startDate || filters.endDate) && (
           <div className="mt-4 flex justify-end">
             <button
               onClick={handleResetFilters}
@@ -483,7 +549,8 @@ const FeeTransactions = () => {
                         <thead className="bg-slate-50">
                           <tr>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Date & Time</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Partner</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Partner/User</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Source</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Amount</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase">Payment Method</th>
@@ -508,12 +575,30 @@ const FeeTransactions = () => {
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="text-sm">
                                 <p className="font-semibold text-slate-900">
-                                  {txn.partner?.name || txn.metadata?.partnerName || 'Unknown'}
+                                  {txn.partner?.name || txn.user?.name || txn.metadata?.partnerName || txn.metadata?.userName || 'Unknown'}
                                 </p>
                                 <p className="text-xs text-slate-500">
-                                  {txn.partner?.phone || txn.metadata?.partnerPhone || txn.partnerId}
+                                  {txn.partner?.phone || txn.user?.phone || txn.metadata?.partnerPhone || txn.metadata?.userPhone || txn.partnerId || txn.userId || 'N/A'}
                                 </p>
                               </div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {(() => {
+                                const sourceBadge = getSourceBadge(txn.source || txn.metadata?.source || 'partner', txn.metadata)
+                                return (
+                                  <div className="flex flex-col gap-1">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${sourceBadge.color}`}>
+                                      {sourceBadge.icon && <span className="mr-1">{sourceBadge.icon}</span>}
+                                      {sourceBadge.label}
+                                    </span>
+                                    {txn.metadata?.manualApproval && (
+                                      <span className="text-xs text-orange-600 font-medium">
+                                        By: {txn.metadata.approvedBy || 'Admin'}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <p className="text-sm font-semibold text-slate-900">
@@ -536,6 +621,18 @@ const FeeTransactions = () => {
                             <td className="px-4 py-3 text-sm text-slate-600 max-w-xs">
                               <div>
                                 <p className="truncate">{txn.description || 'N/A'}</p>
+                                
+                                {/* Manual Approval Details */}
+                                {txn.metadata?.manualApproval && (
+                                  <div className="mt-1 text-xs bg-orange-50 border border-orange-200 rounded p-2">
+                                    <p className="font-semibold text-orange-700 mb-1">📋 Manual Approval</p>
+                                    <div className="space-y-0.5 text-orange-600">
+                                      <p>By: {txn.metadata.approvedBy}</p>
+                                      <p>Method: {txn.metadata.paymentMethod || 'Manual'}</p>
+                                    </div>
+                                  </div>
+                                )}
+
                                 {txn.metadata?.priceBreakdown && (
                                   <details className="mt-1">
                                     <summary className="text-xs text-primary cursor-pointer hover:underline">
@@ -600,10 +697,13 @@ const FeeTransactions = () => {
                       Date & Time
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Partner
+                      Partner/User
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Fee Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                      Source
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Amount
@@ -641,10 +741,10 @@ const FeeTransactions = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm">
                                 <p className="font-semibold text-slate-900">
-                                  {txn.partner?.name || txn.metadata?.partnerName || 'Unknown'}
+                                  {txn.partner?.name || txn.user?.name || txn.metadata?.partnerName || txn.metadata?.userName || 'Unknown'}
                                 </p>
                                 <p className="text-xs text-slate-500">
-                                  {txn.partner?.phone || txn.metadata?.partnerPhone || txn.partnerId}
+                                  {txn.partner?.phone || txn.user?.phone || txn.metadata?.partnerPhone || txn.metadata?.userPhone || txn.partnerId || txn.userId || 'N/A'}
                                 </p>
                               </div>
                             </td>
@@ -652,6 +752,24 @@ const FeeTransactions = () => {
                               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getFeeTypeColor(txn.feeType)}`}>
                                 {formatFeeType(txn.feeType)}
                               </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {(() => {
+                                const sourceBadge = getSourceBadge(txn.source || txn.metadata?.source || 'partner', txn.metadata)
+                                return (
+                                  <div className="flex flex-col gap-1">
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${sourceBadge.color}`}>
+                                      {sourceBadge.icon && <span className="mr-1">{sourceBadge.icon}</span>}
+                                      {sourceBadge.label}
+                                    </span>
+                                    {txn.metadata?.manualApproval && (
+                                      <span className="text-xs text-orange-600 font-medium">
+                                        By: {txn.metadata.approvedBy || 'Admin'}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <p className="text-sm font-semibold text-slate-900">
@@ -674,6 +792,23 @@ const FeeTransactions = () => {
                             <td className="px-6 py-4 text-sm text-slate-600 max-w-xs">
                               <div>
                                 <p className="truncate">{txn.description || 'N/A'}</p>
+                                
+                                {/* Manual Approval Details */}
+                                {txn.metadata?.manualApproval && (
+                                  <div className="mt-1 text-xs bg-orange-50 border border-orange-200 rounded p-2">
+                                    <p className="font-semibold text-orange-700 mb-1">📋 Manual Approval Details</p>
+                                    <div className="space-y-0.5 text-orange-600">
+                                      <p>Approved by: {txn.metadata.approvedBy}</p>
+                                      <p>Date: {new Date(txn.metadata.approvedAt).toLocaleDateString('en-IN')}</p>
+                                      <p>Payment Method: {txn.metadata.paymentMethod || 'Manual'}</p>
+                                      {txn.metadata.originalPayId && (
+                                        <p>Reference: {txn.metadata.originalPayId}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Price Breakdown */}
                                 {txn.metadata?.priceBreakdown && (
                                   <details className="mt-1">
                                     <summary className="text-xs text-primary cursor-pointer hover:underline">

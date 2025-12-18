@@ -20,7 +20,8 @@ import {
   FiMessageSquare,
   FiMenu,
   FiX,
-  FiShoppingBag
+  FiShoppingBag,
+  FiMap
 } from 'react-icons/fi'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
 import NotificationBell from '../../components/admin/NotificationBell.jsx'
@@ -30,13 +31,15 @@ const navItems = [
   { label: 'Overview', icon: FiHome, to: '/admin/dashboard' },
   { label: 'Partner Control', icon: FiUsers, to: '/admin/partners' },
   { label: 'Vendor Management', icon: FiShoppingBag, to: '/admin/vendors' },
-  { label: 'Customer Bookings', icon: FiClipboard, to: '/admin/bookings' },
+  { label: 'Customers', icon: FiUsers, to: '/admin/customers' },
+  { label: 'Customer Bookings', icon: FiClipboard, to: '/admin/customer-bookings' },
   { label: 'Category Management', icon: FiTag, to: '/admin/categories' },
   { label: 'Popular Services', icon: FiStar, to: '/admin/popular-services' },
-  { label: 'Subscription Plans', icon: FiAward, to: '/admin/subscription-plans' },
+
   { label: 'AMC Plans', icon: FiBriefcase, to: '/admin/amc-plans' },
   { label: 'Featured Reviews', icon: FiMessageSquare, to: '/admin/featured-reviews' },
   { label: 'Hub Management', icon: FiMapPin, to: '/admin/hubs' },
+  { label: 'City Management', icon: FiMap, to: '/admin/cities' },
   { label: 'Spare Parts', icon: FiPackage, to: '/admin/spares' },
   { label: 'AMC Management', icon: FiBriefcase, to: '/admin/amc' },
   { label: 'Lead Management', icon: FiTrendingUp, to: '/admin/leads' },

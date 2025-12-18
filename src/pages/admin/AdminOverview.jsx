@@ -35,7 +35,7 @@ const quickLinks = [
   },
   { 
     title: 'Monitor live bookings', 
-    to: '/admin/bookings',
+    to: '/admin/customer-bookings',
     icon: FiBriefcase,
     color: 'from-blue-500 to-cyan-500',
     bgColor: 'bg-blue-50',
@@ -103,6 +103,14 @@ const AdminOverview = () => {
     error: countsError
   } = useAdminData(
     (token) => adminApi.fetchDashboardCounts(token),
+    [] // Only fetch once on mount
+  )
+  const {
+    data: revenueStats,
+    isLoading: revenueLoading,
+    error: revenueError
+  } = useAdminData(
+    (token) => adminApi.fetchPartnerRevenueStats(token),
     [] // Only fetch once on mount
   )
 
@@ -413,6 +421,8 @@ const AdminOverview = () => {
     return bookingStats?.completed ? `${bookingStats.completed} completed` : null
   }
 
+  const revenueData = revenueStats?.stats || {}
+  
   const metrics = [
     {
       label: 'Total Bookings',
@@ -433,13 +443,43 @@ const AdminOverview = () => {
       gradient: 'from-indigo-500 to-indigo-600'
     },
     {
+      label: 'Total Revenue',
+      value: `₹${((revenueData.totalRevenue || 0) / 1000).toFixed(0)}K`,
+      trend: `Reg: ₹${((revenueData.totalRegistrationFees || 0) / 1000).toFixed(0)}K | MG: ₹${((revenueData.totalMGPlanRevenue || 0) / 1000).toFixed(0)}K`,
+      description: 'Revenue from approved partners',
+      icon: FiDollarSign,
+      color: 'bg-emerald-500',
+      gradient: 'from-emerald-500 to-emerald-600',
+      intent: 'positive'
+    },
+    {
+      label: 'Registration Fees',
+      value: `₹${((revenueData.totalRegistrationFees || 0) / 1000).toFixed(0)}K`,
+      trend: `SD: ₹${((revenueData.totalSecurityDeposit || 0) / 1000).toFixed(0)}K | TK: ₹${((revenueData.totalToolkitFees || 0) / 1000).toFixed(0)}K`,
+      description: 'Revenue from approved partners only',
+      icon: FiCheckCircle,
+      color: 'bg-purple-500',
+      gradient: 'from-purple-500 to-purple-600',
+      intent: 'positive'
+    },
+    {
+      label: 'MG Plan Revenue',
+      value: `₹${((revenueData.totalMGPlanRevenue || 0) / 1000).toFixed(0)}K`,
+      trend: revenueData.totalMGPlanRevenue > 0 ? 'From subscriptions' : 'No subscriptions yet',
+      description: 'Minimum guarantee plans',
+      icon: FiTrendingUp,
+      color: 'bg-indigo-500',
+      gradient: 'from-indigo-500 to-indigo-600',
+      intent: 'positive'
+    },
+    {
       label: 'Total Users',
       value: countsData?.users ?? 0,
       trend: null,
       description: 'Registered customers',
       icon: FiUser,
-      color: 'bg-purple-500',
-      gradient: 'from-purple-500 to-purple-600'
+      color: 'bg-cyan-500',
+      gradient: 'from-cyan-500 to-cyan-600'
     },
     {
       label: 'KYC Pending',
@@ -526,15 +566,21 @@ const AdminOverview = () => {
               <div className="px-4 py-2 bg-white rounded-lg shadow-sm border border-slate-200">
                 <p className="text-xs text-slate-500">Total Revenue</p>
                 <p className="text-lg font-bold text-slate-800">
-                  ₹{((bookingStats?.totalRevenue || countsData?.totalRevenue || 0) / 100000).toFixed(1)}L
+                  ₹{((revenueStats?.stats?.totalRevenue || bookingStats?.totalRevenue || countsData?.totalRevenue || 0) / 100000).toFixed(1)}L
                 </p>
+                {revenueStats?.stats && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Reg: ₹{((revenueStats.stats.totalRegistrationFees || 0) / 1000).toFixed(0)}K | 
+                    MG: ₹{((revenueStats.stats.totalMGPlanRevenue || 0) / 1000).toFixed(0)}K
+                  </p>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* Stats Cards Grid */}
-        <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {metrics.map((metric) => (
             <StatCard key={metric.label} {...metric} />
           ))}

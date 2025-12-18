@@ -4,6 +4,9 @@ import { ComingSoonProvider } from './contexts/ComingSoonContext'
 import ScrollToTop from './components/ScrollToTop'
 import Home from './pages/Home'
 import ServiceDetail from './pages/ServiceDetail'
+import ServiceCheckout from './pages/ServiceCheckout'
+import PaymentSuccess from './pages/PaymentSuccess'
+import PaymentFailure from './pages/PaymentFailure'
 import PartnerOnboarding from './pages/PartnerOnboarding'
 import LeadMarketplace from './pages/LeadMarketplace'
 import MaterialStore from './pages/MaterialStore'
@@ -27,9 +30,11 @@ import PartnerDetails from './pages/admin/PartnerDetails.jsx'
 import ManualPartnerRegistration from './pages/admin/ManualPartnerRegistration.jsx'
 import VendorManagement from './pages/admin/VendorManagement.jsx'
 import VendorDetails from './pages/admin/VendorDetails.jsx'
+import CustomerManagement from './pages/admin/CustomerManagement.jsx'
 import CustomerBookings from './pages/admin/CustomerBookings.jsx'
 import SpareParts from './pages/admin/SpareParts.jsx'
 import AMCManagement from './pages/admin/AMCManagement.jsx'
+import CityManagement from './pages/admin/CityManagement.jsx'
 import LeadManagement from './pages/admin/LeadManagement.jsx'
 import Reports from './pages/admin/Reports.jsx'
 import Notifications from './pages/admin/Notifications.jsx'
@@ -56,6 +61,13 @@ import RequireVendorAuth from './layouts/vendor/RequireVendorAuth.jsx'
 import VerifyPartner from './pages/VerifyPartner.jsx'
 import NotFound from './pages/NotFound.jsx'
 import NotificationPermissionPrompt from './components/NotificationPermissionPrompt.jsx'
+import UserDashboard from './pages/user/UserDashboard.jsx'
+import UserLayout from './layouts/user/UserLayout.jsx'
+import RequireUserAuth from './layouts/user/RequireUserAuth.jsx'
+import UserLogin from './pages/UserLogin.jsx'
+import UserRegister from './pages/UserRegister.jsx'
+import PaymentResult from './pages/PaymentResult.jsx'
+import TestPayment from './pages/TestPayment.jsx'
 
 function App() {
   return (
@@ -67,6 +79,12 @@ function App() {
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/service/:serviceName" element={<ServiceDetail />} />
+          <Route path="/service/:serviceName/checkout" element={<ServiceCheckout />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/failure" element={<PaymentFailure />} />
+          <Route path="/payment" element={<PaymentResult />} />
+          <Route path="/payment-result" element={<PaymentResult />} />
+          <Route path="/test-payment" element={<TestPayment />} />
           <Route path="/partner" element={<PartnerOnboarding />} />
           <Route path="/leads" element={<LeadMarketplace />} />
           <Route path="/materials" element={<MaterialStore />} />
@@ -87,6 +105,9 @@ function App() {
         <Route path="/admin" element={<AdminLogin />} />
         <Route path="/partner/login" element={<PartnerLogin />} />
         <Route path="/vendor/login" element={<VendorLogin />} />
+        <Route path="/user/login" element={<UserLogin />} />
+        <Route path="/user-login" element={<UserLogin />} />
+        <Route path="/user/register" element={<UserRegister />} />
 
         <Route element={<RequireAdminAuth />}>
           <Route element={<AdminLayout />}>
@@ -96,9 +117,11 @@ function App() {
                   <Route path="/admin/partners/:partnerId" element={<PartnerDetails />} />
             <Route path="/admin/vendors" element={<VendorManagement />} />
             <Route path="/admin/vendors/:vendorId" element={<VendorDetails />} />
-            <Route path="/admin/bookings" element={<CustomerBookings />} />
+            <Route path="/admin/customers" element={<CustomerManagement />} />
+            <Route path="/admin/customer-bookings" element={<CustomerBookings />} />
             <Route path="/admin/spares" element={<SpareParts />} />
             <Route path="/admin/amc" element={<AMCManagement />} />
+            <Route path="/admin/cities" element={<CityManagement />} />
             <Route path="/admin/leads" element={<LeadManagement />} />
             <Route path="/admin/reports" element={<Reports />} />
             <Route path="/admin/notifications" element={<AdminNotifications />} />
@@ -110,7 +133,7 @@ function App() {
             <Route path="/admin/categories" element={<CategoryManagement />} />
             <Route path="/admin/hubs" element={<HubManagement />} />
             <Route path="/admin/popular-services" element={<PopularServicesManagement />} />
-            <Route path="/admin/subscription-plans" element={<SubscriptionPlanManagement />} />
+
             <Route path="/admin/amc-plans" element={<AMCPlanManagement />} />
             <Route path="/admin/featured-reviews" element={<FeaturedReviewsManagement />} />
             <Route path="/admin/whatsapp-settings" element={<WhatsAppSettings />} />
@@ -126,6 +149,12 @@ function App() {
         <Route element={<RequireVendorAuth />}>
           <Route element={<VendorLayout />}>
             <Route path="/vendor/dashboard/*" element={<VendorDashboard />} />
+          </Route>
+        </Route>
+
+        <Route element={<RequireUserAuth />}>
+          <Route element={<UserLayout />}>
+            <Route path="/user/dashboard/*" element={<UserDashboard />} />
           </Route>
         </Route>
 

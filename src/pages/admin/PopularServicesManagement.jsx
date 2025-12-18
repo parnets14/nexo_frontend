@@ -54,6 +54,7 @@ const PopularServicesManagement = () => {
     included: [],
     excluded: [],
     addOns: [],
+    cities: [],
     order: 0,
     isActive: true
   })
@@ -87,6 +88,8 @@ const PopularServicesManagement = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [viewingService, setViewingService] = useState(null)
+  const [cities, setCities] = useState([])
+  const [loadingCities, setLoadingCities] = useState(false)
 
   const { data: servicesData, isLoading, error, refresh } = useAdminData(
     (token) => adminApi.fetchPopularServices(token),
@@ -99,6 +102,27 @@ const PopularServicesManagement = () => {
     service.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     service.slug?.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Fetch cities on component mount
+  useEffect(() => {
+    const fetchCities = async () => {
+      setLoadingCities(true)
+      try {
+        const response = await adminApi.fetchAllCities(token)
+        if (response.success) {
+          setCities(response.data || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch cities:', err)
+      } finally {
+        setLoadingCities(false)
+      }
+    }
+    
+    if (token) {
+      fetchCities()
+    }
+  }, [token])
 
   const handleOpenModal = (service = null) => {
     if (service) {
@@ -125,6 +149,7 @@ const PopularServicesManagement = () => {
           excluded: addOn.excluded || [],
           subServices: addOn.subServices || []
         })) || [],
+        cities: service.cities?.map(city => typeof city === 'string' ? city : city._id) || [],
         order: service.order || 0,
         isActive: service.isActive !== undefined ? service.isActive : true
       })
@@ -147,6 +172,7 @@ const PopularServicesManagement = () => {
         included: [],
         excluded: [],
         addOns: [],
+        cities: [],
         order: services.length > 0 ? Math.max(...services.map(s => s.order || 0)) + 1 : 0,
         isActive: true
       })
@@ -200,6 +226,7 @@ const PopularServicesManagement = () => {
         included: [],
         excluded: [],
         addOns: [],
+        cities: [],
         order: 0,
         isActive: true
       })
@@ -711,6 +738,7 @@ const PopularServicesManagement = () => {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Icon</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Slug</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Cities</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -718,7 +746,7 @@ const PopularServicesManagement = () => {
               <tbody className="divide-y divide-slate-200">
                 {filteredServices.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                    <td colSpan="7" className="px-6 py-12 text-center text-slate-400">
                       No popular services found. Click "Add Service" to create one.
                     </td>
                   </tr>
@@ -762,6 +790,26 @@ const PopularServicesManagement = () => {
                           </td>
                           <td className="px-6 py-4">
                             <div className="text-sm text-slate-500 font-mono">{service.slug}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-xs text-slate-600">
+                              {!service.cities || service.cities.length === 0 ? (
+                                <span className="text-slate-400">All cities</span>
+                              ) : (
+                                <div className="flex flex-wrap gap-1">
+                                  {service.cities.slice(0, 2).map((city, idx) => (
+                                    <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700">
+                                      {typeof city === 'string' ? city : city.name}
+                                    </span>
+                                  ))}
+                                  {service.cities.length > 2 && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                                      +{service.cities.length - 2} more
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
@@ -1363,6 +1411,83 @@ const PopularServicesManagement = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Available Cities
+                </label>
+                {loadingCities ? (
+                  <div className="text-sm text-slate-500">Loading cities...</div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allCityIds = cities.map(c => c._id)
+                          setFormData(prev => ({ ...prev, cities: allCityIds }))
+                        }}
+                        className="px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition font-semibold"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, cities: [] }))}
+                        className="px-3 py-1.5 text-xs bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition font-semibold"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 border-2 border-slate-200 rounded-xl">
+                      {cities.length === 0 ? (
+                        <div className="col-span-full text-sm text-slate-400 text-center py-4">
+                          No cities available. Please add cities first.
+                        </div>
+                      ) : (
+                        cities.map((city) => (
+                          <label
+                            key={city._id}
+                            className={`flex items-center gap-2 p-2 rounded-lg border-2 cursor-pointer transition ${
+                              formData.cities.includes(city._id)
+                                ? 'border-primary bg-primary/5'
+                                : 'border-slate-200 hover:border-primary/50'
+                            } ${!city.isEnabled ? 'opacity-50' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={formData.cities.includes(city._id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    cities: [...prev.cities, city._id]
+                                  }))
+                                } else {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    cities: prev.cities.filter(id => id !== city._id)
+                                  }))
+                                }
+                              }}
+                              className="w-4 h-4 text-primary rounded focus:ring-primary"
+                            />
+                            <span className="text-sm text-slate-700 flex-1">{city.name}</span>
+                            {!city.isEnabled && (
+                              <span className="text-xs text-slate-400">(Disabled)</span>
+                            )}
+                          </label>
+                        ))
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {formData.cities.length === 0 
+                        ? 'No cities selected - service will be available in all cities' 
+                        : `Selected ${formData.cities.length} ${formData.cities.length === 1 ? 'city' : 'cities'}`}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Display Order
                 </label>
                 <input
@@ -1522,7 +1647,24 @@ const PopularServicesManagement = () => {
                 )}
               </div>
 
-          
+              {/* Available Cities */}
+              <div className="bg-slate-50 rounded-xl p-6">
+                <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Available Cities</h4>
+                {!viewingService.cities || viewingService.cities.length === 0 ? (
+                  <p className="text-slate-600">Available in all cities</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {viewingService.cities.map((city, index) => (
+                      <span 
+                        key={index} 
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 text-sm font-semibold"
+                      >
+                        {typeof city === 'string' ? city : city.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Included Items */}
               {viewingService.included && viewingService.included.length > 0 && (

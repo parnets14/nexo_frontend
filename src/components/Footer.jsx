@@ -16,6 +16,7 @@ const Footer = () => {
       { name: 'About Us', path: '/#about' },
       { name: 'Services', path: '/#services' },
       { name: 'Partner Program', path: '/partner' },
+      { name: 'User Login', path: '/user/login' },
       { name: 'Partner Login', path: '/partner/login' },
       { name: 'Vendor Login', path: '/vendor/login' },
       { name: 'AMC Plans', path: '/amc' },

@@ -183,12 +183,14 @@ const PartnerDetails = () => {
         })
         
         // Get assigned hubs - could be populated hub objects or just IDs
-        const assignedHubsRaw = partner.hubs || []
+        // Also check displayHubs (which might be derived from serviceHubs)
+        const assignedHubsRaw = partner.displayHubs || partner.hubs || []
         const assignedHubIds = assignedHubsRaw.map(hub => 
           typeof hub === 'object' && hub._id ? hub._id.toString() : hub.toString()
         )
         
         console.log('Assigned Hub IDs:', assignedHubIds)
+        console.log('Using displayHubs:', !!partner.displayHubs, 'serviceHubs count:', partner.serviceHubs?.length || 0)
         
         // Fetch all available hubs
         const allHubs = await adminApi.fetchHubs(token)
@@ -279,21 +281,32 @@ const PartnerDetails = () => {
   }, [token, partnerDetailsData, earningsData])
 
   const handlePaymentApproval = async () => {
-    if (!partner?.profile?.payId) {
-      alert('Payment ID is required for approval')
+    // Use values from updateForm (which are bound to the input fields)
+    const paymentId = updateForm.payId || partner?.profile?.payId || ''
+    const registerAmount = updateForm.registerAmount || partner?.profile?.registerAmount || 0
+    const paidBy = updateForm.paidBy || partner?.profile?.paidBy || 'Manual Approval'
+    
+    // Validate payment ID
+    if (!paymentId || paymentId.trim() === '') {
+      alert('Please enter a Payment ID before approving')
+      return
+    }
+
+    // Confirm approval with the values from the form
+    if (!confirm(`Approve payment for ${partner?.profile?.name || 'this partner'}?\n\nPayment ID: ${paymentId}\nAmount: ₹${registerAmount}\nPaid By: ${paidBy}`)) {
       return
     }
 
     setPaymentApprovalLoading(true)
     try {
-      // Create payment approval data
+      // Create payment approval data using form values
       const paymentData = {
         id: partnerId,
-        registerAmount: updateForm.registerAmount || partner?.profile?.registerAmount || 0,
-        payId: updateForm.payId || partner?.profile?.payId,
-        paidBy: updateForm.paidBy || partner?.profile?.paidBy || 'Manual Approval',
-        securityDeposit: updateForm.securityDeposit || partner?.profile?.securityDeposit || 0,
-        toolkitPrice: updateForm.toolkitPrice || partner?.profile?.toolkitPrice || 0,
+        registerAmount: parseFloat(registerAmount) || 0,
+        payId: paymentId.trim(),
+        paidBy: paidBy,
+        securityDeposit: parseFloat(updateForm.securityDeposit || partner?.profile?.securityDeposit || 0),
+        toolkitPrice: parseFloat(updateForm.toolkitPrice || partner?.profile?.toolkitPrice || 0),
         paymentApproved: true,
         approvedBy: 'Admin',
         approvedAt: new Date().toISOString()
@@ -2773,7 +2786,7 @@ const PartnerDetails = () => {
                   <div>
                     <h4>16. MG Plan (Minimum Guarantee)</h4>
                     <ul>
-                      <li>MG plan is optional or mandatory as per category.</li>
+                      <li>MG plan is mandatory as per category.</li>
                       <li>MG provides priority leads based on plan.</li>
                       <li>MG fee is non-refundable.</li>
                       <li>Partner failing to meet service quality/minimum performance may lose MG benefits without refund.</li>
@@ -3429,15 +3442,37 @@ const PartnerDetails = () => {
                     // Payment Info
                     registerAmount: updateForm.registerAmount,
                     payId: updateForm.payId,
-                    paidBy: updateForm.paidBy
+                    paidBy: updateForm.paidBy,
+                    securityDeposit: updateForm.securityDeposit,
+                    toolkitPrice: updateForm.toolkitPrice,
+                    // Profile Status
+                    profileCompleted: updateForm.profileCompleted
                   }
                   
-                  await adminApi.updatePartnerProfile(token, partnerId, updateData)
-                  setUpdateSuccess('Partner details updated successfully!')
-                  // Refresh data
-                  window.location.reload()
+                  const response = await adminApi.updatePartnerProfile(token, partnerId, updateData)
+                  
+                  if (response.success) {
+                    setUpdateSuccess('Partner details updated successfully!')
+                    // Refresh data after a short delay to show success message
+                    setTimeout(() => {
+                      window.location.reload()
+                    }, 1000)
+                  } else {
+                    // Handle validation errors
+                    if (response.errors && Array.isArray(response.errors)) {
+                      setUpdateError(response.errors.join(', '))
+                    } else {
+                      setUpdateError(response.message || 'Failed to update partner details')
+                    }
+                  }
                 } catch (err) {
-                  setUpdateError(err.message || 'Failed to update partner details')
+                  console.error('Update error:', err)
+                  // Handle error response
+                  if (err.errors && Array.isArray(err.errors)) {
+                    setUpdateError(err.errors.join(', '))
+                  } else {
+                    setUpdateError(err.message || 'Failed to update partner details')
+                  }
                 } finally {
                   setUpdateLoading(false)
                 }
@@ -3992,6 +4027,14 @@ const PartnerDetails = () => {
             <form
               onSubmit={async (e) => {
                 e.preventDefault()
+                
+                // Check if at least one file is selected
+                const hasFiles = Object.values(kycFiles).some(file => file !== null)
+                if (!hasFiles) {
+                  alert('Please select at least one document to upload')
+                  return
+                }
+                
                 setUploading(true)
                 try {
                   const formData = new FormData()
@@ -4008,7 +4051,7 @@ const PartnerDetails = () => {
                   formData.append('id', partnerId)
                   
                   // Use admin endpoint to update KYC documents
-                  const response = await fetch(`/api/admin/updatedDocuments`, {
+                  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/updatedDocuments`, {
                     method: 'PUT',
                     headers: {
                       'Authorization': `Bearer ${token}`
@@ -4017,13 +4060,25 @@ const PartnerDetails = () => {
                   })
                   
                   const result = await response.json()
-                  if (result.success || result.success === "Successfully updated" || response.ok) {
-                    alert('KYC documents updated successfully!')
+                  
+                  if (result.success === true || response.ok) {
+                    const uploadedCount = result.uploadedFiles?.length || Object.values(kycFiles).filter(f => f !== null).length
+                    alert(`KYC documents updated successfully! ${uploadedCount} file(s) uploaded.`)
+                    setShowKYCModal(false)
+                    setKycFiles({
+                      panCard: null,
+                      aadhaar: null,
+                      aadhaarback: null,
+                      drivingLicence: null,
+                      bill: null,
+                      chequeImage: null
+                    })
                     window.location.reload()
                   } else {
                     alert(result.message || result.error || 'Failed to update KYC documents')
                   }
                 } catch (err) {
+                  console.error('KYC upload error:', err)
                   alert(err.message || 'Failed to update KYC documents')
                 } finally {
                   setUploading(false)
@@ -4131,10 +4186,9 @@ const PartnerDetails = () => {
                 try {
                   const formData = new FormData()
                   formData.append('profileImage', profileImage)
-                  formData.append('id', partnerId)
                   
                   // Update profile with image using FormData
-                  const response = await fetch(`/api/admin/updatePartnerProfile/${partnerId}`, {
+                  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/updatePartnerProfile/${partnerId}`, {
                     method: 'PUT',
                     headers: {
                       'Authorization': `Bearer ${token}`
@@ -4145,11 +4199,14 @@ const PartnerDetails = () => {
                   const result = await response.json()
                   if (result.success) {
                     alert('Profile image updated successfully!')
+                    setShowProfileImageModal(false)
+                    setProfileImage(null)
                     window.location.reload()
                   } else {
                     alert(result.message || 'Failed to update profile image')
                   }
                 } catch (err) {
+                  console.error('Profile image upload error:', err)
                   alert(err.message || 'Failed to update profile image')
                 } finally {
                   setUploading(false)

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { 
-  FaWhatsapp, 
-  FaCheckCircle, 
-  FaSnowflake, 
-  FaBolt, 
-  FaTint, 
+import {
+  FaWhatsapp,
+  FaCheckCircle,
+  FaSnowflake,
+  FaBolt,
+  FaTint,
   FaTools,
   FaHammer,
   FaBroom,
@@ -34,7 +34,9 @@ import {
 } from 'react-icons/fa'
 import SEO from '../components/SEO'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
-import { useComingSoon } from '../contexts/ComingSoonContext'
+import { useUserAuth } from '../context/UserAuthContext'
+
+import '../styles/modal-layers.css'
 
 // Icon mapping utility
 const iconMap = {
@@ -58,7 +60,7 @@ const getIconComponent = (iconName) => {
   return iconMap[iconName] || FaTools // Default icon if not found
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const ServiceDetail = () => {
@@ -66,7 +68,8 @@ const ServiceDetail = () => {
   const navigate = useNavigate()
   const whatsappNumber = "919590926068"
   const handleWhatsAppClick = useWhatsAppClick()
-  
+  const { isAuthenticated, loading: authLoading, user } = useUserAuth()
+
   const [service, setService] = useState(null)
   const [popularServices, setPopularServices] = useState([])
   const [loading, setLoading] = useState(true)
@@ -76,7 +79,36 @@ const ServiceDetail = () => {
   const [selectedAddOnSubServices, setSelectedAddOnSubServices] = useState({}) // { 'addonIndex-subServiceIndex': quantity }
   const [selectedAddOnModal, setSelectedAddOnModal] = useState(null) // { index, addon } - for modal display
   const [showCartModal, setShowCartModal] = useState(false) // Cart modal visibility
-  const { openDialog: openComingSoon } = useComingSoon()
+  const [selectedCity, setSelectedCity] = useState(null) // User's selected city
+  const [showAvailableServices, setShowAvailableServices] = useState(false) // Toggle for available services in cart
+
+
+  // Load selected city from localStorage
+  useEffect(() => {
+    const savedCity = localStorage.getItem('selectedCity')
+    if (savedCity) {
+      try {
+        setSelectedCity(JSON.parse(savedCity))
+      } catch (error) {
+        console.error('Error parsing selected city:', error)
+      }
+    }
+  }, [])
+
+  // Check if service is available in selected city
+  const isServiceAvailableInCity = () => {
+    // If no city is selected, service is available
+    if (!selectedCity) return true
+
+    // If service has no cities assigned, it's available in all cities
+    if (!service?.cities || service.cities.length === 0) return true
+
+    // Check if selected city is in the service's cities list
+    return service.cities.some(city => {
+      const cityId = typeof city === 'string' ? city : city._id
+      return cityId === selectedCity._id
+    })
+  }
 
   // Get localStorage key for current service
   const getCartStorageKey = () => `nexo_cart_${serviceName || 'default'}`
@@ -113,6 +145,8 @@ const ServiceDetail = () => {
       console.error('Error saving cart to localStorage:', error)
     }
   }
+  const [subService, setSubServices] = useState([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   // Fetch service data by slug
   useEffect(() => {
@@ -122,14 +156,51 @@ const ServiceDetail = () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/user/service-by-slug/${serviceName}`)
         const result = await response.json()
-        
+
         if (result.success && result.data) {
-          const serviceData = {
+          // Validate and clean service data
+          const cleanedData = {
             ...result.data,
             icon: getIconComponent(result.data.icon),
-            subServices: result.data.subServices || []
+            subServices: result.data.subServices || [],
+            // Clean addOns data to prevent malformed pricing
+            addOns: (result.data.addOns || []).map(addon => ({
+              ...addon,
+              basePrice: Math.max(0, parseFloat(addon.basePrice) || 0),
+              discount: Math.max(0, Math.min(100, parseFloat(addon.discount) || 0)),
+              cgst: Math.max(0, parseFloat(addon.cgst) || 0),
+              sgst: Math.max(0, parseFloat(addon.sgst) || 0),
+              serviceCharge: Math.max(0, parseFloat(addon.serviceCharge) || 0)
+            }))
           }
-          setService(serviceData)
+
+          // Debug log for malformed data
+          if (result.data.addOns) {
+            result.data.addOns.forEach((addon, index) => {
+              if (addon.discount && (isNaN(addon.discount) || addon.discount > 100)) {
+                console.warn(`Malformed discount in addon ${index}:`, addon.discount, 'for service:', serviceName)
+              }
+            })
+          }
+          
+          // Extract sub-services from addons if they exist with addon index
+          const allAddonSubServices = []
+          if (cleanedData.addOns && cleanedData.addOns.length > 0) {
+            cleanedData.addOns.forEach((addon, addonIndex) => {
+              if (addon.subServices && addon.subServices.length > 0) {
+                addon.subServices.forEach((subService, subServiceIndex) => {
+                  allAddonSubServices.push({
+                    ...subService,
+                    addonIndex,
+                    subServiceIndex,
+                    addonName: addon.name
+                  })
+                })
+              }
+            })
+          }
+          setSubServices(allAddonSubServices)
+          setService(cleanedData)
           // Load cart data from localStorage after service is loaded
           loadCartFromStorage()
         } else {
@@ -148,6 +219,21 @@ const ServiceDetail = () => {
     }
   }, [serviceName])
 
+  // Log authentication status for debugging
+  useEffect(() => {
+    console.log('ServiceDetail Auth Status:', { isAuthenticated, authLoading, hasUser: !!user, hasToken: !!localStorage.getItem('userToken') })
+  }, [isAuthenticated, authLoading, user])
+
+  // Auto-carousel effect for sub-services
+  useEffect(() => {
+    if (subService && subService.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentSlide((prev) => (prev + 1) % subService.length)
+      }, 4000) // Change slide every 4 seconds
+      return () => clearInterval(interval)
+    }
+  }, [subService])
+
   // Save cart to localStorage whenever cart state changes (backup safety net)
   useEffect(() => {
     if (serviceName && service) {
@@ -165,13 +251,15 @@ const ServiceDetail = () => {
     }
   }, [selectedSubServices, selectedAddOns, selectedAddOnSubServices, serviceName, service])
 
+
+
   // Fetch popular services
   useEffect(() => {
     const fetchPopularServices = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/user/popular`)
         const result = await response.json()
-        
+
         if (result.success && result.data) {
           // Filter out current service and map icons
           const servicesWithIcons = result.data
@@ -228,25 +316,36 @@ const ServiceDetail = () => {
 
   // Calculate addon price breakdown
   const calculateAddOnPriceBreakdown = (addon) => {
-    const basePrice = addon.basePrice || 0
-    const discount = addon.discount || 0
-    const cgst = addon.cgst || 0
-    const sgst = addon.sgst || 0
-    const serviceCharge = addon.serviceCharge || 0
-    
+    // Debug logging to identify malformed data
+    if (addon.discount && (isNaN(addon.discount) || addon.discount > 100 || addon.discount < 0)) {
+      console.warn('Invalid discount value detected:', addon.discount, 'for addon:', addon.name)
+    }
+
+    // Ensure all values are valid numbers
+    const basePrice = Math.max(0, parseFloat(addon.basePrice) || 0)
+    const discount = Math.max(0, Math.min(100, parseFloat(addon.discount) || 0)) // Clamp between 0-100
+    const cgst = Math.max(0, parseFloat(addon.cgst) || 0)
+    const sgst = Math.max(0, parseFloat(addon.sgst) || 0)
+    const serviceCharge = Math.max(0, parseFloat(addon.serviceCharge) || 0)
+
+    // Calculate original total price (without discount)
+    const originalSubtotalWithCharge = basePrice + serviceCharge
+    const originalGstAmount = originalSubtotalWithCharge * ((cgst + sgst) / 100)
+    const originalTotalPrice = originalSubtotalWithCharge + originalGstAmount
+
     // Calculate subtotal after discount
     const discountAmount = basePrice * (discount / 100)
     const subtotalAfterDiscount = basePrice - discountAmount
-    
+
     // Add service charge
     const subtotalWithCharge = subtotalAfterDiscount + serviceCharge
-    
+
     // Calculate GST on subtotal (after discount + service charge)
     const gstAmount = subtotalWithCharge * ((cgst + sgst) / 100)
-    
+
     // Final price
     const finalPrice = subtotalWithCharge + gstAmount
-    
+
     return {
       basePrice,
       discount,
@@ -257,7 +356,8 @@ const ServiceDetail = () => {
       cgst,
       sgst,
       gstAmount,
-      finalPrice
+      finalPrice,
+      originalTotalPrice // This is basePrice + serviceCharge + GST (without discount)
     }
   }
 
@@ -415,7 +515,7 @@ const ServiceDetail = () => {
       })
       setSelectedAddOns(updatedAddOns)
       saveCartToStorage(selectedSubServices, updatedAddOns, selectedAddOnSubServices)
-      
+
       // Small delay to show the update, then open WhatsApp
       setTimeout(() => {
         handleWhatsAppClick()
@@ -425,6 +525,132 @@ const ServiceDetail = () => {
       handleWhatsAppClick()
     }
   }
+
+  // Handle Book Now - Direct to checkout or login
+  const handleBookNow = () => {
+    // Check if service is available in selected city
+    if (!isServiceAvailableInCity()) {
+      alert(`This service is not available in ${selectedCity?.name || 'your city'}. Please select a different city or service.`)
+      return
+    }
+
+    // Check if cart has items
+    if (getTotalItemCount() === 0) {
+      alert('Please add at least one service to your cart')
+      return
+    }
+
+    // Debug logging
+    console.log('Auth Status:', { isAuthenticated, authLoading, user, token: localStorage.getItem('userToken') })
+
+    // Check if user is logged in
+    if (!isAuthenticated || !user) {
+      console.log('User not authenticated, redirecting to login')
+      // Redirect to login with return URL
+      navigate('/user/login', {
+        state: { from: `/service/${serviceName}` }
+      })
+      return
+    }
+
+    console.log('User authenticated, proceeding to checkout')
+
+    // Prepare cart data
+    const cartItems = []
+
+    // Add subservices to cart
+    if (currentService.subServices) {
+      currentService.subServices.forEach(subService => {
+        const quantity = selectedSubServices[subService._id]
+        if (quantity > 0) {
+          const finalPrice = subService.finalPrice || subService.basePrice || subService.price || 0
+          cartItems.push({
+            type: 'subservice',
+            id: subService._id,
+            name: subService.name,
+            quantity: quantity,
+            price: finalPrice,
+            total: finalPrice * quantity
+          })
+        }
+      })
+    }
+
+    // Add add-ons to cart
+    if (currentService.addOns) {
+      currentService.addOns.forEach((addon, index) => {
+        const quantity = selectedAddOns[index]
+        if (quantity > 0) {
+          const breakdown = calculateAddOnPriceBreakdown(addon)
+          cartItems.push({
+            type: 'addon',
+            id: addon._id || index,
+            name: addon.name,
+            quantity: quantity,
+            price: breakdown.finalPrice,
+            total: breakdown.finalPrice * quantity
+          })
+        }
+      })
+    }
+
+    // Add add-on subservices to cart
+    if (currentService.addOns) {
+      currentService.addOns.forEach((addon, addonIndex) => {
+        if (addon.subServices) {
+          addon.subServices.forEach((subService, subServiceIndex) => {
+            const key = `${addonIndex}-${subServiceIndex}`
+            const quantity = selectedAddOnSubServices[key]
+            if (quantity > 0) {
+              const priceStr = subService.price || '0'
+              const price = parseFloat(priceStr.replace(/[₹,\s]/g, '')) || 0
+              cartItems.push({
+                type: 'addon-subservice',
+                id: subService._id || key,
+                name: `${subService.name} (${addon.name})`,
+                quantity: quantity,
+                price: price,
+                total: price * quantity
+              })
+            }
+          })
+        }
+      })
+    }
+
+    const cartData = {
+      items: cartItems,
+      total: calculateCartTotal()
+    }
+
+    // Create serializable service data (remove icon component)
+    const serializableServiceData = {
+      _id: currentService._id,
+      name: currentService.name,
+      description: currentService.description,
+      slug: currentService.slug,
+      price: currentService.price,
+      averageRating: currentService.averageRating,
+      totalReviews: currentService.totalReviews
+    }
+
+    // Navigate directly to checkout
+    proceedToCheckout(cartData, serializableServiceData)
+  }
+
+
+
+  // Function to proceed to checkout
+  const proceedToCheckout = (cartData, serviceData) => {
+    navigate(`/service/${serviceName}/checkout`, {
+      state: {
+        cartData: cartData,
+        serviceData: serviceData
+      }
+    })
+  }
+
+
 
   if (loading) {
     return (
@@ -460,13 +686,13 @@ const ServiceDetail = () => {
 
   return (
     <>
-      <SEO 
+      <SEO
         title={`${currentService.name} | Nexo`}
         description={`${currentService.description} ${currentService.trusted}. Book ${currentService.name} on WhatsApp with verified technicians.`}
         keywords={`${currentService.name}, home services, ${currentService.name.toLowerCase()} near me, WhatsApp booking, verified technicians`}
         url={`/service/${serviceName}`}
       />
-      
+
       <div className="min-h-screen bg-gray-50">
         {/* Optimized Hero Section */}
         <section className="relative bg-gradient-to-br from-primary to-primary-dark text-white py-6 sm:py-8 lg:py-10 overflow-hidden">
@@ -590,8 +816,42 @@ const ServiceDetail = () => {
               {currentService.trusted && (
                 <p className="text-sm sm:text-base text-white/90 mb-4 sm:mb-5 font-medium">{currentService.trusted}</p>
               )}
-              
+
+              {/* City availability warning */}
+              {!isServiceAvailableInCity() && selectedCity && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-yellow-500/20 border border-yellow-400/50 backdrop-blur-sm px-4 py-2 rounded-lg mb-3"
+                >
+                  <p className="text-sm text-white font-semibold text-center">
+                    ⚠️ This service is not available in {selectedCity.name}
+                  </p>
+                </motion.div>
+              )}
+
               <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-3">
+                {isServiceAvailableInCity() ? (
+                  <motion.button
+                    onClick={handleBookNow}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="bg-gradient-to-r from-primary to-primary-dark text-white px-6 sm:px-8 py-3 rounded-full text-base font-bold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 w-full sm:w-auto justify-center min-h-[44px]"
+                    aria-label="Book service now"
+                  >
+                    <FaShoppingCart className="w-5 h-5" />
+                    <span>Book Now</span>
+                  </motion.button>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="bg-gray-400 text-white px-6 sm:px-8 py-3 rounded-full text-base font-bold shadow-lg flex items-center gap-2 w-full sm:w-auto justify-center min-h-[44px] cursor-not-allowed"
+                  >
+                    <FaTimesCircle className="w-5 h-5" />
+                    <span>Not Available in {selectedCity?.name || 'Your City'}</span>
+                  </motion.div>
+                )}
                 <motion.button
                   onClick={handleWhatsAppClick}
                   whileHover={{ scale: 1.02 }}
@@ -600,7 +860,7 @@ const ServiceDetail = () => {
                   aria-label="Book service on WhatsApp"
                 >
                   <FaWhatsapp className="w-5 h-5" />
-                  <span>Book on WhatsApp</span>
+                  <span>WhatsApp</span>
                 </motion.button>
                 {currentService.subServices && currentService.subServices.length > 0 && (
                   <motion.button
@@ -639,24 +899,24 @@ const ServiceDetail = () => {
                   transition={{ duration: 0.6 }}
                   className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-lg p-4 sm:p-6 lg:p-8"
                 >
-                    <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary/10 to-primary/20 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
-                        <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                      </div>
+                  <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary/10 to-primary/20 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                      <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{currentService.name}</h2>
-                    {currentService.averageRating && (
+                      {currentService.averageRating && (
                         <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mt-1">
                           <FaStar className="text-yellow-500 fill-yellow-500 text-xs sm:text-sm" />
                           <span className="font-bold text-gray-900">{currentService.averageRating}</span>
-                        <span className="text-gray-600 text-xs">({(currentService.totalReviews || 0).toLocaleString('en-IN')} reviews)</span>
-                      </div>
-                    )}
+                          <span className="text-gray-600 text-xs">({(currentService.totalReviews || 0).toLocaleString('en-IN')} reviews)</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                    {currentService.description && (
-                      <p className="text-xs sm:text-sm text-gray-700 mb-3 sm:mb-4 leading-relaxed">{currentService.description}</p>
-                    )}
+                  {currentService.description && (
+                    <p className="text-xs sm:text-sm text-gray-700 mb-3 sm:mb-4 leading-relaxed">{currentService.description}</p>
+                  )}
                   {/* Nexo COVER Section */}
                   <div className="p-3 sm:p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-2 border-emerald-200 rounded-lg sm:rounded-xl cursor-pointer hover:bg-gradient-to-br hover:from-emerald-100 hover:to-emerald-200/50 hover:border-emerald-300 hover:shadow-md transition-all duration-300 group">
                     <div className="flex items-center justify-between gap-2">
@@ -703,7 +963,7 @@ const ServiceDetail = () => {
                           const isSelected = quantity > 0
                           const breakdown = calculateAddOnPriceBreakdown(addon)
                           const AddOnIcon = getIconComponent(addon.icon || 'FaTools')
-                          
+
                           return (
                             <motion.div
                               key={index}
@@ -713,44 +973,42 @@ const ServiceDetail = () => {
                               transition={{ duration: 0.3, delay: index * 0.1 }}
                               whileHover={{ scale: 1.02, y: -4 }}
                               onClick={() => setSelectedAddOnModal({ index, addon })}
-                              className={`bg-gradient-to-br ${
-                                isSelected 
-                                  ? 'from-primary/5 to-primary/10 border-2 border-primary shadow-lg' 
-                                  : 'from-white to-gray-50/50 border border-gray-200 hover:border-primary/40 hover:shadow-md'
-                              } p-3 sm:p-4 lg:p-5 rounded-lg sm:rounded-xl transition-all duration-300 cursor-pointer`}
+                              className={`bg-gradient-to-br ${isSelected
+                                ? 'from-primary/5 to-primary/10 border-2 border-primary shadow-lg'
+                                : 'from-white to-gray-50/50 border border-gray-200 hover:border-primary/40 hover:shadow-md'
+                                } p-3 sm:p-4 lg:p-5 rounded-lg sm:rounded-xl transition-all duration-300 cursor-pointer`}
                             >
                               <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
                                 {/* Icon */}
-                                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${
-                                  isSelected ? 'bg-gradient-to-br from-primary to-primary-dark' : 'bg-gradient-to-br from-primary/10 to-primary/20'
-                                }`}>
+                                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${isSelected ? 'bg-gradient-to-br from-primary to-primary-dark' : 'bg-gradient-to-br from-primary/10 to-primary/20'
+                                  }`}>
                                   <AddOnIcon className={`w-6 h-6 sm:w-7 sm:h-7 ${isSelected ? 'text-white' : 'text-primary'}`} />
                                 </div>
-                                
+
                                 {/* Details */}
                                 <div className="flex-1 min-w-0">
                                   <h3 className="text-sm sm:text-base font-bold text-gray-900 mb-1.5 sm:mb-2 line-clamp-1">{addon.name}</h3>
                                   {addon.description && (
                                     <p className="text-xs text-gray-600 mb-2 sm:mb-3 line-clamp-2 leading-relaxed">{addon.description}</p>
                                   )}
-                                  
+
                                   {/* Price Display */}
                                   <div className="flex items-baseline gap-1.5 sm:gap-2 mb-2 sm:mb-3 flex-wrap">
                                     <span className="text-xl sm:text-2xl font-black text-primary">
                                       ₹{Math.round(breakdown.finalPrice).toLocaleString('en-IN')}
                                     </span>
-                                    {breakdown.discount > 0 && (
-                                      <>
-                                        <span className="text-xs sm:text-sm text-gray-500 line-through">
-                                          ₹{Math.round(breakdown.basePrice).toLocaleString('en-IN')}
-                                        </span>
-                                        <span className="text-xs font-bold text-white bg-gradient-to-r from-green-500 to-green-600 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-sm">
-                                          {breakdown.discount}% OFF
-                                        </span>
-                                      </>
+                                    {breakdown.originalTotalPrice > 0 && breakdown.originalTotalPrice !== breakdown.finalPrice && (
+                                      <span className="text-xs sm:text-sm text-gray-500 line-through">
+                                        ₹{Math.round(breakdown.originalTotalPrice).toLocaleString('en-IN')}
+                                      </span>
+                                    )}
+                                    {breakdown.discount > 0 && breakdown.originalTotalPrice > 0 && breakdown.originalTotalPrice !== breakdown.finalPrice && (
+                                      <span className="text-xs font-bold text-white bg-gradient-to-r from-green-500 to-green-600 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-sm">
+                                        {Math.round(breakdown.discount)}% OFF
+                                      </span>
                                     )}
                                   </div>
-                                  
+
                                   {isSelected && (
                                     <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-gradient-to-r from-primary to-primary-dark px-2 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-md">
                                       <FaShoppingCart className="text-xs" />
@@ -872,7 +1130,25 @@ const ServiceDetail = () => {
                       </button>
                     )}
                   </div>
-                  
+
+                  {/* Quick Add Main Service Button */}
+                  {currentService.subServices && currentService.subServices.length > 0 && (
+                    <div className="mb-4">
+                      <button
+                        onClick={() => {
+                          // Add the first sub-service or a default one
+                          if (currentService.subServices[0]) {
+                            handleAddSubService(currentService.subServices[0]._id)
+                          }
+                        }}
+                        className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                      >
+                        <FaPlus className="text-sm" />
+                        <span>Quick Add Main Service</span>
+                      </button>
+                    </div>
+                  )}
+
                   {getTotalItemCount() === 0 ? (
                     <div className="text-center py-8 sm:py-12">
                       <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
@@ -892,7 +1168,7 @@ const ServiceDetail = () => {
                             const finalPrice = sub.finalPrice || sub.basePrice || sub.price || 0
                             const originalPrice = sub.originalPrice || sub.price || 0
                             const hasDiscount = originalPrice > finalPrice
-                            
+
                             return (
                               <div key={`sub-${sub._id}`} className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-md transition-all">
                                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
@@ -926,15 +1202,15 @@ const ServiceDetail = () => {
                               </div>
                             )
                           })}
-                        
+
                         {/* Add-Ons in Cart */}
                         {currentService.addOns && currentService.addOns
                           .map((addon, index) => {
                             const quantity = selectedAddOns[index] || 0
                             if (quantity === 0) return null
-                            
+
                             const breakdown = calculateAddOnPriceBreakdown(addon)
-                            
+
                             return (
                               <div key={`addon-${index}`} className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-md transition-all">
                                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
@@ -960,8 +1236,8 @@ const ServiceDetail = () => {
                                   </div>
                                   <div className="text-left sm:text-right flex-shrink-0">
                                     <p className="text-sm sm:text-base font-bold text-primary">₹{Math.round(breakdown.finalPrice * quantity).toLocaleString('en-IN')}</p>
-                                    {breakdown.discount > 0 && (
-                                      <p className="text-xs text-gray-400 line-through">₹{Math.round(breakdown.basePrice * quantity).toLocaleString('en-IN')}</p>
+                                    {breakdown.originalTotalPrice > 0 && breakdown.originalTotalPrice !== breakdown.finalPrice && (
+                                      <p className="text-xs text-gray-400 line-through">₹{Math.round(breakdown.originalTotalPrice * quantity).toLocaleString('en-IN')}</p>
                                     )}
                                   </div>
                                 </div>
@@ -976,9 +1252,9 @@ const ServiceDetail = () => {
                             const key = `${addonIndex}-${subServiceIndex}`
                             return selectedAddOnSubServices[key] > 0
                           }) || []
-                          
+
                           if (subServicesInCart.length === 0) return null
-                          
+
                           return (
                             <div key={`addon-subservices-${addonIndex}`} className="space-y-2">
                               <div className="text-xs font-semibold text-primary/70 uppercase tracking-wide mb-1 px-2">
@@ -988,11 +1264,11 @@ const ServiceDetail = () => {
                                 const key = `${addonIndex}-${subServiceIndex}`
                                 const quantity = selectedAddOnSubServices[key] || 0
                                 if (quantity === 0) return null
-                                
+
                                 const priceStr = subService.price || '0'
                                 const price = parseFloat(priceStr.replace(/[₹,\s]/g, '')) || 0
                                 const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
-                                
+
                                 return (
                                   <div key={key} className="bg-gradient-to-br from-primary/5 to-white border border-primary/10 rounded-lg p-3 ml-3">
                                     <div className="flex items-start justify-between gap-2">
@@ -1031,6 +1307,90 @@ const ServiceDetail = () => {
                         })}
                       </div>
 
+                      {/* Available Services Section - Collapsible */}
+                      {currentService.subServices && currentService.subServices.length > 0 && (
+                        <div className="mb-4">
+                          <button
+                            onClick={() => setShowAvailableServices(!showAvailableServices)}
+                            className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-lg transition-all border border-blue-200"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FaPlus className="text-blue-600 text-sm" />
+                              <span className="text-sm font-bold text-blue-900">Add More Services</span>
+                            </div>
+                            <motion.div
+                              animate={{ rotate: showAvailableServices ? 180 : 0 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <FaChevronDown className="text-blue-600 text-sm" />
+                            </motion.div>
+                          </button>
+
+                          {showAvailableServices && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="mt-2 space-y-2 max-h-64 overflow-y-auto custom-scrollbar"
+                            >
+                              {currentService.subServices.map((subService) => {
+                                const quantity = selectedSubServices[subService._id] || 0
+                                const finalPrice = subService.finalPrice || subService.basePrice || subService.price || 0
+                                const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
+
+                                return (
+                                  <div
+                                    key={`available-${subService._id}`}
+                                    className="bg-white border border-gray-200 rounded-lg p-3 hover:border-primary/50 transition-all"
+                                  >
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <SubServiceIcon className="w-5 h-5 text-primary" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className="text-sm font-bold text-gray-900 mb-1">{subService.name}</h4>
+                                        {subService.shortDescription && (
+                                          <p className="text-xs text-gray-600 mb-2">{subService.shortDescription}</p>
+                                        )}
+                                        <div className="flex items-center justify-between">
+                                          <p className="text-sm font-bold text-primary">₹{Math.round(finalPrice).toLocaleString('en-IN')}</p>
+                                          {quantity === 0 ? (
+                                            <button
+                                              onClick={() => handleAddSubService(subService._id)}
+                                              className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary-dark transition-all flex items-center gap-1"
+                                            >
+                                              <FaPlus className="text-xs" />
+                                              Add
+                                            </button>
+                                          ) : (
+                                            <div className="flex items-center gap-1 bg-white border-2 border-primary/30 rounded-lg shadow-sm">
+                                              <button
+                                                onClick={() => handleRemoveSubService(subService._id)}
+                                                className="w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-primary/10 hover:text-primary transition rounded-l-lg"
+                                              >
+                                                <FaMinus className="text-xs" />
+                                              </button>
+                                              <span className="w-8 text-center font-bold text-xs text-primary">{quantity}</span>
+                                              <button
+                                                onClick={() => handleAddSubService(subService._id)}
+                                                className="w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-primary/10 hover:text-primary transition rounded-r-lg"
+                                              >
+                                                <FaPlus className="text-xs" />
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </motion.div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Price Breakdown */}
                       <div className="pt-6 border-t-2 border-gray-200 mb-6">
                         <div className="space-y-3 mb-4">
@@ -1038,7 +1398,7 @@ const ServiceDetail = () => {
                             <div className="h-0.5 w-8 bg-primary rounded-full"></div>
                             <div className="text-xs font-bold text-gray-700 uppercase tracking-wide">Price Breakdown</div>
                           </div>
-                          
+
                           {/* Subservices Breakdown */}
                           {currentService.subServices && currentService.subServices
                             .filter(sub => selectedSubServices[sub._id] > 0)
@@ -1049,7 +1409,7 @@ const ServiceDetail = () => {
                               const subtotal = finalPrice * quantity
                               const gst = sub.gst || 0
                               const gstAmount = subtotal * gst / 100
-                              
+
                               return (
                                 <div key={`breakdown-sub-${sub._id}`} className="text-xs space-y-1 pb-2 border-b border-gray-100 last:border-b-0">
                                   <div className="font-semibold text-gray-700">{sub.name} (Qty: {quantity})</div>
@@ -1070,15 +1430,15 @@ const ServiceDetail = () => {
                                 </div>
                               )
                             })}
-                          
+
                           {/* Add-Ons Breakdown */}
                           {currentService.addOns && currentService.addOns
                             .map((addon, index) => {
                               const quantity = selectedAddOns[index] || 0
                               if (quantity === 0) return null
-                              
+
                               const breakdown = calculateAddOnPriceBreakdown(addon)
-                              
+
                               return (
                                 <div key={`breakdown-addon-${index}`} className="text-xs space-y-1 pb-2 border-b border-gray-100 last:border-b-0">
                                   <div className="font-semibold text-gray-700">{addon.name} (Qty: {quantity})</div>
@@ -1119,18 +1479,18 @@ const ServiceDetail = () => {
                               const key = `${addonIndex}-${subServiceIndex}`
                               return selectedAddOnSubServices[key] > 0
                             }) || []
-                            
+
                             if (subServicesInCart.length === 0) return null
-                            
+
                             return subServicesInCart.map((subService, subServiceIndex) => {
                               const key = `${addonIndex}-${subServiceIndex}`
                               const quantity = selectedAddOnSubServices[key] || 0
                               if (quantity === 0) return null
-                              
+
                               const priceStr = subService.price || '0'
                               const price = parseFloat(priceStr.replace(/[₹,\s]/g, '')) || 0
                               const subtotal = price * quantity
-                              
+
                               return (
                                 <div key={key} className="text-xs space-y-1 pb-2 border-b border-gray-100 last:border-b-0">
                                   <div className="font-semibold text-gray-700">{subService.name} ({addon.name}) (Qty: {quantity})</div>
@@ -1198,115 +1558,494 @@ const ServiceDetail = () => {
                           </div>
                         </div>
                       </div>
-                      
-                      <button
-                        onClick={openComingSoon}
-                        className="w-full bg-gradient-to-r from-[#25D366] to-[#20BA5A] text-white py-3 sm:py-4 rounded-lg sm:rounded-xl font-bold hover:from-[#20BA5A] hover:to-[#25D366] transition-all text-sm sm:text-base mb-4 flex items-center justify-center gap-2 min-h-[48px] sm:min-h-[52px] shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                      >
-                        <FaWhatsapp className="w-5 h-5 sm:w-6 sm:h-6" />
-                        <span>Book Now</span>
-                      </button>
+
+                      {isServiceAvailableInCity() ? (
+                        <>
+                          <button
+                            onClick={handleBookNow}
+                            className="w-full bg-gradient-to-r from-primary to-primary-dark text-white py-3 sm:py-4 rounded-lg sm:rounded-xl font-bold hover:shadow-xl transition-all text-sm sm:text-base mb-3 flex items-center justify-center gap-2 min-h-[48px] sm:min-h-[52px] shadow-lg transform hover:-translate-y-0.5"
+                          >
+                            <FaShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
+                            <span>Book Now</span>
+                          </button>
+                          
+
+                        </>
+                      ) : (
+                        <div className="w-full bg-gray-400 text-white py-3 sm:py-4 rounded-lg sm:rounded-xl font-bold text-sm sm:text-base mb-4 flex items-center justify-center gap-2 min-h-[48px] sm:min-h-[52px] shadow-lg cursor-not-allowed">
+                          <FaTimesCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                          <span>Service Not Available in {selectedCity?.name || 'Your City'}</span>
+                        </div>
+                      )}
                     </>
                   )}
 
-             
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        {/* Included and Excluded Section */}
-        {((currentService.included && currentService.included.length > 0) || 
-          (currentService.excluded && currentService.excluded.length > 0)) && (
-        <section className="py-12 sm:py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-2 gap-8">
-              {/* What's Included */}
-              {currentService.included && currentService.included.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true, margin: "-100px" }}
-                  transition={{ duration: 0.6 }}
-                  className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden"
-                >
-                  {/* Header */}
-                  <div className="bg-emerald-500 px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white/20 rounded-lg p-2">
-                        <FaCheckCircle className="text-white text-lg" />
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-white">What's Included</h2>
-                        <p className="text-white/80 text-xs">Everything you get</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-6 space-y-2.5">
-                    {currentService.included.map((item, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, x: -10 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="flex items-center gap-3 bg-emerald-50 p-3.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-all group"
-                      >
-                        <div className="bg-emerald-500 rounded-full p-1.5 flex-shrink-0">
-                          <FaCheckCircle className="text-white text-xs" />
-                        </div>
-                        <span className="text-gray-800 font-medium text-sm flex-1 leading-relaxed">{item}</span>
-                      </motion.div>
-                    ))}
-                  </div>
                 </motion.div>
-              )}
-
-              {/* What's Excluded */}
-              {currentService.excluded && currentService.excluded.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true, margin: "-100px" }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                  className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden"
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6 }}
+                  className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-xl transition-shadow duration-300 p-3 sm:p-6 lg:p-8 mt-2"
                 >
-                  {/* Header */}
-                  <div className="bg-rose-500 px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white/20 rounded-lg p-2">
-                        <FaTimesCircle className="text-white text-lg" />
+                  <div className="flex items-center justify-between mb-3 sm:mb-4 pb-2 sm:pb-3 border-b border-gray-200">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary/10 to-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <FaAward className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                       </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-white">What's Not Included</h2>
-                        <p className="text-white/80 text-xs">Items not covered</p>
-                      </div>
+                      <h2 className="text-sm sm:text-lg font-bold text-gray-900 truncate">Add-On Sub-Services</h2>
                     </div>
+                    {subService && subService.length > 0 && (
+                      <span className="bg-primary text-white text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 ml-2">
+                        {subService.length}
+                      </span>
+                    )}
                   </div>
-                  <div className="p-6 space-y-2.5">
-                    {currentService.excluded.map((item, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, x: -10 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="flex items-center gap-3 bg-rose-50 p-3.5 rounded-lg border border-rose-200 hover:bg-rose-100 transition-all group"
-                      >
-                        <div className="bg-rose-500 rounded-full p-1.5 flex-shrink-0">
-                          <FaTimesCircle className="text-white text-xs" />
+
+                  {/* Auto-Carousel for Sub-Services */}
+                  {subService && subService.length > 0 ? (
+                    <div className="relative w-full">
+                      {/* Carousel Container */}
+                      <div className="overflow-hidden rounded-lg">
+                        <div 
+                          className="flex transition-transform duration-500 ease-out"
+                          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+                        >
+                          {subService.map((ele, index) => {
+                            const SubServiceIcon = getIconComponent(ele.icon || 'FaTools')
+                            const priceStr = ele.price || '0'
+                            const price = parseFloat(priceStr.replace(/[₹,\s]/g, '')) || 0
+                            const cartKey = `${ele.addonIndex}-${ele.subServiceIndex}`
+                            const quantity = selectedAddOnSubServices[cartKey] || 0
+                            const isInCart = quantity > 0
+
+                            return (
+                              <div
+                                key={`addon-sub-${index}`}
+                                className="w-full flex-shrink-0 box-border"
+                              >
+                                <div className={`${isInCart ? 'bg-primary/5 border-primary' : 'bg-gray-50 border-gray-200'} border-2 rounded-lg p-2.5 sm:p-4`}>
+                                  {/* Header */}
+                                  <div className="flex gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                                    <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${isInCart ? 'bg-primary' : 'bg-primary/10'}`}>
+                                      <SubServiceIcon className={`w-4 h-4 sm:w-6 sm:h-6 ${isInCart ? 'text-white' : 'text-primary'}`} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <h3 className="text-xs sm:text-sm font-bold text-gray-900 mb-0.5 sm:mb-1 line-clamp-2 leading-tight">
+                                        {ele.name}
+                                      </h3>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-sm sm:text-lg font-black text-primary">
+                                          ₹{Math.round(price).toLocaleString('en-IN')}
+                                        </span>
+                                        {isInCart && (
+                                          <span className="text-xs font-bold text-white bg-primary px-1.5 py-0.5 rounded-full">
+                                            {quantity}x
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Description */}
+                                  {ele.description && (
+                                    <p className="text-xs text-gray-600 mb-1.5 sm:mb-2 line-clamp-2 leading-snug">
+                                      {ele.description}
+                                    </p>
+                                  )}
+
+                                  {/* Features */}
+                                  {ele.includes && ele.includes.length > 0 && (
+                                    <div className="mb-1.5 sm:mb-2 pb-1.5 sm:pb-2 border-t border-gray-200 pt-1.5 sm:pt-2">
+                                      <ul className="space-y-0.5">
+                                        {ele.includes.slice(0, 2).map((item, idx) => (
+                                          <li key={idx} className="text-xs text-gray-700 flex items-start gap-1">
+                                            <FaCheckCircle className="text-green-500 text-xs mt-0.5 flex-shrink-0" />
+                                            <span className="line-clamp-1 leading-tight">{item}</span>
+                                          </li>
+                                        ))}
+                                        {ele.includes.length > 2 && (
+                                          <li className="text-xs text-primary font-semibold ml-3.5">
+                                            +{ele.includes.length - 2} more
+                                          </li>
+                                        )}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {/* Buttons */}
+                                  <div className="flex items-center justify-end gap-1 sm:gap-1.5 pt-1.5 sm:pt-2 border-t border-gray-200">
+                                    {isInCart ? (
+                                      <>
+                                        <button
+                                          onClick={() => handleRemoveAddOnSubService(ele.addonIndex, ele.subServiceIndex)}
+                                          className="bg-gray-200 text-gray-700 w-6 h-6 sm:w-7 sm:h-7 rounded flex items-center justify-center hover:bg-gray-300"
+                                        >
+                                          <FaMinus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                        </button>
+                                        <span className="text-xs sm:text-sm font-bold text-primary w-5 sm:w-6 text-center">{quantity}</span>
+                                        <button
+                                          onClick={() => handleAddAddOnSubService(ele.addonIndex, ele.subServiceIndex)}
+                                          className="bg-primary text-white w-6 h-6 sm:w-7 sm:h-7 rounded flex items-center justify-center hover:bg-primary-dark"
+                                        >
+                                          <FaPlus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          if (ele.addonIndex !== undefined && ele.subServiceIndex !== undefined) {
+                                            handleAddAddOnSubService(ele.addonIndex, ele.subServiceIndex)
+                                          }
+                                        }}
+                                        className="bg-primary text-white px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold hover:bg-primary-dark flex items-center gap-1 text-xs"
+                                      >
+                                        <FaPlus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                        Add
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
                         </div>
-                        <span className="text-gray-800 font-medium text-sm flex-1 leading-relaxed">{item}</span>
-                      </motion.div>
-                    ))}
-                  </div>
+                      </div>
+
+                      {/* Navigation Arrows */}
+                      {subService.length > 1 && (
+                        <>
+                          <button
+                            onClick={() => setCurrentSlide((prev) => (prev - 1 + subService.length) % subService.length)}
+                            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-700 hover:text-primary z-10 border border-gray-200"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => setCurrentSlide((prev) => (prev + 1) % subService.length)}
+                            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-700 hover:text-primary z-10 border border-gray-200"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        </>
+                      )}
+
+                      {/* Slide Indicators */}
+                      {subService.length > 1 && (
+                        <div className="flex justify-center gap-1.5 mt-3">
+                          {subService.map((_, index) => (
+                            <button
+                              key={`indicator-${index}`}
+                              onClick={() => setCurrentSlide(index)}
+                              className={`transition-all rounded-full ${
+                                index === currentSlide
+                                  ? 'w-6 h-1.5 bg-primary'
+                                  : 'w-1.5 h-1.5 bg-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <FaAward className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-500">No add-on sub-services available</p>
+                    </div>
+                  )}
+
                 </motion.div>
-              )}
+              </div>
+
             </div>
           </div>
         </section>
+
+        {/* Sub-Services Horizontal Slider Section */}
+        {currentService.subServices && currentService.subServices.length > 0 && (
+          <section className="py-8 sm:py-12 bg-gradient-to-b from-gray-50 to-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="mb-6"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl flex items-center justify-center">
+                    <FaAward className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Available Service Packages</h2>
+                    <p className="text-sm text-gray-600">Choose from our curated service packages</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Horizontal Scrollable Cards */}
+              <div className="relative">
+                <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  {currentService.subServices.map((subService, index) => {
+                    const quantity = selectedSubServices[subService._id] || 0
+                    const isSelected = quantity > 0
+                    const finalPrice = subService.finalPrice || subService.basePrice || subService.price || 0
+                    const originalPrice = subService.originalPrice || subService.price || 0
+                    const hasDiscount = originalPrice > finalPrice
+                    const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
+
+                    // Handle icon - can be string URL or array
+                    const iconUrl = Array.isArray(subService.icon) && subService.icon.length > 0
+                      ? subService.icon[0]
+                      : (subService.icon || '')
+
+                    // Calculate per unit price if name contains numbers
+                    const unitMatch = subService.name.match(/(\d+)\s*(AC|unit|item)/i)
+                    const unitCount = unitMatch ? parseInt(unitMatch[1]) : 1
+                    const perUnitPrice = finalPrice / unitCount
+
+                    return (
+                      <motion.div
+                        key={subService._id}
+                        initial={{ opacity: 0, x: -100 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true, margin: "-50px" }}
+                        transition={{
+                          duration: 0.6,
+                          delay: index * 0.15,
+                          ease: "easeOut"
+                        }}
+                        className="flex-shrink-0 w-80 sm:w-96 snap-start"
+                      >
+                        <div className={`bg-white rounded-2xl border-2 ${isSelected ? 'border-primary shadow-xl' : 'border-gray-200 hover:border-primary/50'
+                          } shadow-lg hover:shadow-xl transition-all h-full flex flex-col`}>
+                          {/* Badge at top */}
+                          {unitMatch && (
+                            <div className="absolute top-0 left-0 z-10">
+                              <span className="text-xs font-bold text-white bg-gray-900 px-3 py-1.5 rounded-br-lg">
+                                {unitMatch[1]} {unitMatch[2]?.toUpperCase() || 'UNIT'} PACK
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Card Header with Image */}
+                          {iconUrl && (
+                            <div className="w-full h-48 overflow-hidden rounded-t-2xl">
+                              <img
+                                src={iconUrl}
+                                alt={subService.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none'
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Card Content */}
+                          <div className="p-5 flex-1 flex flex-col">
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">{subService.name}</h3>
+
+                            {subService.description && (
+                              <p className="text-xs text-gray-600 mb-3 line-clamp-2">{subService.description}</p>
+                            )}
+
+                            {/* Rating */}
+                            <div className="flex items-center gap-2 mb-3">
+                              <FaStar className="text-yellow-400 text-sm" />
+                              <span className="text-sm font-semibold">{subService.rating > 0 ? subService.rating.toFixed(2) : '4.77'}</span>
+                              <span className="text-xs text-gray-500">({subService.reviews?.length || 0} reviews)</span>
+                            </div>
+
+                            {/* Price Section */}
+                            <div className="mb-3">
+                              <div className="flex items-baseline gap-2 mb-1">
+                                <span className="text-2xl font-black text-gray-900">₹{Math.round(finalPrice).toLocaleString('en-IN')}</span>
+                                {hasDiscount && (
+                                  <span className="text-sm text-gray-500 line-through">₹{Math.round(originalPrice).toLocaleString('en-IN')}</span>
+                                )}
+                              </div>
+                              {unitCount > 1 && (
+                                <p className="text-xs text-emerald-600 font-semibold">₹{Math.round(perUnitPrice)} per {unitMatch?.[2] || 'unit'}</p>
+                              )}
+                            </div>
+
+                            {/* Duration */}
+                            {subService.duration && (
+                              <div className="flex items-center gap-1 mb-3 text-xs text-gray-600">
+                                <FaClock className="text-xs" />
+                                <span>{subService.duration}</span>
+                              </div>
+                            )}
+
+                            {/* Features */}
+                            {subService.includes && subService.includes.length > 0 && (
+                              <div className="mb-4 flex-1">
+                                <p className="text-xs font-bold text-gray-700 mb-2">What's Included:</p>
+                                <ul className="space-y-1">
+                                  {subService.includes.slice(0, 3).map((item, idx) => (
+                                    <li key={idx} className="text-xs text-gray-700 flex items-start gap-2">
+                                      <FaCheckCircle className="text-green-500 text-xs mt-0.5 flex-shrink-0" />
+                                      <span className="line-clamp-1">{item}</span>
+                                    </li>
+                                  ))}
+                                  {subService.includes.length > 3 && (
+                                    <li className="text-xs text-gray-500 italic">+{subService.includes.length - 3} more</li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Add to Cart Button */}
+                            <div className="mt-auto">
+                              {!isSelected ? (
+                                <button
+                                  onClick={() => handleAddSubService(subService._id)}
+                                  className="w-full bg-gradient-to-r from-primary to-primary-dark text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                >
+                                  <FaPlus className="w-4 h-4" />
+                                  Add to Cart
+                                </button>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-center gap-3 bg-primary/10 rounded-xl p-2">
+                                    <button
+                                      onClick={() => handleRemoveSubService(subService._id)}
+                                      className="w-10 h-10 bg-white hover:bg-gray-100 text-gray-700 rounded-lg font-bold transition-all flex items-center justify-center shadow-sm"
+                                    >
+                                      <FaMinus />
+                                    </button>
+                                    <span className="text-xl font-black text-primary min-w-[40px] text-center">{quantity}</span>
+                                    <button
+                                      onClick={() => handleAddSubService(subService._id)}
+                                      className="w-10 h-10 bg-primary hover:bg-primary-dark text-white rounded-lg font-bold transition-all flex items-center justify-center shadow-sm"
+                                    >
+                                      <FaPlus />
+                                    </button>
+                                  </div>
+                                  <p className="text-xs text-center text-gray-600">
+                                    Total: ₹{Math.round(finalPrice * quantity).toLocaleString('en-IN')}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+
+                {/* Scroll Indicator */}
+                <div className="text-center mt-4">
+                  <p className="text-xs text-gray-500 flex items-center justify-center gap-2">
+                    <FaChevronRight className="animate-pulse" />
+                    Scroll to see more packages
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
         )}
+
+        {/* Included and Excluded Section */}
+        {((currentService.included && currentService.included.length > 0) ||
+          (currentService.excluded && currentService.excluded.length > 0)) && (
+            <section className="py-12 sm:py-16 bg-white">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="grid lg:grid-cols-2 gap-8">
+                  {/* What's Included */}
+                  {currentService.included && currentService.included.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true, margin: "-100px" }}
+                      transition={{ duration: 0.6 }}
+                      className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden"
+                    >
+                      {/* Header */}
+                      <div className="bg-emerald-500 px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-white/20 rounded-lg p-2">
+                            <FaCheckCircle className="text-white text-lg" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-bold text-white">What's Included</h2>
+                            <p className="text-white/80 text-xs">Everything you get</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-6 space-y-2.5">
+                        {currentService.included.map((item, index) => (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, x: -10 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                            className="flex items-center gap-3 bg-emerald-50 p-3.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-all group"
+                          >
+                            <div className="bg-emerald-500 rounded-full p-1.5 flex-shrink-0">
+                              <FaCheckCircle className="text-white text-xs" />
+                            </div>
+                            <span className="text-gray-800 font-medium text-sm flex-1 leading-relaxed">{item}</span>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* What's Excluded */}
+                  {currentService.excluded && currentService.excluded.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true, margin: "-100px" }}
+                      transition={{ duration: 0.6, delay: 0.2 }}
+                      className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden"
+                    >
+                      {/* Header */}
+                      <div className="bg-rose-500 px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-white/20 rounded-lg p-2">
+                            <FaTimesCircle className="text-white text-lg" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-bold text-white">What's Not Included</h2>
+                            <p className="text-white/80 text-xs">Items not covered</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-6 space-y-2.5">
+                        {currentService.excluded.map((item, index) => (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, x: -10 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                            className="flex items-center gap-3 bg-rose-50 p-3.5 rounded-lg border border-rose-200 hover:bg-rose-100 transition-all group"
+                          >
+                            <div className="bg-rose-500 rounded-full p-1.5 flex-shrink-0">
+                              <FaTimesCircle className="text-white text-xs" />
+                            </div>
+                            <span className="text-gray-800 font-medium text-sm flex-1 leading-relaxed">{item}</span>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
 
         {/* Service Packages Section */}
         {currentService.subServices && currentService.subServices.length > 0 && (
@@ -1325,7 +2064,7 @@ const ServiceDetail = () => {
                       <h2 className="text-3xl font-bold text-gray-900 mb-2">Service Packages</h2>
                       <p className="text-gray-600">Choose from our curated service packages</p>
                     </div>
-                    
+
                     <div className="space-y-6">
                       {currentService.subServices.map((subService) => {
                         const quantity = selectedSubServices[subService._id] || 0
@@ -1334,23 +2073,23 @@ const ServiceDetail = () => {
                         const originalPrice = subService.originalPrice || subService.price || 0
                         const hasDiscount = originalPrice > finalPrice
                         // Handle icon - can be string URL or array
-                        const iconUrl = Array.isArray(subService.icon) && subService.icon.length > 0 
-                          ? subService.icon[0] 
+                        const iconUrl = Array.isArray(subService.icon) && subService.icon.length > 0
+                          ? subService.icon[0]
                           : (subService.icon || '')
-                        
+
                         // Calculate per unit price if name contains numbers
                         const unitMatch = subService.name.match(/(\d+)\s*(AC|unit|item)/i)
                         const unitCount = unitMatch ? parseInt(unitMatch[1]) : 1
                         const perUnitPrice = finalPrice / unitCount
-                        
+
                         // Format reviews count
                         const reviewsCount = subService.reviews?.length || 0
-                        const formattedReviews = reviewsCount >= 1000000 
-                          ? `${(reviewsCount / 1000000).toFixed(1)}M` 
-                          : reviewsCount >= 1000 
-                          ? `${(reviewsCount / 1000).toFixed(1)}K` 
-                          : reviewsCount.toString()
-                        
+                        const formattedReviews = reviewsCount >= 1000000
+                          ? `${(reviewsCount / 1000000).toFixed(1)}M`
+                          : reviewsCount >= 1000
+                            ? `${(reviewsCount / 1000).toFixed(1)}K`
+                            : reviewsCount.toString()
+
                         return (
                           <motion.div
                             key={subService._id}
@@ -1358,9 +2097,8 @@ const ServiceDetail = () => {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.3 }}
-                            className={`bg-white rounded-xl border-2 ${
-                              isSelected ? 'border-primary shadow-lg' : 'border-gray-200 hover:border-primary/30'
-                            } overflow-hidden transition-all relative`}
+                            className={`bg-white rounded-xl border-2 ${isSelected ? 'border-primary shadow-lg' : 'border-gray-200 hover:border-primary/30'
+                              } overflow-hidden transition-all relative`}
                           >
                             {/* Badge at top left */}
                             {unitMatch && (
@@ -1370,23 +2108,23 @@ const ServiceDetail = () => {
                                 </span>
                               </div>
                             )}
-                            
+
                             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 sm:p-5">
                               {/* Package Details - Left Side */}
                               <div className="flex-1 min-w-0 order-1">
                                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">{subService.name}</h3>
-                                
+
                                 {subService.description && (
                                   <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">{subService.description}</p>
                                 )}
-                                
+
                                 {/* Rating and Reviews */}
                                 <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                                   <FaStar className="text-yellow-400 text-xs sm:text-sm" />
                                   <span className="text-xs sm:text-sm font-semibold">{subService.rating > 0 ? subService.rating.toFixed(2) : '4.77'}</span>
                                   <span className="text-xs text-gray-500">({formattedReviews} reviews)</span>
                                 </div>
-                                
+
                                 {/* Price Section */}
                                 <div className="mb-2 sm:mb-3">
                                   <div className="flex items-baseline gap-1.5 sm:gap-2 mb-1 flex-wrap">
@@ -1399,7 +2137,7 @@ const ServiceDetail = () => {
                                     <p className="text-xs sm:text-sm text-emerald-600 font-semibold">₹{Math.round(perUnitPrice)} per {unitMatch?.[2] || 'unit'}</p>
                                   )}
                                 </div>
-                                
+
                                 {/* Duration */}
                                 {subService.duration && (
                                   <div className="flex items-center gap-1 mb-2 sm:mb-3 text-xs sm:text-sm text-gray-600">
@@ -1407,7 +2145,7 @@ const ServiceDetail = () => {
                                     <span>{subService.duration}</span>
                                   </div>
                                 )}
-                                
+
                                 {/* Features */}
                                 {subService.includes && subService.includes.length > 0 && (
                                   <ul className="space-y-1 mb-2 sm:mb-3">
@@ -1419,18 +2157,18 @@ const ServiceDetail = () => {
                                     ))}
                                   </ul>
                                 )}
-                                
+
                                 {/* View Details Link */}
                                 <button className="text-xs text-primary hover:text-primary-dark font-semibold">
                                   View details →
                                 </button>
                               </div>
-                              
+
                               {/* Package Image - Right Side */}
                               {iconUrl && (
                                 <div className="flex-shrink-0 w-full sm:w-40 h-32 sm:h-40 lg:h-48 order-2 sm:order-2">
-                                  <img 
-                                    src={iconUrl} 
+                                  <img
+                                    src={iconUrl}
                                     alt={subService.name}
                                     className="w-full h-full object-cover rounded-lg border border-gray-200"
                                     onError={(e) => {
@@ -1439,7 +2177,7 @@ const ServiceDetail = () => {
                                   />
                                 </div>
                               )}
-                              
+
                               {/* Quantity Selector - Bottom on Mobile, Right on Desktop */}
                               <div className="flex-shrink-0 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-2 order-3 sm:order-3">
                                 {!isSelected ? (
@@ -1490,45 +2228,45 @@ const ServiceDetail = () => {
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
                           <h3 className="text-base sm:text-lg font-bold text-gray-900 truncate">{currentService.name}</h3>
-                      </div>
+                        </div>
                         <div className="flex flex-col items-end flex-shrink-0">
                           <div className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
                             Instant
-                                        </div>
+                          </div>
                           <span className="text-xs text-gray-500 mt-0.5">In 33 mins</span>
-                                      </div>
-                                    </div>
+                        </div>
+                      </div>
                       {currentService.averageRating && (
                         <div className="flex items-center gap-1 text-xs sm:text-sm mb-3 sm:mb-4 p-2 bg-yellow-50 rounded-lg border border-yellow-100">
                           <FaStar className="text-yellow-500 fill-yellow-500 text-xs sm:text-sm" />
                           <span className="font-bold text-gray-900">{currentService.averageRating}</span>
                           <span className="text-gray-600 text-xs">({(currentService.totalReviews || 0).toLocaleString('en-IN')} reviews)</span>
-                                    </div>
+                        </div>
                       )}
 
-                    {/* Nexo Promise Section */}
+                      {/* Nexo Promise Section */}
                       <div className="pt-3 sm:pt-4 border-t border-gray-200">
                         <div className="flex items-center justify-between mb-2 sm:mb-3">
                           <h3 className="text-xs sm:text-sm font-bold text-gray-900">Nexo Promise</h3>
                           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-full flex items-center justify-center border-2 border-primary/20 flex-shrink-0">
-                          <div className="text-center">
+                            <div className="text-center">
                               <div className="text-xs font-bold text-primary leading-tight">QUALITY</div>
                               <div className="text-xs font-bold text-primary leading-tight">ASSURED</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
                         <div className="space-y-1.5 sm:space-y-2">
                           <div className="flex items-center gap-1.5 sm:gap-2">
-                          <FaCheckCircle className="text-green-500 text-xs flex-shrink-0" />
-                          <span className="text-xs text-gray-700">Verified Professionals</span>
-                        </div>
+                            <FaCheckCircle className="text-green-500 text-xs flex-shrink-0" />
+                            <span className="text-xs text-gray-700">Verified Professionals</span>
+                          </div>
                           <div className="flex items-center gap-1.5 sm:gap-2">
-                          <FaCheckCircle className="text-green-500 text-xs flex-shrink-0" />
-                          <span className="text-xs text-gray-700">Hassle Free Booking</span>
-                        </div>
+                            <FaCheckCircle className="text-green-500 text-xs flex-shrink-0" />
+                            <span className="text-xs text-gray-700">Hassle Free Booking</span>
+                          </div>
                           <div className="flex items-center gap-1.5 sm:gap-2">
-                          <FaCheckCircle className="text-green-500 text-xs flex-shrink-0" />
-                          <span className="text-xs text-gray-700">Transparent Pricing</span>
+                            <FaCheckCircle className="text-green-500 text-xs flex-shrink-0" />
+                            <span className="text-xs text-gray-700">Transparent Pricing</span>
                           </div>
                         </div>
                       </div>
@@ -1558,13 +2296,12 @@ const ServiceDetail = () => {
                         {[...Array(5)].map((_, i) => (
                           <FaStar
                             key={i}
-                            className={`w-6 h-6 sm:w-7 sm:h-7 ${
-                              i < Math.floor(currentService.averageRating)
-                                ? 'text-yellow-400'
-                                : i < currentService.averageRating
+                            className={`w-6 h-6 sm:w-7 sm:h-7 ${i < Math.floor(currentService.averageRating)
+                              ? 'text-yellow-400'
+                              : i < currentService.averageRating
                                 ? 'text-yellow-300'
                                 : 'text-gray-300'
-                            }`}
+                              }`}
                           />
                         ))}
                       </div>
@@ -1591,9 +2328,8 @@ const ServiceDetail = () => {
                           {[...Array(5)].map((_, i) => (
                             <FaStar
                               key={i}
-                              className={`w-4 h-4 ${
-                                i < review.rating ? 'text-yellow-400' : 'text-gray-300'
-                              }`}
+                              className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'
+                                }`}
                             />
                           ))}
                         </div>
@@ -1641,7 +2377,7 @@ const ServiceDetail = () => {
                   <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">Price Breakdown</h2>
                   <p className="text-sm text-gray-600">Transparent pricing for selected packages</p>
                 </div>
-                
+
                 {/* Price Breakdown Card */}
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200 mb-6 overflow-hidden">
                   <div className="divide-y divide-gray-100">
@@ -1656,17 +2392,17 @@ const ServiceDetail = () => {
                         const discountAmount = (originalPrice - finalPrice) * quantity
                         const gst = sub.gst || 0
                         const gstAmount = subtotal * gst / 100
-                        
+
                         return (
                           <div key={sub._id} className="px-6 py-4 space-y-2 border-b border-gray-100 last:border-b-0">
                             <div className="font-semibold text-gray-900 mb-2">{sub.name} (Qty: {quantity})</div>
-                            
+
                             {/* Base Price */}
                             <div className="flex items-center justify-between text-sm">
                               <span className="text-gray-600">Base Price</span>
                               <span className="text-gray-900">₹{Math.round(baseSubtotal)}</span>
                             </div>
-                            
+
                             {/* Discount */}
                             {discountAmount > 0 && (
                               <div className="flex items-center justify-between text-sm text-green-600">
@@ -1674,13 +2410,13 @@ const ServiceDetail = () => {
                                 <span>-₹{Math.round(discountAmount)}</span>
                               </div>
                             )}
-                            
+
                             {/* Subtotal after discount */}
                             <div className="flex items-center justify-between text-sm font-medium pt-1 border-t border-gray-100">
                               <span className="text-gray-700">Subtotal</span>
                               <span className="text-gray-900">₹{Math.round(subtotal)}</span>
                             </div>
-                            
+
                             {/* GST */}
                             {gst > 0 && (
                               <div className="flex items-center justify-between text-sm text-gray-600">
@@ -1688,7 +2424,7 @@ const ServiceDetail = () => {
                                 <span>+₹{Math.round(gstAmount)}</span>
                               </div>
                             )}
-                            
+
                             {/* Total for this item */}
                             <div className="flex items-center justify-between text-base font-bold pt-2 border-t-2 border-gray-200">
                               <span className="text-gray-900">Total</span>
@@ -1761,11 +2497,11 @@ const ServiceDetail = () => {
               >
                 <div className="text-center mb-10">
                   <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
-                  Explore Other Popular Services
-                </h2>
+                    Explore Other Popular Services
+                  </h2>
                   <p className="text-base text-gray-600">
-                  Discover more services we offer
-                </p>
+                    Discover more services we offer
+                  </p>
                 </div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {popularServices.map((popularService, index) => {
@@ -1841,7 +2577,7 @@ const ServiceDetail = () => {
                 <p className="text-base text-white/90">Experience the easiest way to book services</p>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -1854,7 +2590,7 @@ const ServiceDetail = () => {
                   <h3 className="text-base font-bold mb-1">Instant Response</h3>
                   <p className="text-xs text-white/80">Get immediate confirmation</p>
                 </motion.div>
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -1867,7 +2603,7 @@ const ServiceDetail = () => {
                   <h3 className="text-base font-bold mb-1">Verified Experts</h3>
                   <p className="text-xs text-white/80">Background-checked professionals</p>
                 </motion.div>
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -1880,7 +2616,7 @@ const ServiceDetail = () => {
                   <h3 className="text-base font-bold mb-1">Pay After Service</h3>
                   <p className="text-xs text-white/80">No upfront payment required</p>
                 </motion.div>
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -1895,15 +2631,15 @@ const ServiceDetail = () => {
                 </motion.div>
               </div>
               <div className="text-center">
-                  <motion.button
-                    onClick={handleWhatsAppClick}
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
+                <motion.button
+                  onClick={handleWhatsAppClick}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
                   className="bg-[#25D366] text-white px-8 py-4 rounded-full text-base font-bold hover:bg-[#20BA5A] transition-all duration-300 shadow-xl hover:shadow-[#25D366]/50 flex items-center gap-2 mx-auto"
-                  >
-                    <FaWhatsapp className="w-5 h-5" />
+                >
+                  <FaWhatsapp className="w-5 h-5" />
                   Book Now on WhatsApp
-                  </motion.button>
+                </motion.button>
               </div>
             </motion.div>
           </div>
@@ -1928,7 +2664,7 @@ const ServiceDetail = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/70 backdrop-blur-md z-[10000] flex items-center justify-center p-4"
+          className="modal-overlay addon-modal" style={{ zIndex: 9100 }}
           onClick={() => setSelectedAddOnModal(null)}
         >
           <div className="relative max-w-3xl w-full">
@@ -1938,12 +2674,12 @@ const ServiceDetail = () => {
                 e.stopPropagation()
                 setSelectedAddOnModal(null)
               }}
-              className="absolute -top-12 right-0 w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-100 rounded-full transition-all text-gray-600 hover:text-gray-900 shadow-lg z-[10001]"
+              className="absolute -top-12 right-0 w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-100 rounded-full transition-all text-gray-600 hover:text-gray-900 shadow-lg z-[9998]"
               aria-label="Close modal"
             >
               <FaTimesCircle className="text-xl" />
             </button>
-            
+
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -1952,16 +2688,16 @@ const ServiceDetail = () => {
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-2xl shadow-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
             >
-            {/* Enhanced Modal Header with Icon, Name, Description, Add to Cart */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-20">
-              <div className="flex-1">
+              {/* Enhanced Modal Header with Icon, Name, Description, Add to Cart */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-20">
+                <div className="flex-1">
                   {/* Icon - Top Line */}
                   <div className="flex justify-center mb-3">
                     <div className="w-14 h-14 bg-gradient-to-br from-primary to-primary-dark rounded-xl flex items-center justify-center shadow-md">
-                  {React.createElement(getIconComponent(selectedAddOnModal.addon.icon || 'FaTools'), {
-                    className: "text-white text-xl"
-                  })}
-                </div>
+                      {React.createElement(getIconComponent(selectedAddOnModal.addon.icon || 'FaTools'), {
+                        className: "text-white text-xl"
+                      })}
+                    </div>
                   </div>
                   {/* Service Name - Second Line */}
                   <h2 className="text-xl font-bold text-gray-900 text-center mb-2">{selectedAddOnModal.addon.name}</h2>
@@ -1970,10 +2706,10 @@ const ServiceDetail = () => {
                     <p className="text-sm text-gray-600 text-center leading-relaxed mb-4">{selectedAddOnModal.addon.description}</p>
                   )}
                   {/* Add to Cart Button - Fourth Line */}
-              {(() => {
+                  {(() => {
                     const quantity = selectedAddOns[selectedAddOnModal.index] || 0
                     const isInCart = quantity > 0
-                return (
+                    return (
                       <button
                         onClick={() => {
                           if (!isInCart) {
@@ -1981,11 +2717,10 @@ const ServiceDetail = () => {
                           }
                           setSelectedAddOnModal(null)
                         }}
-                        className={`w-full px-3 py-2 rounded-lg font-medium transition-all text-sm flex items-center justify-center gap-2 ${
-                          isInCart
-                            ? 'bg-green-500 text-white hover:bg-green-600 cursor-default'
-                            : 'bg-primary text-white hover:bg-primary-dark'
-                        }`}
+                        className={`w-full px-3 py-2 rounded-lg font-medium transition-all text-sm flex items-center justify-center gap-2 ${isInCart
+                          ? 'bg-green-500 text-white hover:bg-green-600 cursor-default'
+                          : 'bg-primary text-white hover:bg-primary-dark'
+                          }`}
                       >
                         {isInCart ? (
                           <>
@@ -1999,203 +2734,201 @@ const ServiceDetail = () => {
                           </>
                         )}
                       </button>
-                )
-              })()}
+                    )
+                  })()}
+                </div>
               </div>
-            </div>
 
-            {/* Simple Effective Modal Content */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+              {/* Simple Effective Modal Content */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
 
-              {/* Sub-Services */}
-              {selectedAddOnModal.addon.subServices && selectedAddOnModal.addon.subServices.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-                    <FaAward className="text-primary text-base" />
-                    <h3 className="text-base font-semibold text-gray-900">Sub-Services</h3>
-                    <span className="text-xs text-gray-500 ml-auto">({selectedAddOnModal.addon.subServices.length})</span>
-                      </div>
-                  <div className="grid sm:grid-cols-2 gap-3 max-h-[280px] overflow-y-auto custom-scrollbar">
-                    {selectedAddOnModal.addon.subServices.map((subService, idx) => {
-                      const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
-                      const key = `${selectedAddOnModal.index}-${idx}`
-                      const quantity = selectedAddOnSubServices[key] || 0
-                      const isInCart = quantity > 0
-                      
-                      return (
-                        <div
-                          key={idx}
-                          className={`bg-white p-3 rounded-lg border transition-all ${
-                            isInCart 
-                              ? 'border-primary bg-primary/5' 
+                {/* Sub-Services */}
+                {selectedAddOnModal.addon.subServices && selectedAddOnModal.addon.subServices.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+                      <FaAward className="text-primary text-base" />
+                      <h3 className="text-base font-semibold text-gray-900">Sub-Services</h3>
+                      <span className="text-xs text-gray-500 ml-auto">({selectedAddOnModal.addon.subServices.length})</span>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-3 max-h-[280px] overflow-y-auto custom-scrollbar">
+                      {selectedAddOnModal.addon.subServices.map((subService, idx) => {
+                        const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
+                        const key = `${selectedAddOnModal.index}-${idx}`
+                        const quantity = selectedAddOnSubServices[key] || 0
+                        const isInCart = quantity > 0
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`bg-white p-3 rounded-lg border transition-all ${isInCart
+                              ? 'border-primary bg-primary/5'
                               : 'border-gray-200 hover:border-primary/30'
-                          }`}
-                        >
-                          <div className="flex items-start gap-2 mb-2">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                              isInCart 
-                                ? 'bg-primary text-white' 
+                              }`}
+                          >
+                            <div className="flex items-start gap-2 mb-2">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isInCart
+                                ? 'bg-primary text-white'
                                 : 'bg-primary/10 text-primary'
-                            }`}>
-                              <SubServiceIcon className="w-4 h-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-1">{subService.name}</h4>
-                              <p className="text-sm font-bold text-primary">{subService.price}</p>
-                              {isInCart && (
-                                <span className="text-xs text-primary font-medium">({quantity} in cart)</span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Simple Add to Cart Controls */}
-                          {!isInCart ? (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleAddAddOnSubService(selectedAddOnModal.index, idx)
-                              }}
-                              className="w-full bg-primary text-white px-3 py-1.5 rounded-md font-medium text-xs hover:bg-primary-dark transition-all flex items-center justify-center gap-1"
-                            >
-                              <FaPlus className="text-xs" />
-                              <span>Add</span>
-                            </button>
-                          ) : (
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleRemoveAddOnSubService(selectedAddOnModal.index, idx)
-                                }}
-                                className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-200 transition-all text-xs flex items-center justify-center min-w-[28px]"
-                                aria-label="Decrease"
-                              >
-                                <FaMinus className="text-xs" />
-                              </button>
-                              <div className="bg-primary text-white px-3 py-1 rounded-md font-semibold text-sm min-w-[2rem] text-center">
-                                {quantity}
+                                }`}>
+                                <SubServiceIcon className="w-4 h-4" />
                               </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-1">{subService.name}</h4>
+                                <p className="text-sm font-bold text-primary">{subService.price}</p>
+                                {isInCart && (
+                                  <span className="text-xs text-primary font-medium">({quantity} in cart)</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Simple Add to Cart Controls */}
+                            {!isInCart ? (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleAddAddOnSubService(selectedAddOnModal.index, idx)
                                 }}
-                                className="bg-primary text-white px-2 py-1 rounded-md hover:bg-primary-dark transition-all text-xs flex items-center justify-center min-w-[28px]"
-                                aria-label="Increase"
+                                className="w-full bg-primary text-white px-3 py-1.5 rounded-md font-medium text-xs hover:bg-primary-dark transition-all flex items-center justify-center gap-1"
                               >
                                 <FaPlus className="text-xs" />
+                                <span>Add</span>
                               </button>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Price Breakdown */}
-              {(() => {
-                const breakdown = calculateAddOnPriceBreakdown(selectedAddOnModal.addon)
-                    const quantity = selectedAddOns[selectedAddOnModal.index] || 0
-                return (
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                        <FaRupeeSign className="text-primary" />
-                        <span>Price Breakdown</span>
-                      </h3>
-                      {quantity > 0 && (
-                        <span className="bg-primary text-white text-xs font-semibold px-2 py-1 rounded-full">
-                          {quantity} in cart
-                        </span>
-                      )}
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRemoveAddOnSubService(selectedAddOnModal.index, idx)
+                                  }}
+                                  className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-200 transition-all text-xs flex items-center justify-center min-w-[28px]"
+                                  aria-label="Decrease"
+                                >
+                                  <FaMinus className="text-xs" />
+                                </button>
+                                <div className="bg-primary text-white px-3 py-1 rounded-md font-semibold text-sm min-w-[2rem] text-center">
+                                  {quantity}
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleAddAddOnSubService(selectedAddOnModal.index, idx)
+                                  }}
+                                  className="bg-primary text-white px-2 py-1 rounded-md hover:bg-primary-dark transition-all text-xs flex items-center justify-center min-w-[28px]"
+                                  aria-label="Increase"
+                                >
+                                  <FaPlus className="text-xs" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
-                    <div className="space-y-2 bg-white rounded-lg p-3 border border-gray-100 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Base Price:</span>
-                        <span className="font-semibold text-gray-900">₹{Math.round(breakdown.basePrice).toLocaleString('en-IN')}</span>
-                      </div>
-                      {breakdown.discount > 0 && (
-                        <div className="flex justify-between bg-green-50 rounded px-2 py-1">
-                          <span className="text-green-700 font-medium flex items-center gap-1">
-                            <FaPercentage className="text-xs" />
-                            Discount ({breakdown.discount}%):
+                  </div>
+                )}
+
+                {/* Price Breakdown */}
+                {(() => {
+                  const breakdown = calculateAddOnPriceBreakdown(selectedAddOnModal.addon)
+                  const quantity = selectedAddOns[selectedAddOnModal.index] || 0
+                  return (
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                          <FaRupeeSign className="text-primary" />
+                          <span>Price Breakdown</span>
+                        </h3>
+                        {quantity > 0 && (
+                          <span className="bg-primary text-white text-xs font-semibold px-2 py-1 rounded-full">
+                            {quantity} in cart
                           </span>
-                          <span className="font-semibold text-green-700">-₹{Math.round(breakdown.discountAmount).toLocaleString('en-IN')}</span>
-                        </div>
-                      )}
-                      {breakdown.serviceCharge > 0 && (
+                        )}
+                      </div>
+                      <div className="space-y-2 bg-white rounded-lg p-3 border border-gray-100 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Service Charge:</span>
-                          <span className="font-semibold text-gray-900">+₹{Math.round(breakdown.serviceCharge).toLocaleString('en-IN')}</span>
+                          <span className="text-gray-600">Base Price:</span>
+                          <span className="font-semibold text-gray-900">₹{Math.round(breakdown.basePrice).toLocaleString('en-IN')}</span>
                         </div>
-                      )}
-                      {(breakdown.cgst > 0 || breakdown.sgst > 0) && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">GST ({breakdown.cgst + breakdown.sgst}%):</span>
-                          <span className="font-semibold text-gray-900">+₹{Math.round(breakdown.gstAmount).toLocaleString('en-IN')}</span>
+                        {breakdown.discount > 0 && (
+                          <div className="flex justify-between bg-green-50 rounded px-2 py-1">
+                            <span className="text-green-700 font-medium flex items-center gap-1">
+                              <FaPercentage className="text-xs" />
+                              Discount ({breakdown.discount}%):
+                            </span>
+                            <span className="font-semibold text-green-700">-₹{Math.round(breakdown.discountAmount).toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        {breakdown.serviceCharge > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Service Charge:</span>
+                            <span className="font-semibold text-gray-900">+₹{Math.round(breakdown.serviceCharge).toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        {(breakdown.cgst > 0 || breakdown.sgst > 0) && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">GST ({breakdown.cgst + breakdown.sgst}%):</span>
+                            <span className="font-semibold text-gray-900">+₹{Math.round(breakdown.gstAmount).toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between pt-2 mt-2 border-t border-gray-200">
+                          <span className="font-bold text-gray-900">Total:</span>
+                          <span className="text-xl font-black text-primary">₹{Math.round(breakdown.finalPrice).toLocaleString('en-IN')}</span>
                         </div>
-                      )}
-                      <div className="flex justify-between pt-2 mt-2 border-t border-gray-200">
-                        <span className="font-bold text-gray-900">Total:</span>
-                        <span className="text-xl font-black text-primary">₹{Math.round(breakdown.finalPrice).toLocaleString('en-IN')}</span>
                       </div>
                     </div>
+                  )
+                })()}
+
+                {/* Included and Excluded Items */}
+                {(selectedAddOnModal.addon.included && selectedAddOnModal.addon.included.length > 0) ||
+                  (selectedAddOnModal.addon.excluded && selectedAddOnModal.addon.excluded.length > 0) ? (
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {/* Included Items */}
+                    {selectedAddOnModal.addon.included && selectedAddOnModal.addon.included.length > 0 && (
+                      <div className="bg-white rounded-lg p-3 border border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <FaCheckCircle className="text-green-500 text-sm" />
+                          <span>Included</span>
+                        </h3>
+                        <ul className="space-y-1.5">
+                          {selectedAddOnModal.addon.included.map((item, idx) => (
+                            <li
+                              key={idx}
+                              className="flex items-start gap-2 text-xs text-gray-700"
+                            >
+                              <FaCheckCircle className="text-green-500 text-xs mt-0.5 flex-shrink-0" />
+                              <span className="flex-1">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Excluded Items */}
+                    {selectedAddOnModal.addon.excluded && selectedAddOnModal.addon.excluded.length > 0 && (
+                      <div className="bg-white rounded-lg p-3 border border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <FaTimesCircle className="text-red-500 text-sm" />
+                          <span>Not Included</span>
+                        </h3>
+                        <ul className="space-y-1.5">
+                          {selectedAddOnModal.addon.excluded.map((item, idx) => (
+                            <li
+                              key={idx}
+                              className="flex items-start gap-2 text-xs text-gray-700"
+                            >
+                              <FaTimesCircle className="text-red-500 text-xs mt-0.5 flex-shrink-0" />
+                              <span className="flex-1">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                )
-              })()}
+                ) : null}
 
-              {/* Included and Excluded Items */}
-              {(selectedAddOnModal.addon.included && selectedAddOnModal.addon.included.length > 0) || 
-               (selectedAddOnModal.addon.excluded && selectedAddOnModal.addon.excluded.length > 0) ? (
-                <div className="grid md:grid-cols-2 gap-3">
-                  {/* Included Items */}
-                  {selectedAddOnModal.addon.included && selectedAddOnModal.addon.included.length > 0 && (
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <FaCheckCircle className="text-green-500 text-sm" />
-                        <span>Included</span>
-                      </h3>
-                      <ul className="space-y-1.5">
-                        {selectedAddOnModal.addon.included.map((item, idx) => (
-                          <li
-                            key={idx}
-                            className="flex items-start gap-2 text-xs text-gray-700"
-                          >
-                            <FaCheckCircle className="text-green-500 text-xs mt-0.5 flex-shrink-0" />
-                            <span className="flex-1">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Excluded Items */}
-                  {selectedAddOnModal.addon.excluded && selectedAddOnModal.addon.excluded.length > 0 && (
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <FaTimesCircle className="text-red-500 text-sm" />
-                        <span>Not Included</span>
-                      </h3>
-                      <ul className="space-y-1.5">
-                        {selectedAddOnModal.addon.excluded.map((item, idx) => (
-                          <li
-                            key={idx}
-                            className="flex items-start gap-2 text-xs text-gray-700"
-                          >
-                            <FaTimesCircle className="text-red-500 text-xs mt-0.5 flex-shrink-0" />
-                            <span className="flex-1">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
               </div>
-                  )}
-                </div>
-              ) : null}
-
-            </div>
-          </motion.div>
+            </motion.div>
           </div>
         </motion.div>
       )}
@@ -2206,7 +2939,7 @@ const ServiceDetail = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4"
+          className="modal-overlay cart-modal" style={{ zIndex: 9200 }}
           onClick={() => setShowCartModal(false)}
         >
           <motion.div
@@ -2256,7 +2989,7 @@ const ServiceDetail = () => {
                       const originalPrice = sub.originalPrice || sub.price || 0
                       const hasDiscount = originalPrice > finalPrice
                       const SubIcon = getIconComponent(sub.icon || 'FaTools')
-                      
+
                       return (
                         <motion.div
                           key={`sub-${sub._id}`}
@@ -2307,10 +3040,10 @@ const ServiceDetail = () => {
                     .map((addon, index) => {
                       const quantity = selectedAddOns[index] || 0
                       if (quantity === 0) return null
-                      
+
                       const breakdown = calculateAddOnPriceBreakdown(addon)
                       const AddOnIcon = getIconComponent(addon.icon || 'FaTools')
-                      
+
                       return (
                         <motion.div
                           key={`addon-${index}`}
@@ -2345,8 +3078,8 @@ const ServiceDetail = () => {
                                 </div>
                                 <div className="text-right">
                                   <p className="text-lg font-black text-primary">₹{Math.round(breakdown.finalPrice * quantity).toLocaleString('en-IN')}</p>
-                                  {breakdown.discount > 0 && (
-                                    <p className="text-xs text-gray-400 line-through">₹{Math.round(breakdown.basePrice * quantity).toLocaleString('en-IN')}</p>
+                                  {breakdown.originalTotalPrice > 0 && breakdown.originalTotalPrice !== breakdown.finalPrice && (
+                                    <p className="text-xs text-gray-400 line-through">₹{Math.round(breakdown.originalTotalPrice * quantity).toLocaleString('en-IN')}</p>
                                   )}
                                 </div>
                               </div>
@@ -2363,9 +3096,9 @@ const ServiceDetail = () => {
                       const key = `${addonIndex}-${subServiceIndex}`
                       return selectedAddOnSubServices[key] > 0
                     }) || []
-                    
+
                     if (subServicesInCart.length === 0) return null
-                    
+
                     return (
                       <div key={`addon-subservices-${addonIndex}`} className="space-y-3">
                         <div className="flex items-center gap-2 mb-2">
@@ -2379,11 +3112,11 @@ const ServiceDetail = () => {
                           const key = `${addonIndex}-${subServiceIndex}`
                           const quantity = selectedAddOnSubServices[key] || 0
                           if (quantity === 0) return null
-                          
+
                           const priceStr = subService.price || '0'
                           const price = parseFloat(priceStr.replace(/[₹,\s]/g, '')) || 0
                           const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
-                          
+
                           return (
                             <motion.div
                               key={key}
@@ -2449,22 +3182,31 @@ const ServiceDetail = () => {
                   >
                     Continue Shopping
                   </button>
-                  <button
-                    onClick={() => {
-                      setShowCartModal(false)
-                      openComingSoon()
-                    }}
-                    className="flex-1 bg-gradient-to-r from-[#25D366] to-[#20BA5A] text-white px-6 py-3.5 rounded-xl font-bold hover:from-[#20BA5A] hover:to-[#25D366] transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
-                  >
-                    <FaWhatsapp className="w-5 h-5" />
-                    <span>Book Now</span>
-                  </button>
+                  {isServiceAvailableInCity() ? (
+                    <button
+                      onClick={() => {
+                        setShowCartModal(false)
+                        handleBookNow()
+                      }}
+                      className="flex-1 bg-gradient-to-r from-primary to-primary-dark text-white px-6 py-3.5 rounded-xl font-bold hover:shadow-xl transition-all flex items-center justify-center gap-2 shadow-lg"
+                    >
+                      <FaShoppingCart className="w-5 h-5" />
+                      <span>Book Now</span>
+                    </button>
+                  ) : (
+                    <div className="flex-1 bg-gray-400 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg cursor-not-allowed">
+                      <FaTimesCircle className="w-5 h-5" />
+                      <span>Not Available in {selectedCity?.name || 'Your City'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </motion.div>
         </motion.div>
       )}
+
+
     </>
   )
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
   FaWhatsapp, 
@@ -18,10 +18,15 @@ import {
   FaPlug,
   FaFilter,
   FaUserCheck,
-  FaCommentDots
+  FaCommentDots,
+  FaMapMarkerAlt
 } from 'react-icons/fa'
 import SEO from '../components/SEO'
+import CitySelectionModal from '../components/CitySelectionModal'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
+import { useUserAuth } from '../context/UserAuthContext'
+import axios from 'axios'
+import cityService from '../services/cityService'
 
 // Icon mapping utility
 const iconMap = {
@@ -53,8 +58,79 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
 const Home = () => {
   const whatsappNumber = "919590926068"
   const handleWhatsAppClick = useWhatsAppClick()
+  const navigate = useNavigate()
+  const { isAuthenticated, user } = useUserAuth()
   const [popularServices, setPopularServices] = useState([])
   const [isLoadingServices, setIsLoadingServices] = useState(true)
+
+  const [showCityModal, setShowCityModal] = useState(false)
+  const [selectedCity, setSelectedCity] = useState(null)
+
+  useEffect(() => {
+    // Check if city is already selected
+    const savedCity = localStorage.getItem('selectedCity');
+    if (savedCity) {
+      const city = JSON.parse(savedCity);
+      
+      // Verify the city is still enabled using cached service
+      const verifyCityStatus = async () => {
+        try {
+          const currentCity = await cityService.findCityById(city._id);
+          
+          // If city not found or disabled, clear it
+          if (!currentCity || !currentCity.isEnabled) {
+            console.log('Selected city is no longer available, clearing selection');
+            localStorage.removeItem('selectedCity');
+            setSelectedCity(null);
+            setShowCityModal(true);
+          } else {
+            setSelectedCity(currentCity);
+          }
+        } catch (error) {
+          console.error('Error verifying city status:', error);
+          // Keep the saved city if API fails
+          setSelectedCity(city);
+        }
+      };
+      
+      verifyCityStatus();
+    } else {
+      // Show city modal on first visit
+      setTimeout(() => setShowCityModal(true), 1000);
+    }
+  }, []);
+
+  const handleCitySelect = (city) => {
+    setSelectedCity(city);
+    setShowCityModal(false);
+  };
+
+  // Periodic check to verify selected city is still enabled
+  useEffect(() => {
+    if (!selectedCity) return;
+
+    const checkCityStatus = async () => {
+      try {
+        const isEnabled = await cityService.verifyCityStatus(selectedCity._id);
+        
+        // If city is disabled, clear selection and show modal
+        if (!isEnabled) {
+          console.log('Selected city has been disabled, clearing selection');
+          localStorage.removeItem('selectedCity');
+          setSelectedCity(null);
+          alert('The selected city is no longer available. Please select another city.');
+          setShowCityModal(true);
+        }
+      } catch (error) {
+        console.error('Error checking city status:', error);
+      }
+    };
+
+    // Check every 5 minutes (reduced frequency)
+    const interval = setInterval(checkCityStatus, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedCity]);
 
   useEffect(() => {
     const fetchPopularServices = async () => {
@@ -104,52 +180,7 @@ const Home = () => {
     fetchPopularServices()
   }, [])
 
-  const [subscriptionPlans, setSubscriptionPlans] = useState([
-    {
-      name: 'Basic',
-      price: '₹99',
-      features: ['Priority support', '2 free inspections'],
-    },
-    {
-      name: 'Pro',
-      price: '₹199',
-      features: ['Free visits', 'Discounted services', 'Priority booking'],
-    },
-    {
-      name: 'Ultra',
-      price: '₹349',
-      features: ['2 handyman hours/month', 'Emergency booking support', '24x7 premium assistance'],
-    },
-  ])
 
-  // Fetch subscription plans from backend
-  useEffect(() => {
-    const fetchSubscriptionPlans = async () => {
-      try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
-        const response = await fetch(`${apiUrl}/api/public/subscription-plans`)
-        const data = await response.json()
-        
-        if (data.success && data.data && Array.isArray(data.data) && data.data.length > 0) {
-          // Transform backend data to match frontend format
-          const transformedPlans = data.data.map(plan => ({
-            name: plan.name,
-            price: plan.priceDisplay || `₹${plan.price}`,
-            features: plan.features || [],
-            highlight: plan.highlight || false,
-            highlightText: plan.highlightText || '',
-            whatsappNumber: plan.whatsappNumber || ''
-          }))
-          setSubscriptionPlans(transformedPlans)
-        }
-      } catch (error) {
-        console.error('Error fetching subscription plans:', error)
-        // Keep default plans on error
-      }
-    }
-
-    fetchSubscriptionPlans()
-  }, [])
 
   const whyChooseUs = [
     { icon: FaBolt, text: 'Response under 2 minutes', color: 'text-yellow-500' },
@@ -264,6 +295,8 @@ const Home = () => {
     },
   }
 
+
+
   return (
     <>
       <SEO 
@@ -271,6 +304,13 @@ const Home = () => {
         description="Fast, reliable and affordable home services from verified experts. Book AC service, electrical work, plumbing, cleaning, and 200+ services on WhatsApp. Response under 2 minutes. Verified technicians. Pay after service."
         keywords="home services, AC service, electrical work, plumbing, cleaning services, WhatsApp booking, verified technicians, home maintenance, appliance repair, carpentry, painting services"
         url="/"
+      />
+      
+      {/* City Selection Modal */}
+      <CitySelectionModal
+        isOpen={showCityModal}
+        onClose={() => setShowCityModal(false)}
+        onCitySelect={handleCitySelect}
       />
       
       <div className="overflow-x-hidden w-full max-w-full">
@@ -478,6 +518,65 @@ const Home = () => {
               >
                 Support for AC, electrical, plumbing, cleaning, appliances and 200+ services.
               </motion.p>
+
+              {/* City Selection Card */}
+              <motion.div 
+                variants={itemVariants}
+                className="mt-8 sm:mt-10 px-4 flex justify-center"
+              >
+                <motion.button
+                  onClick={() => setShowCityModal(true)}
+                  whileHover={{ scale: 1.05, y: -3 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="group relative bg-white/95 backdrop-blur-md text-gray-900 px-8 py-4 rounded-2xl text-base sm:text-lg font-semibold hover:bg-white transition-all duration-300 flex items-center gap-3 shadow-2xl hover:shadow-white/30 border border-white/50 overflow-hidden"
+                >
+                  {/* Gradient background on hover */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  
+                  {/* Icon with animation */}
+                  <motion.div
+                    animate={{ 
+                      rotate: [0, -10, 10, -10, 0],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      repeatDelay: 3
+                    }}
+                    className="relative z-10"
+                  >
+                    <FaMapMarkerAlt className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                  </motion.div>
+                  
+                  {/* Text content */}
+                  <div className="relative z-10 flex flex-col items-start">
+                    <span className="text-xs text-gray-500 font-normal">Service Location</span>
+                    <span className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-primary transition-colors">
+                      {selectedCity ? selectedCity.name : 'Select Your City'}
+                    </span>
+                  </div>
+                  
+                  {/* Arrow indicator */}
+                  <motion.div
+                    animate={{ x: [0, 5, 0] }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="relative z-10 ml-2"
+                  >
+                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </motion.div>
+
+                  {/* Shine effect */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
+                  </div>
+                </motion.button>
+              </motion.div>
             </motion.div>
           </div>
 
@@ -604,59 +703,297 @@ const Home = () => {
               transition={{ duration: 0.6 }}
               className="text-center mb-12 sm:mb-16"
             >
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-3 sm:mb-4">Popular Services</h2>
-              <p className="text-lg sm:text-xl text-gray-600">Choose from our wide range of services</p>
+              <motion.div
+                initial={{ scale: 0.9 }}
+                whileInView={{ scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-primary-dark to-primary bg-clip-text text-transparent mb-3 sm:mb-4">
+                  Popular Services
+                </h2>
+                <div className="w-24 h-1 bg-gradient-to-r from-primary to-primary-dark mx-auto mb-4 rounded-full"></div>
+              </motion.div>
+              <p className="text-lg sm:text-xl text-gray-600">Choose from our wide range of professional services</p>
             </motion.div>
 
             {isLoadingServices ? (
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                {[...Array(8)].map((_, index) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
+                {[...Array(10)].map((_, index) => (
                   <div
                     key={index}
-                    className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-100 animate-pulse"
+                    className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 animate-pulse"
                   >
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 rounded-lg mb-3 sm:mb-4"></div>
-                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-20"></div>
+                    <div className="w-16 h-16 bg-gray-200 rounded-2xl mx-auto mb-4"></div>
+                    <div className="h-4 bg-gray-200 rounded mb-3"></div>
+                    <div className="h-3 bg-gray-200 rounded w-3/4 mx-auto mb-4"></div>
+                    <div className="h-8 bg-gray-200 rounded-full"></div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
                 {popularServices.map((service, index) => {
                   const IconComponent = service.icon
                   return (
-                    <motion.div
+                    <Link 
                       key={service.slug || service._id || index}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true, margin: "-50px" }}
-                      transition={{ duration: 0.4, delay: index * 0.1 }}
-                      whileHover={{ y: -5, scale: 1.02 }}
-                      className="bg-white p-4 sm:p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100"
+                      to={`/service/${service.slug}`}
                     >
-                      <Link to={`/service/${service.slug}`} className="block">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary/10 rounded-lg flex items-center justify-center mb-3 sm:mb-4">
-                          <IconComponent className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                        </div>
-                        <h3 className="text-base sm:text-xl font-bold text-primary mb-2">{service.name}</h3>
-                        <motion.button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleWhatsAppClick(e)
+                      <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: "-50px" }}
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                        whileHover={{ 
+                          y: -8, 
+                          scale: 1.03,
+                          rotateY: 5,
+                          transition: { duration: 0.3, ease: "easeOut" }
+                        }}
+                        className="group relative bg-gradient-to-br from-white via-white to-gray-50/30 rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all duration-500 border border-gray-200/50 hover:border-primary/60 cursor-pointer overflow-hidden h-full transform-gpu"
+                      >
+                        {/* Enhanced background gradient with hover animation */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-primary/5 opacity-100 group-hover:from-primary/8 group-hover:to-primary/12 transition-all duration-500" />
+                        
+                        {/* Animated decorative elements */}
+                        <motion.div 
+                          className="absolute top-4 right-4 w-8 h-8 bg-gradient-to-br from-primary/10 to-primary/5 rounded-full opacity-60"
+                          whileHover={{ 
+                            scale: [1, 1.2, 1],
+                            rotate: [0, 180, 360],
+                            opacity: [0.6, 0.9, 0.6]
                           }}
-                          whileHover={{ scale: 1.05, x: 2 }}
-                          whileTap={{ scale: 0.95 }}
-                          className="text-primary hover:text-primary-dark font-semibold text-xs sm:text-sm flex items-center gap-1"
-                        >
-                          Book Now <FaWhatsapp className="w-3 h-3" />
-                        </motion.button>
-                      </Link>
-                    </motion.div>
+                          transition={{ duration: 1, ease: "easeInOut" }}
+                        />
+                        <motion.div 
+                          className="absolute bottom-4 left-4 w-6 h-6 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-full opacity-40"
+                          whileHover={{ 
+                            scale: [1, 1.3, 1],
+                            x: [0, 5, 0],
+                            y: [0, -5, 0]
+                          }}
+                          transition={{ duration: 0.8, ease: "easeInOut" }}
+                        />
+
+                        {/* Floating particles on hover */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                          {[...Array(8)].map((_, i) => (
+                            <motion.div
+                              key={i}
+                              className="absolute w-1 h-1 bg-primary/40 rounded-full"
+                              style={{
+                                left: `${15 + (i * 10)}%`,
+                                top: `${20 + (i * 8)}%`,
+                              }}
+                              animate={{
+                                y: [0, -30, 0],
+                                x: [0, (i % 2 === 0 ? 10 : -10), 0],
+                                opacity: [0.2, 0.8, 0.2],
+                                scale: [1, 1.5, 1],
+                              }}
+                              transition={{
+                                duration: 2 + (i * 0.2),
+                                repeat: Infinity,
+                                ease: "easeInOut",
+                                delay: i * 0.1,
+                              }}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Pulsing border effect */}
+                        <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <div className="absolute inset-0 rounded-3xl border-2 border-primary/30 animate-pulse" />
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="relative z-10 flex flex-col items-center text-center h-full">
+                          {/* Enhanced Icon container with multiple hover effects */}
+                          <motion.div 
+                            className="relative w-20 h-20 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 rounded-2xl flex items-center justify-center mb-4 shadow-lg border border-primary/10 group-hover:shadow-2xl group-hover:shadow-primary/20"
+                            whileHover={{ 
+                              scale: 1.1, 
+                              rotate: [0, -5, 5, 0],
+                              transition: { duration: 0.5 }
+                            }}
+                          >
+                            {/* Enhanced icon background glow with animation */}
+                            <div className="absolute inset-0 bg-primary/10 rounded-2xl blur-lg group-hover:bg-primary/25 group-hover:blur-xl transition-all duration-500" />
+                            
+                            {/* Rotating ring effect */}
+                            <motion.div
+                              className="absolute inset-0 rounded-2xl border-2 border-primary/20 opacity-0 group-hover:opacity-100"
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                            />
+                            
+                            {/* Icon with enhanced hover animation */}
+                            <motion.div
+                              whileHover={{ 
+                                scale: 1.2,
+                                rotate: [0, 10, -10, 0],
+                                transition: { duration: 0.4 }
+                              }}
+                            >
+                              <IconComponent className="w-10 h-10 text-primary relative z-10 group-hover:text-primary-dark transition-colors duration-300" />
+                            </motion.div>
+
+                            {/* Corner sparkle effect */}
+                            <motion.div
+                              className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full opacity-0 group-hover:opacity-100"
+                              animate={{
+                                scale: [0, 1, 0],
+                                rotate: [0, 180, 360],
+                              }}
+                              transition={{
+                                duration: 1.5,
+                                repeat: Infinity,
+                                ease: "easeInOut",
+                              }}
+                            />
+                          </motion.div>
+                          
+                          {/* Service Name with enhanced hover animation */}
+                          <motion.h3 
+                            className="text-base sm:text-lg font-bold text-gray-800 group-hover:text-primary transition-all duration-300 line-clamp-2 mb-3 leading-tight"
+                            whileHover={{ scale: 1.05 }}
+                          >
+                            {service.name}
+                          </motion.h3>
+
+                          {/* Service description with fade-in animation */}
+                          <motion.p 
+                            className="text-xs sm:text-sm text-gray-500 group-hover:text-gray-700 mb-4 leading-relaxed transition-all duration-300"
+                            whileHover={{ y: -2 }}
+                          >
+                            Professional & Reliable Service
+                          </motion.p>
+
+                          {/* Enhanced View Button with multiple hover effects */}
+                          <motion.div 
+                            className="w-full mt-auto"
+                            whileHover={{ scale: 1.02 }}
+                          >
+                            <motion.div 
+                              className="w-full bg-gradient-to-r from-gray-100 to-gray-200 group-hover:from-primary/10 group-hover:to-primary/20 text-gray-700 group-hover:text-primary text-sm font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 shadow-sm hover:shadow-lg border border-gray-300 group-hover:border-primary/40"
+                              whileHover={{ 
+                                y: -2,
+                                boxShadow: "0 10px 25px rgba(0,0,0,0.1)"
+                              }}
+                            >
+                              <motion.svg 
+                                className="w-4 h-4" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                                whileHover={{ scale: 1.2, rotate: 15 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </motion.svg>
+                              <span>View Details</span>
+                              <motion.div
+                                className="w-1 h-1 bg-primary rounded-full opacity-0 group-hover:opacity-100"
+                                animate={{
+                                  scale: [1, 1.5, 1],
+                                  opacity: [0.5, 1, 0.5],
+                                }}
+                                transition={{
+                                  duration: 1,
+                                  repeat: Infinity,
+                                  ease: "easeInOut",
+                                }}
+                              />
+                            </motion.div>
+                          </motion.div>
+                        </div>
+
+                        {/* Enhanced bottom accent line with animation */}
+                        <motion.div 
+                          className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/30 via-primary/60 to-primary/30 group-hover:h-2 group-hover:from-primary/50 group-hover:via-primary group-hover:to-primary/50 transition-all duration-500"
+                          whileHover={{
+                            scaleX: [1, 1.05, 1],
+                            transition: { duration: 0.5 }
+                          }}
+                        />
+                        
+                        {/* Enhanced shine effect with multiple layers */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent transform -skew-x-12 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1200" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-yellow-400/5 transform translate-x-[-100%] translate-y-[-100%] group-hover:translate-x-[100%] group-hover:translate-y-[100%] transition-transform duration-1500" />
+                        </div>
+
+                        {/* Subtle glow effect around the entire card */}
+                        <div className="absolute -inset-1 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm -z-10" />
+                      </motion.div>
+                    </Link>
                   )
                 })}
               </div>
             )}
+
+            {/* View All Services Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="text-center mt-12 sm:mt-16"
+            >
+              <motion.button
+                onClick={handleWhatsAppClick}
+                whileHover={{ scale: 1.05, y: -3 }}
+                whileTap={{ scale: 0.95 }}
+                className="group relative bg-gradient-to-r from-primary to-primary-dark text-white px-8 sm:px-12 py-4 sm:py-5 rounded-2xl text-base sm:text-lg font-bold hover:from-primary-dark hover:to-primary transition-all duration-300 shadow-xl hover:shadow-2xl flex items-center gap-3 mx-auto overflow-hidden"
+              >
+                {/* Button background animation */}
+                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                {/* Icon with animation */}
+                <motion.div
+                  animate={{ 
+                    rotate: [0, 360],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                  className="relative z-10"
+                >
+                  <FaWhatsapp className="w-6 h-6" />
+                </motion.div>
+                
+                {/* Text content */}
+                <span className="relative z-10">Explore All Services on WhatsApp</span>
+                
+                {/* Arrow indicator */}
+                <motion.div
+                  animate={{ x: [0, 5, 0] }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="relative z-10"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </motion.div>
+
+                {/* Shine effect */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
+                </div>
+              </motion.button>
+              
+              <p className="text-gray-500 mt-4 text-sm sm:text-base">
+                200+ services available • Response under 2 minutes
+              </p>
+            </motion.div>
           </div>
         </section>
 
@@ -733,89 +1070,7 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Subscription Plans */}
-        <section className="py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-primary/10 to-primary/5 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-5">
-            <motion.div
-              className="absolute inset-0"
-              style={{
-                background: 'linear-gradient(135deg, rgba(33, 74, 115, 0.1) 0%, transparent 100%)',
-              }}
-              animate={{
-                rotate: [0, 360],
-              }}
-              transition={{
-                duration: 30,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-            />
-          </div>
 
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.6 }}
-              className="text-center mb-12 sm:mb-16"
-            >
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-3 sm:mb-4">Subscription Plans</h2>
-              <p className="text-lg sm:text-xl text-gray-600">Boost your home maintenance</p>
-            </motion.div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {subscriptionPlans.map((plan, index) => {
-                const isHighlighted = plan.highlight || plan.name === 'Pro'
-                const planWhatsappNumber = plan.whatsappNumber || whatsappNumber
-                
-                return (
-                  <motion.div
-                    key={plan.name || index}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: "-50px" }}
-                    transition={{ duration: 0.6, delay: index * 0.2 }}
-                    whileHover={{ y: -10, scale: 1.02 }}
-                    className={`bg-white p-6 sm:p-8 rounded-2xl shadow-xl border-2 ${
-                      isHighlighted ? 'border-primary scale-105 lg:scale-105 sm:scale-100' : 'border-gray-200'
-                    }`}
-                  >
-                    {plan.highlightText && (
-                      <div className="text-xs text-primary font-semibold mb-2">{plan.highlightText}</div>
-                    )}
-                    <h3 className="text-xl sm:text-2xl font-bold text-primary mb-2">{plan.name}</h3>
-                    <div className="mb-4 sm:mb-6">
-                      <span className="text-3xl sm:text-4xl font-bold text-primary">{plan.price}</span>
-                      <span className="text-gray-600">/month</span>
-                    </div>
-                    <ul className="space-y-2 sm:space-y-3 mb-6 sm:mb-8">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-center gap-2 text-sm sm:text-base text-gray-700">
-                          <FaCheckCircle className="text-primary flex-shrink-0" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                    <motion.button
-                      onClick={() => handleWhatsAppClick(planWhatsappNumber)}
-                      whileHover={{ scale: 1.02, y: -2 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`block w-full text-center py-3 rounded-full font-semibold transition-all duration-300 text-sm sm:text-base flex items-center justify-center gap-2 ${
-                        isHighlighted
-                          ? 'bg-primary text-white hover:bg-primary-dark'
-                          : 'bg-gray-100 text-primary hover:bg-gray-200'
-                      }`}
-                    >
-                      <FaWhatsapp className="w-4 h-4" />
-                      Subscribe on WhatsApp
-                    </motion.button>
-                  </motion.div>
-                )
-              })}
-            </div>
-          </div>
-        </section>
 
         {/* AMC Section */}
         <section className="py-12 sm:py-16 lg:py-20 bg-white relative overflow-hidden">
