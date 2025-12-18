@@ -337,76 +337,220 @@ const MaterialStore = () => {
                   viewport={{ once: true, margin: "-50px" }}
                   transition={{ 
                     duration: 0.5, 
-                    delay: index * 0.1,
+                    delay: index * 0.12,
                     type: "spring",
                     stiffness: 100
                   }}
                   whileHover={{ 
-                    y: -8, 
+                    y: -10, 
                     scale: 1.02,
-                    transition: { duration: 0.2 }
+                    transition: { duration: 0.3 } 
                   }}
-                  className="group relative bg-white rounded-3xl border-2 border-gray-100 shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden"
+                  className="group relative bg-white rounded-2xl border-2 border-gray-100 hover:border-primary/40 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden"
                 >
-                  {/* Gradient overlay on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/0 group-hover:from-primary/5 group-hover:to-primary/10 transition-all duration-300"></div>
+                  {/* Animated gradient overlay */}
+                  <motion.div 
+                    className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/0 group-hover:from-primary/8 group-hover:to-transparent pointer-events-none"
+                    initial={false}
+                    animate={{
+                      backgroundPosition: ['0% 0%', '100% 100%'],
+                    }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      repeatType: 'reverse',
+                    }}
+                  />
                   
-                  {/* Top accent bar */}
-                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-primary-light to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                  <div className="relative p-6 lg:p-8">
-                    {/* Icon Container */}
+                  {/* Animated top accent bar */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary-light to-primary overflow-hidden">
                     <motion.div
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                      className="mb-6 flex items-center justify-center w-20 h-20 mx-auto bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-300"
+                      className="h-full w-1/3 bg-gradient-to-r from-transparent via-white/60 to-transparent"
+                      animate={{
+                        x: ['-100%', '300%'],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        repeatDelay: 3,
+                        ease: "easeInOut",
+                      }}
+                    />
+                  </div>
+
+                  {/* Floating particles on hover */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                    {[...Array(4)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-1 h-1 bg-primary/40 rounded-full"
+                        style={{
+                          left: `${25 + i * 20}%`,
+                          top: `${40 + (i % 2) * 20}%`,
+                        }}
+                        animate={{
+                          y: [0, -20, 0],
+                          opacity: [0.4, 0.8, 0.4],
+                          scale: [1, 1.5, 1],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: i * 0.3,
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="relative p-6 lg:p-7">
+                    {/* Icon Container with glow */}
+                    <motion.div
+                      whileHover={{ scale: 1.15, rotate: 8 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                      className="relative w-20 h-20 mx-auto mb-5"
                     >
-                      <span className="text-5xl">{category.icon}</span>
+                      {/* Glow effect */}
+                      <motion.div 
+                        className="absolute inset-0 bg-primary/20 rounded-full blur-xl"
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.3, 0.5, 0.3],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      />
+                      <div className="relative w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 group-hover:from-primary/20 group-hover:to-primary/10 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-300">
+                        <span className="text-5xl">{category.icon}</span>
+                      </div>
                     </motion.div>
 
-                    {/* Category Name */}
-                    <h3 className="text-2xl lg:text-3xl font-bold text-primary mb-6 text-center group-hover:text-primary-dark transition-colors">
-                      {category.name}
-                    </h3>
+                    {/* Category Name & Count */}
+                    <div className="text-center mb-5">
+                      <h3 className="text-2xl font-bold text-gray-800 group-hover:text-primary transition-colors mb-2">
+                        {category.name}
+                      </h3>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 rounded-full text-xs font-semibold text-primary">
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                        {category.items.length} Items Available
+                      </span>
+                    </div>
 
                     {/* Items List */}
-                    <div className="mb-8 min-h-[120px]">
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {category.items.map((item, idx) => (
-                          <motion.span
-                            key={`${item}-${idx}`}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                            transition={{ 
-                              duration: 0.3, 
-                              delay: index * 0.1 + idx * 0.05 
-                            }}
-                            whileHover={{ scale: 1.1 }}
-                            className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-primary/10 to-primary/5 text-primary text-sm font-semibold rounded-full border border-primary/20 hover:border-primary/40 hover:from-primary/20 hover:to-primary/10 transition-all duration-200 shadow-sm"
+                    <div className="mb-6 space-y-2 max-h-[260px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                      {category.items.map((item, idx) => {
+                        const itemName = typeof item === 'string' ? item : item.name;
+                        const hasPriceRange = typeof item === 'object' && (item.priceMin || item.priceMax);
+                        
+                        return (
+                          <motion.div
+                            key={`${itemName}-${idx}`}
+                            initial={{ opacity: 0, x: -10 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: idx * 0.05 }}
+                            className="flex items-center justify-between p-3 bg-gray-50 hover:bg-primary/5 rounded-lg border border-gray-100 hover:border-primary/20 transition-all duration-200 group/item"
                           >
-                            <span className="w-1.5 h-1.5 bg-primary rounded-full mr-2"></span>
-                      {item}
-                          </motion.span>
-                  ))}
-                      </div>
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                              <div className="flex-shrink-0 w-6 h-6 bg-primary/10 group-hover/item:bg-primary rounded-full flex items-center justify-center transition-colors">
+                                <span className="text-[10px] font-bold text-primary group-hover/item:text-white">
+                                  {idx + 1}
+                                </span>
+                              </div>
+                              <span className="text-sm font-semibold text-gray-700 group-hover/item:text-primary transition-colors truncate">
+                                {itemName}
+                              </span>
+                            </div>
+                            {hasPriceRange && (
+                              <div className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-md ml-2">
+                                <span className="text-xs font-bold text-emerald-700">
+                                  ₹{item.priceMin || '0'}
+                                </span>
+                                <span className="text-xs text-emerald-600">-</span>
+                                <span className="text-xs font-bold text-emerald-700">
+                                  ₹{item.priceMax || '∞'}
+                                </span>
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
                     </div>
 
                     {/* Order Button */}
-                <motion.button
-                  onClick={handleWhatsAppClick}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="w-full bg-gradient-to-r from-[#25D366] to-[#20BA5A] text-white py-4 rounded-xl font-bold text-base shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 group/btn relative overflow-hidden"
+                    <motion.button
+                      onClick={handleWhatsAppClick}
+                      whileHover={{ scale: 1.03, y: -2 }}
+                      whileTap={{ scale: 0.97 }}
+                      className="w-full bg-gradient-to-r from-[#25D366] to-[#20BA5A] hover:from-[#20BA5A] hover:to-[#1DA851] text-white py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2.5 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden group/btn"
                     >
-                      {/* Button shine effect */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></div>
-                      <FaWhatsapp className="w-5 h-5 relative z-10" />
+                      {/* Shine effect */}
+                      <motion.div 
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                        animate={{
+                          x: ['-100%', '200%'],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          repeatDelay: 2,
+                          ease: "easeInOut",
+                        }}
+                      />
+                      
+                      {/* Pulse effect */}
+                      <motion.div
+                        className="absolute inset-0 bg-white/10 rounded-xl"
+                        animate={{
+                          scale: [1, 1.05, 1],
+                          opacity: [0, 0.5, 0],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      />
+                      
+                      <motion.div
+                        animate={{
+                          rotate: [0, 10, -10, 0],
+                        }}
+                        transition={{
+                          duration: 0.5,
+                          repeat: Infinity,
+                          repeatDelay: 3,
+                        }}
+                      >
+                        <FaWhatsapp className="w-5 h-5 relative z-10" />
+                      </motion.div>
                       <span className="relative z-10">Order on WhatsApp</span>
-                </motion.button>
+                      
+                      {/* Arrow animation */}
+                      <motion.svg 
+                        className="w-4 h-4 relative z-10"
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                        strokeWidth={3}
+                        animate={{
+                          x: [0, 3, 0],
+                        }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </motion.svg>
+                    </motion.button>
                   </div>
 
-                  {/* Decorative corner element */}
+                  {/* Bottom corner decoration */}
                   <div className="absolute bottom-0 right-0 w-24 h-24 bg-primary/5 rounded-tl-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </motion.div>
             ))}

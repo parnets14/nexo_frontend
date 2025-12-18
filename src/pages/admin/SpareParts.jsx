@@ -195,7 +195,7 @@ const SpareParts = () => {
     order: 0,
     isActive: true
   })
-  const [newItem, setNewItem] = useState('')
+  const [newItem, setNewItem] = useState({ name: '', priceMin: '', priceMax: '' })
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
@@ -349,7 +349,7 @@ const SpareParts = () => {
         isActive: true
       })
     }
-    setNewItem('')
+    setNewItem({ name: '', priceMin: '', priceMax: '' })
     setShowMaterialModal(true)
     setErrorMsg('')
     setSuccessMsg('')
@@ -365,7 +365,7 @@ const SpareParts = () => {
       order: 0,
       isActive: true
     })
-    setNewItem('')
+    setNewItem({ name: '', priceMin: '', priceMax: '' })
     setErrorMsg('')
     setSuccessMsg('')
     setShowIconPicker(false)
@@ -373,12 +373,16 @@ const SpareParts = () => {
   }
 
   const handleAddItem = () => {
-    if (newItem.trim()) {
+    if (newItem.name.trim()) {
       setMaterialFormData(prev => ({
         ...prev,
-        items: [...prev.items, newItem.trim()]
+        items: [...prev.items, {
+          name: newItem.name.trim(),
+          priceMin: newItem.priceMin ? Number(newItem.priceMin) : null,
+          priceMax: newItem.priceMax ? Number(newItem.priceMax) : null
+        }]
       }))
-      setNewItem('')
+      setNewItem({ name: '', priceMin: '', priceMax: '' })
     }
   }
 
@@ -1571,42 +1575,133 @@ const SpareParts = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Items *
+                <label className="block text-sm font-semibold text-slate-700 mb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    Items *
+                    <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {materialFormData.items.length} {materialFormData.items.length === 1 ? 'item' : 'items'}
+                    </span>
+                  </span>
                 </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={newItem}
-                    onChange={(e) => setNewItem(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddItem())}
-                    className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Enter item name and press Enter"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddItem}
-                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition"
-                  >
-                    Add
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {materialFormData.items.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                      <span className="text-sm">{item}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(index)}
-                        className="p-1 text-rose-600 hover:bg-rose-50 rounded transition"
-                      >
-                        <FiX className="w-4 h-4" />
-                      </button>
+                
+                {/* Add Item Form */}
+                <div className="mb-4 p-4 bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 shadow-sm">
+                  <div className="space-y-3">
+                    {/* Item Name Input */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Item Name *</label>
+                      <input
+                        type="text"
+                        value={newItem.name}
+                        onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
+                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
+                        className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
+                        placeholder="e.g., PVC Pipe, Copper Wire, Paint Bucket"
+                      />
                     </div>
-                  ))}
+
+                    {/* Price Range Inputs */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Min Price (₹)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">₹</span>
+                          <input
+                            type="number"
+                            value={newItem.priceMin}
+                            onChange={(e) => setNewItem(prev => ({ ...prev, priceMin: e.target.value }))}
+                            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
+                            className="w-full pl-8 pr-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
+                            placeholder="600"
+                            min="0"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Max Price (₹)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">₹</span>
+                          <input
+                            type="number"
+                            value={newItem.priceMax}
+                            onChange={(e) => setNewItem(prev => ({ ...prev, priceMax: e.target.value }))}
+                            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
+                            className="w-full pl-8 pr-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
+                            placeholder="1000"
+                            min="0"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Add Button */}
+                    <button
+                      type="button"
+                      onClick={handleAddItem}
+                      disabled={!newItem.name.trim()}
+                      className="w-full px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                    >
+                      <FiPlus className="w-4 h-4" />
+                      Add Item
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-3 flex items-start gap-1.5">
+                    <span className="text-primary mt-0.5">💡</span>
+                    <span>Price range is optional. Press Enter to quickly add items.</span>
+                  </p>
                 </div>
-                {materialFormData.items.length === 0 && (
-                  <p className="text-xs text-rose-500 mt-1">At least one item is required</p>
+
+                {/* Items List */}
+                {materialFormData.items.length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {materialFormData.items.map((item, index) => (
+                      <div 
+                        key={index} 
+                        className="group flex items-start gap-3 p-3 bg-white border-2 border-slate-200 rounded-lg hover:border-primary/50 hover:shadow-sm transition-all"
+                      >
+                        {/* Item Number Badge */}
+                        <div className="flex-shrink-0 w-7 h-7 bg-slate-100 group-hover:bg-primary/10 rounded-full flex items-center justify-center text-xs font-bold text-slate-600 group-hover:text-primary transition-colors">
+                          {index + 1}
+                        </div>
+
+                        {/* Item Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-slate-800 text-sm break-words">
+                            {item.name || item}
+                          </div>
+                          {(item.priceMin || item.priceMax) && (
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-md">
+                                <span className="text-xs font-semibold text-emerald-700">
+                                  ₹{item.priceMin || '0'}
+                                </span>
+                                <span className="text-xs text-emerald-600">→</span>
+                                <span className="text-xs font-semibold text-emerald-700">
+                                  ₹{item.priceMax || '∞'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="flex-shrink-0 p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                          title="Remove item"
+                        >
+                          <FiTrash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 px-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-lg">
+                    <FiPackage className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-slate-500">No items added yet</p>
+                    <p className="text-xs text-slate-400 mt-1">Add at least one item to continue</p>
+                  </div>
                 )}
               </div>
 
