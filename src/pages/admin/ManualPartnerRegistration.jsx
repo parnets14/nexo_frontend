@@ -19,19 +19,6 @@ const ManualPartnerRegistration = () => {
   const signatureCanvasRef = useRef(null)
   const [isDrawing, setIsDrawing] = useState(false)
 
-  // Initialize canvas when component mounts
-  useEffect(() => {
-    const canvas = signatureCanvasRef.current
-    if (canvas) {
-      const ctx = canvas.getContext('2d')
-      ctx.lineWidth = 2
-      ctx.lineCap = 'round'
-      ctx.strokeStyle = '#000000'
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-    }
-  }, [])
-
   // Form state
   const [formData, setFormData] = useState({
     // Personal Information
@@ -329,16 +316,10 @@ const ManualPartnerRegistration = () => {
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    
-    const x = (e.clientX - rect.left) * scaleX
-    const y = (e.clientY - rect.top) * scaleY
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
     
     const ctx = canvas.getContext('2d')
-    ctx.lineWidth = 2
-    ctx.lineCap = 'round'
-    ctx.strokeStyle = '#000000'
     ctx.beginPath()
     ctx.moveTo(x, y)
     setIsDrawing(true)
@@ -351,11 +332,8 @@ const ManualPartnerRegistration = () => {
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    
-    const x = (e.clientX - rect.left) * scaleX
-    const y = (e.clientY - rect.top) * scaleY
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
     
     const ctx = canvas.getContext('2d')
     ctx.lineTo(x, y)
@@ -379,46 +357,12 @@ const ManualPartnerRegistration = () => {
     setIsDrawing(false)
   }
 
-  // Touch event handlers for mobile support
-  const handleTouchStart = (e) => {
-    e.preventDefault()
-    const touch = e.touches[0]
-    const mouseEvent = new MouseEvent('mousedown', {
-      clientX: touch.clientX,
-      clientY: touch.clientY
-    })
-    startDrawing(mouseEvent)
-  }
-
-  const handleTouchMove = (e) => {
-    e.preventDefault()
-    const touch = e.touches[0]
-    const mouseEvent = new MouseEvent('mousemove', {
-      clientX: touch.clientX,
-      clientY: touch.clientY
-    })
-    draw(mouseEvent)
-  }
-
-  const handleTouchEnd = (e) => {
-    e.preventDefault()
-    stopDrawing()
-  }
-
   const clearSignature = () => {
     const canvas = signatureCanvasRef.current
     if (!canvas) return
     
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    
-    // Reset canvas properties and fill with white background
-    ctx.lineWidth = 2
-    ctx.lineCap = 'round'
-    ctx.strokeStyle = '#000000'
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    
     setFormData(prev => ({
       ...prev,
       terms: {
@@ -498,7 +442,7 @@ const ManualPartnerRegistration = () => {
       })
 
       console.log('Submitting partner registration...')
-      const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:9088'
+      const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'https://nexo.works'
       console.log('API URL:', apiUrl)
       
       const response = await fetch(`${apiUrl}/api/admin/partners/manual-register`, {
@@ -1068,7 +1012,7 @@ const ManualPartnerRegistration = () => {
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Partner Signature
                 </label>
-                <div className="border-2 border-slate-300 rounded-lg overflow-hidden bg-white">
+                <div className="border-2 border-slate-300 rounded-lg overflow-hidden">
                   <canvas
                     ref={signatureCanvasRef}
                     width={600}
@@ -1077,37 +1021,20 @@ const ManualPartnerRegistration = () => {
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
                     onMouseLeave={stopDrawing}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    className="w-full cursor-crosshair bg-white block"
-                    style={{ 
-                      touchAction: 'none',
-                      maxWidth: '100%',
-                      height: 'auto'
-                    }}
+                    className="w-full cursor-crosshair bg-white"
+                    style={{ touchAction: 'none' }}
                   />
                 </div>
                 <div className="flex items-center justify-between mt-2">
-                  <p className="text-xs text-slate-500">
-                    Draw your signature above using mouse or touch
-                  </p>
+                  <p className="text-xs text-slate-500">Draw signature above</p>
                   <button
                     type="button"
                     onClick={clearSignature}
-                    className="text-sm text-rose-600 hover:text-rose-700 font-medium transition-colors"
+                    className="text-sm text-rose-600 hover:text-rose-700 font-medium"
                   >
                     Clear Signature
                   </button>
                 </div>
-                {formData.terms.signature && (
-                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-xs text-green-700 flex items-center gap-1">
-                      <FiCheckCircle className="w-3 h-3" />
-                      Signature captured successfully
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </div>

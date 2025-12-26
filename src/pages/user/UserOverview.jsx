@@ -42,69 +42,16 @@ const UserOverview = () => {
       const userId = user?._id || localStorage.getItem('userId');
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      console.log('🔍 Dashboard: Fetching booking data...');
-      console.log('   User ID:', userId);
-      console.log('   Token exists:', !!token);
+      // Fetch bookings
+      const bookingsRes = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/user/bookings`, 
+        config
+      ).catch(err => {
+        console.error('Error fetching bookings:', err);
+        return { data: { bookings: [] } };
+      });
 
-      // Fetch bookings - try multiple endpoints to ensure we get data
-      let bookings = [];
-      try {
-        console.log('📋 Trying main bookings endpoint...');
-        const bookingsRes = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/user/bookings`, 
-          config
-        );
-        
-        console.log('📋 Bookings API Response:', bookingsRes.data);
-        
-        // Handle different response formats
-        if (bookingsRes.data.success && bookingsRes.data.data) {
-          // Format: { success: true, data: { bookings: [...] } }
-          bookings = bookingsRes.data.data.bookings || bookingsRes.data.data || [];
-        } else if (bookingsRes.data.bookings) {
-          // Format: { bookings: [...] }
-          bookings = bookingsRes.data.bookings;
-        } else if (Array.isArray(bookingsRes.data.data)) {
-          // Format: { data: [...] }
-          bookings = bookingsRes.data.data;
-        } else if (Array.isArray(bookingsRes.data)) {
-          // Format: [...]
-          bookings = bookingsRes.data;
-        }
-        
-        console.log('📋 Processed bookings:', bookings);
-        console.log('📋 Bookings count:', Array.isArray(bookings) ? bookings.length : 'Not an array');
-        
-      } catch (bookingError) {
-        console.error('❌ Error fetching bookings:', bookingError);
-        console.error('   Response:', bookingError.response?.data);
-        
-        // Try alternative endpoint
-        try {
-          console.log('📋 Trying alternative bookings endpoint...');
-          const altRes = await axios.get(
-            `${import.meta.env.VITE_API_URL}/api/user/api/user/bookings`, 
-            config
-          );
-          bookings = altRes.data.data || altRes.data.bookings || altRes.data || [];
-        } catch (altError) {
-          console.error('❌ Alternative endpoint also failed:', altError);
-          bookings = [];
-        }
-      }
-
-      // Ensure bookings is always an array
-      if (!Array.isArray(bookings)) {
-        console.log('⚠️  Bookings is not an array, converting...');
-        bookings = [];
-      }
-
-      // Filter out temporary bookings
-      const validBookings = bookings.filter(booking => 
-        booking && booking.status !== 'temp' && !booking.isTemporary
-      );
-      
-      console.log('✅ Valid bookings after filtering:', validBookings.length);
+      const bookings = bookingsRes.data.bookings || [];
       
       // Fetch wallet balance
       let walletBalance = 0;
@@ -122,48 +69,16 @@ const UserOverview = () => {
         }
       }
       
-      // Calculate stats
-      const totalBookings = validBookings.length;
-      const activeBookings = validBookings.filter(b => 
-        ['pending', 'confirmed', 'in_progress', 'in-progress'].includes(b.status)
-      ).length;
-      const completedBookings = validBookings.filter(b => b.status === 'completed').length;
-      
-      console.log('📊 Dashboard Stats:');
-      console.log('   Total Bookings:', totalBookings);
-      console.log('   Active Bookings:', activeBookings);
-      console.log('   Completed Bookings:', completedBookings);
-      console.log('   Wallet Balance:', walletBalance);
-      
       setStats({
-        totalBookings,
-        activeBookings,
-        completedBookings,
-        walletBalance
+        totalBookings: bookings.length,
+        activeBookings: bookings.filter(b => ['pending', 'confirmed', 'in-progress'].includes(b.status)).length,
+        completedBookings: bookings.filter(b => b.status === 'completed').length,
+        walletBalance: walletBalance
       });
 
-      // Set recent bookings (last 5)
-      const recentBookings = validBookings
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 5);
-      
-      console.log('📋 Recent bookings:', recentBookings.map(b => ({
-        id: b._id,
-        service: b.serviceName,
-        status: b.status,
-        date: b.createdAt
-      })));
-      
-      setRecentBookings(recentBookings);
-      
+      setRecentBookings(bookings.slice(0, 5));
     } catch (error) {
-      console.error('❌ Error fetching dashboard data:', error);
-      console.error('   Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      
+      console.error('Error fetching dashboard data:', error);
       // Set default values on error
       setStats({
         totalBookings: 0,
@@ -261,7 +176,12 @@ const UserOverview = () => {
               </div>
             </div>
             <div className="flex gap-3 animate-slide-in-right">
-              {/* Removed Book Now button */}
+              <button
+                onClick={() => navigate('/')}
+                className="px-6 py-3 bg-white text-primary rounded-xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold"
+              >
+                Book Now
+              </button>
             </div>
           </div>
         </div>
@@ -353,7 +273,7 @@ const UserOverview = () => {
               >
                 <span className="relative z-10 flex items-center gap-2">
                   <FiTool className="group-hover:rotate-12 transition-transform" size={18} />
-                  <span className="text-sm md:text-base">Get Service</span>
+                  <span className="text-sm md:text-base">Book Service</span>
                   <FiArrowRight className="group-hover:translate-x-2 transition-transform" size={16} />
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-yellow-400 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
@@ -429,7 +349,7 @@ const UserOverview = () => {
                 onClick={() => navigate('/')}
                 className="px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 font-medium"
               >
-                Get Service
+                Book a Service
               </button>
             </div>
           ) : (
@@ -450,7 +370,7 @@ const UserOverview = () => {
                       <div className="flex items-center gap-2 mt-1">
                         <FiClock className="text-slate-400" size={14} />
                         <p className="text-sm text-slate-600">
-                          {new Date(booking.scheduledDate || booking.bookingDate || booking.createdAt).toLocaleDateString('en-IN', {
+                          {new Date(booking.bookingDate).toLocaleDateString('en-IN', {
                             day: 'numeric',
                             month: 'short',
                             year: 'numeric'
@@ -523,8 +443,8 @@ const UserOverview = () => {
             <div className="w-14 h-14 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
               <FiCalendar className="text-white" size={28} />
             </div>
-            <h3 className="font-bold text-white text-lg mb-2">Get a Service</h3>
-            <p className="text-blue-100 text-sm">Browse and get services instantly</p>
+            <h3 className="font-bold text-white text-lg mb-2">Book a Service</h3>
+            <p className="text-blue-100 text-sm">Browse and book services instantly</p>
             <div className="mt-4 flex items-center text-white text-sm font-medium">
               <span>Explore Services</span>
               <FiArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" />

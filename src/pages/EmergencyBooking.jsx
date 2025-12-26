@@ -11,7 +11,7 @@ const EmergencyBooking = () => {
     { icon: '⚡', text: 'Service in 20–40 minutes' },
     { icon: '🌙', text: 'Available 24/7' },
     { icon: '✅', text: 'Verified emergency technicians' },
-    { icon: '📞', text: 'Instant response guarantee' },
+    { icon: '💰', text: 'You keep 50% commission' },
   ]
 
   const emergencyTypes = [
@@ -177,6 +177,7 @@ const EmergencyBooking = () => {
             <p className="text-lg sm:text-xl mb-6 sm:mb-8 text-white/90">For midnight or urgent needs</p>
             <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-5 sm:p-6 max-w-2xl mx-auto mb-6 sm:mb-8">
               <p className="text-base sm:text-lg mb-2">Emergency Charge: ₹199–499</p>
+              <p className="text-base sm:text-lg">You keep 50 percent commission</p>
             </div>
             <div className="flex justify-center">
               <motion.button

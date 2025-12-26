@@ -424,29 +424,6 @@ const PartnerDetails = () => {
       setUpdatingPayment(false)
     }
   }
-
-  // Handle MG Plan Delete
-  const handleDeleteMGPlan = async (planIndex) => {
-    if (!confirm('Are you sure you want to delete this MG plan entry? This action cannot be undone.')) {
-      return
-    }
-
-    try {
-      // Call the backend API to delete the MG plan history entry
-      const response = await adminApi.deleteMGPlanHistoryEntry(token, partnerId, planIndex)
-      
-      if (response.success) {
-        alert('MG Plan entry deleted successfully!')
-        // Refresh partner data
-        window.location.reload()
-      } else {
-        alert(response.message || 'Failed to delete MG plan entry')
-      }
-    } catch (error) {
-      console.error('Error deleting MG plan entry:', error)
-      alert('Error deleting MG plan entry. The backend endpoint needs to be implemented first.')
-    }
-  }
   
   // Handle MG Plan Assignment
   const handleAssignMGPlan = async () => {
@@ -454,45 +431,8 @@ const PartnerDetails = () => {
       alert('Please select an MG plan')
       return
     }
-
-    // Handle "No Plan" option - Remove current MG plan
-    if (selectedMGPlanId === 'no-plan') {
-      if (!confirm('Are you sure you want to remove the current MG plan? This action will remove all plan benefits.')) {
-        return
-      }
-
-      // Temporary alert until backend is implemented
-      alert(`Remove MG Plan functionality is ready on frontend!\n\nTo complete this feature, implement this backend endpoint:\nPOST /api/admin/partners/${partnerId}/remove-mg-plan\n\nThe endpoint should remove the partner's MG plan data and optionally add a removal entry to history.`)
-      
-      // Reset modal state
-      setShowMGPlanModal(false)
-      setSelectedMGPlanId(null)
-      
-      // Uncomment below when backend is ready:
-      /*
-      setMgPlanSubmitting(true)
-      try {
-        const response = await adminApi.removeMGPlan(token, partnerId)
-
-        if (response.success) {
-          alert('MG Plan removed successfully!')
-          setShowMGPlanModal(false)
-          setSelectedMGPlanId(null)
-          window.location.reload()
-        } else {
-          alert(response.message || 'Failed to remove MG plan')
-        }
-      } catch (error) {
-        console.error('Error removing MG plan:', error)
-        alert('Error removing MG plan')
-      } finally {
-        setMgPlanSubmitting(false)
-      }
-      */
-      return
-    }
     
-    // Validate payment details for regular plans
+    // Validate payment details based on method
     if (mgPlanPaymentMethod === 'cash' && !mgPlanCollectedBy.trim()) {
       alert('Please enter who collected the payment')
       return
@@ -3255,26 +3195,17 @@ const PartnerDetails = () => {
                       {entry.expiresAt ? new Date(entry.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        entry.refundStatus === 'eligible'
-                          ? 'bg-amber-500/10 text-amber-600'
-                          : entry.refundStatus === 'processed'
-                          ? 'bg-emerald-500/10 text-emerald-600'
-                          : 'bg-slate-200 text-slate-600'
-                      }`}
-                    >
-                      {entry.refundStatus ?? 'pending'}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteMGPlan(mgPlanSummary.history.length - 1 - idx)}
-                      className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete this MG plan entry"
-                    >
-                      <FiTrash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      entry.refundStatus === 'eligible'
+                        ? 'bg-amber-500/10 text-amber-600'
+                        : entry.refundStatus === 'processed'
+                        ? 'bg-emerald-500/10 text-emerald-600'
+                        : 'bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {entry.refundStatus ?? 'pending'}
+                  </span>
                 </div>
                 <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-600">
                   <div>
@@ -4751,43 +4682,6 @@ const PartnerDetails = () => {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {/* No Plan Option */}
-                    <div
-                      className={`border-2 rounded-xl p-4 transition-all cursor-pointer ${
-                        selectedMGPlanId === 'no-plan'
-                          ? 'border-red-600 bg-red-50'
-                          : 'border-slate-200 hover:border-red-300 bg-white'
-                      }`}
-                      onClick={() => setSelectedMGPlanId('no-plan')}
-                    >
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="radio"
-                          checked={selectedMGPlanId === 'no-plan'}
-                          onChange={() => setSelectedMGPlanId('no-plan')}
-                          className="mt-1 w-4 h-4 text-red-600 border-slate-300 focus:ring-red-600"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold text-slate-800">No Plan</h4>
-                            <span className="text-lg font-bold text-red-600">₹0</span>
-                          </div>
-                          <p className="text-sm text-slate-600">
-                            Remove current MG plan assignment. Partner will operate without an MG plan.
-                          </p>
-                          {mgPlan?.name && (
-                            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                              <p className="text-xs text-amber-700">
-                                <strong>Warning:</strong> This will remove the current "{mgPlan.name}" plan and all associated benefits.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Regular Plans */}
                     {mgPlans.map((plan) => {
                       const isSelected = selectedMGPlanId === plan._id
                       return (
@@ -4841,8 +4735,8 @@ const PartnerDetails = () => {
                 )}
               </div>
 
-              {/* Payment Details - Only show for actual plans, not for "No Plan" */}
-              {selectedMGPlanId && selectedMGPlanId !== 'no-plan' && (
+              {/* Payment Details */}
+              {selectedMGPlanId && (
                 <div className="border-t border-slate-200 pt-6 space-y-4">
                   <h3 className="text-sm font-semibold text-slate-700 mb-3">Payment Details</h3>
                   
@@ -4932,17 +4826,12 @@ const PartnerDetails = () => {
                   {mgPlanSubmitting ? (
                     <>
                       <FiLoader className="w-4 h-4 animate-spin" />
-                      {selectedMGPlanId === 'no-plan' ? 'Removing...' : 'Assigning...'}
+                      Assigning...
                     </>
                   ) : (
                     <>
                       <FiCheck className="w-4 h-4" />
-                      {selectedMGPlanId === 'no-plan' 
-                        ? 'Remove Plan' 
-                        : mgPlan?.name 
-                          ? 'Change Plan' 
-                          : 'Assign Plan'
-                      }
+                      {mgPlan?.name ? 'Change Plan' : 'Assign Plan'}
                     </>
                   )}
                 </button>

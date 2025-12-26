@@ -1,7 +1,6 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { ComingSoonProvider } from './contexts/ComingSoonContext'
-import { PartnerAuthProvider } from './context/PartnerAuthContext'
 import ScrollToTop from './components/ScrollToTop'
 import Home from './pages/Home'
 import ServiceDetail from './pages/ServiceDetail'
@@ -73,9 +72,8 @@ import TestPayment from './pages/TestPayment.jsx'
 function App() {
   return (
     <ComingSoonProvider>
-      <PartnerAuthProvider>
-        <Router>
-        <ScrollToTop />
+      <Router>
+      <ScrollToTop />
       <NotificationPermissionPrompt />
       <Routes>
         <Route element={<PublicLayout />}>
@@ -164,7 +162,6 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
-      </PartnerAuthProvider>
     </ComingSoonProvider>
   )
 }

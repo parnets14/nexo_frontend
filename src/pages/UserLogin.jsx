@@ -122,17 +122,14 @@ const UserLogin = () => {
     setSubmitting(true);
     try {
       const response = await userApi.loginWithPassword(formData.email, formData.password);
-      console.log('Login response:', response); // Debug log
-      
-      if (response.success && response.user && response.user.token) {
-        localStorage.setItem('userToken', response.user.token);
+      if (response.token) {
+        localStorage.setItem('userToken', response.token);
         await checkAuth(); // Update auth context
         navigate('/user/dashboard', { replace: true });
       } else {
         setLocalError('Invalid credentials');
       }
     } catch (err) {
-      console.error('Login error:', err); // Debug log
       setLocalError(err.message || 'Invalid credentials. Please try again.');
     } finally {
       setSubmitting(false);

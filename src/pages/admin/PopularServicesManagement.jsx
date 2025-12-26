@@ -970,13 +970,13 @@ const PopularServicesManagement = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Services
+                  Add-On Services
                 </label>
                 
                 {/* Add-On Form */}
                 <div className="bg-slate-50 p-4 rounded-xl border-2 border-slate-200 mb-4">
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                    {editingAddOnIndex !== null ? 'Edit Service' : 'Add New Service'}
+                    {editingAddOnIndex !== null ? 'Edit Add-On Service' : 'Add New Add-On Service'}
                   </h4>
                   
                   <div className="space-y-3">
@@ -1344,7 +1344,7 @@ const PopularServicesManagement = () => {
                 {/* Add-Ons List */}
                 <div className="space-y-2">
                   {formData.addOns.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-4">No services added yet</p>
+                    <p className="text-sm text-slate-400 text-center py-4">No add-on services added yet</p>
                   ) : (
                     formData.addOns.map((addon, index) => {
                       const AddOnIcon = getIconComponent(addon.icon || 'FaTools')
@@ -1699,7 +1699,7 @@ const PopularServicesManagement = () => {
               {/* Add-Ons */}
               {viewingService.addOns && viewingService.addOns.length > 0 && (
                 <div className="bg-slate-50 rounded-xl p-6">
-                  <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Services</h4>
+                  <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Add-On Services</h4>
                   <div className="grid sm:grid-cols-1 gap-4">
                     {viewingService.addOns.map((addon, index) => {
                       const AddOnIcon = getIconComponent(addon.icon || 'FaTools')

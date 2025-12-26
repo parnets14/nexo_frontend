@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiCheckCircle, FiUserX, FiUsers, FiSearch, FiChevronLeft, FiChevronRight, FiAward, FiDownload, FiTrash2 } from 'react-icons/fi'
+import { FiCheckCircle, FiUserX, FiUsers, FiSearch, FiChevronLeft, FiChevronRight, FiAward, FiDownload } from 'react-icons/fi'
 import * as XLSX from 'xlsx'
 import ModuleHeader from '../../components/admin/ModuleHeader.jsx'
 import StatCard from '../../components/admin/StatCard.jsx'
@@ -287,55 +287,6 @@ const PartnerControl = () => {
     }
   }
 
-  const handleDeletePartner = async (partnerId, partnerName) => {
-    if (!confirm(`⚠️ WARNING: This will permanently delete ${partnerName} and ALL related data including:\n\n• Partner profile and KYC documents\n• Wallet transactions and earnings\n• Team members\n• Service assignments\n• Reviews and ratings\n• Booking history\n\nThis action CANNOT be undone!\n\nType "DELETE" to confirm:`)) {
-      return
-    }
-
-    const confirmText = prompt(`To confirm deletion of ${partnerName}, please type "DELETE" (in capital letters):`)
-    if (confirmText !== 'DELETE') {
-      alert('Deletion cancelled. You must type "DELETE" exactly to confirm.')
-      return
-    }
-
-    try {
-      setIsLoading(true)
-      const response = await adminApi.deletePartner(token, partnerId)
-
-      if (response.success) {
-        alert(`✅ Partner ${partnerName} has been permanently deleted along with all related data.`)
-        // Refresh the partners list
-        const data = await adminApi.fetchPartners(token, {
-          page: currentPage,
-          limit: pageSize,
-          search: searchQuery,
-          status: statusFilter
-        })
-        setPartnersData(data)
-      } else {
-        // Handle specific error types
-        if (response.error === 'Atlas connection timeout') {
-          alert(`⏱️ Database connection timeout. The database may be busy.\n\nPlease try again in a few minutes.`)
-        } else if (response.error === 'Database timeout') {
-          alert(`⏱️ Operation timed out. The partner may have been partially deleted.\n\nPlease refresh the page and check if the partner still exists.`)
-        } else {
-          alert(`❌ Failed to delete partner: ${response.message || 'Unknown error'}`)
-        }
-      }
-    } catch (error) {
-      console.error('Delete partner error:', error)
-      
-      // Handle network/connection errors
-      if (error.message.includes('timeout') || error.message.includes('network')) {
-        alert(`🌐 Network or database connection issue.\n\nPlease check your connection and try again in a few minutes.`)
-      } else {
-        alert(`❌ Error deleting partner: ${error.message}`)
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleExportToExcel = () => {
     if (!walletTransactions || walletTransactions.length === 0) {
       alert('No transactions to export')
@@ -383,31 +334,12 @@ const PartnerControl = () => {
   }
 
   // Use revenue stats from API (calculated from ALL partners, not just current page)
-  const totalRegistrationFees = revenueStats.totalRegistrationFees || 0
-  const totalSecurityDeposit = revenueStats.totalSecurityDeposit || 0
-  const totalToolkitFees = revenueStats.totalToolkitFees || 0
-  const totalMGPlanRevenue = revenueStats.totalMGPlanRevenue || 0
-  const totalPartnerEarnings = revenueStats.totalPartnerEarnings || 0
-  
-  // Calculate total revenue on frontend to verify backend calculation
-  const calculatedTotalRevenue = totalRegistrationFees + totalSecurityDeposit + totalToolkitFees + totalMGPlanRevenue
-  const backendTotalRevenue = revenueStats.totalRevenue || 0
-  
-  // Use calculated total if backend total seems incorrect, otherwise use backend value
-  const totalRevenue = Math.abs(calculatedTotalRevenue - backendTotalRevenue) > 1 ? calculatedTotalRevenue : backendTotalRevenue
-  
-  // Debug log to check calculation
-  console.log('Revenue Calculation Check:', {
-    'Registration Fees': `₹${totalRegistrationFees.toLocaleString('en-IN')}`,
-    'Security Deposit': `₹${totalSecurityDeposit.toLocaleString('en-IN')}`,
-    'Toolkit Fees': `₹${totalToolkitFees.toLocaleString('en-IN')}`,
-    'MG Plan Revenue': `₹${totalMGPlanRevenue.toLocaleString('en-IN')}`,
-    'Calculated Total': `₹${calculatedTotalRevenue.toLocaleString('en-IN')}`,
-    'Backend Total': `₹${backendTotalRevenue.toLocaleString('en-IN')}`,
-    'Final Total Used': `₹${totalRevenue.toLocaleString('en-IN')}`,
-    'Calculation': `${totalSecurityDeposit} + ${totalMGPlanRevenue} + ${totalRegistrationFees} + ${totalToolkitFees} = ${calculatedTotalRevenue}`,
-    'Is Calculation Correct?': calculatedTotalRevenue === (totalRegistrationFees + totalSecurityDeposit + totalToolkitFees + totalMGPlanRevenue)
-  })
+  const totalRegistrationFees = revenueStats.totalRegistrationFees
+  const totalSecurityDeposit = revenueStats.totalSecurityDeposit
+  const totalToolkitFees = revenueStats.totalToolkitFees
+  const totalMGPlanRevenue = revenueStats.totalMGPlanRevenue
+  const totalPartnerEarnings = revenueStats.totalPartnerEarnings
+  const totalRevenue = revenueStats.totalRevenue
 
   const partnerStats = [
     {
@@ -431,7 +363,7 @@ const PartnerControl = () => {
     {
       label: 'Total Revenue',
       value: `₹${totalRevenue.toLocaleString('en-IN')}`,
-      trend: `Reg: ₹${totalRegistrationFees.toLocaleString('en-IN')} | SD: ₹${totalSecurityDeposit.toLocaleString('en-IN')} | TK: ₹${totalToolkitFees.toLocaleString('en-IN')} | MG: ₹${totalMGPlanRevenue.toLocaleString('en-IN')}`,
+      trend: `Reg: ₹${totalRegistrationFees.toLocaleString('en-IN')} | SD: ₹${totalSecurityDeposit.toLocaleString('en-IN')} | TK: ₹${totalToolkitFees.toLocaleString('en-IN')}`,
       description: 'All revenue streams combined',
       icon: FiAward,
       intent: 'positive'
@@ -795,17 +727,6 @@ const PartnerControl = () => {
                           Approve Payment
                         </button>
                       )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeletePartner(partnerData.id, partnerData.name)
-                        }}
-                        className="px-3 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-1"
-                        title="Delete Partner"
-                      >
-                        <FiTrash2 className="w-3 h-3" />
-                        Delete
-                      </button>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         partnerData.paymentStatus === 'Verified'
                           ? 'bg-emerald-100 text-emerald-700'

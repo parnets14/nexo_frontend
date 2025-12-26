@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const buildUrl = (path) => {
   if (path.startsWith('/api/')) {
@@ -368,79 +368,6 @@ export const partnerApi = {
       method: 'POST',
       headers: getDefaultHeaders(token),
       body: JSON.stringify(productData)
-    })
-    return handleResponse(response)
-  },
-
-  // Get partner's cart
-  async getCart(token) {
-    const response = await fetch(buildUrl('/cart'), {
-      headers: getDefaultHeaders(token)
-    })
-    return handleResponse(response)
-  },
-
-  // Remove item from cart
-  async removeFromCart(token, productId) {
-    const response = await fetch(buildUrl('/cart/remove'), {
-      method: 'DELETE',
-      headers: getDefaultHeaders(token),
-      body: JSON.stringify({ productId })
-    })
-    return handleResponse(response)
-  },
-
-  // Clear entire cart
-  async clearCart(token) {
-    const response = await fetch(buildUrl('/cart/clear'), {
-      method: 'DELETE',
-      headers: getDefaultHeaders(token)
-    })
-    return handleResponse(response)
-  },
-
-  // Place order from cart
-  async placeOrder(token, orderData) {
-    const response = await fetch(buildUrl('/orders/place'), {
-      method: 'POST',
-      headers: getDefaultHeaders(token),
-      body: JSON.stringify(orderData)
-    })
-    return handleResponse(response)
-  },
-
-  // Initiate payment for order
-  async initiateOrderPayment(token, orderId) {
-    const response = await fetch(buildUrl('/orders/payment/initiate'), {
-      method: 'POST',
-      headers: getDefaultHeaders(token),
-      body: JSON.stringify({ orderId })
-    })
-    return handleResponse(response)
-  },
-
-  // Get partner's orders
-  async getOrders(token, params = {}) {
-    const queryString = new URLSearchParams(params).toString()
-    const url = queryString ? `${buildUrl('/orders')}?${queryString}` : buildUrl('/orders')
-    const response = await fetch(url, {
-      headers: getDefaultHeaders(token)
-    })
-    return handleResponse(response)
-  },
-
-  // Get order details
-  async getOrderDetails(token, orderId) {
-    const response = await fetch(buildUrl(`/orders/${orderId}`), {
-      headers: getDefaultHeaders(token)
-    })
-    return handleResponse(response)
-  },
-
-  // Get partner profile
-  async getProfile(token) {
-    const response = await fetch(buildUrl('/profile'), {
-      headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
   },

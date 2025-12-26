@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_ADMIN_API_BASE_URL ||
-  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const buildUrl = (path) => {
   // Handle both /api/admin and /admin routes
@@ -254,7 +254,7 @@ export const adminApi = {
 
   async updatePartnerProfile(token, partnerId, profileData) {
     // Use buildUrl to ensure correct URL construction
-    // The buildUrl function will prepend API_BASE_URL which is http://localhost:9088 in dev
+    // The buildUrl function will prepend API_BASE_URL which is https://nexo.works in dev
     const url = buildUrl(`/api/admin/updatePartnerProfile/${partnerId}`)
     const response = await fetch(url, {
       method: 'PUT',
@@ -829,22 +829,6 @@ export const adminApi = {
     return handleResponse(response)
   },
 
-  async deleteMGPlanHistoryEntry(token, partnerId, historyIndex) {
-    const response = await fetch(buildUrl(`/api/admin/partners/${partnerId}/mg-plan/history/${historyIndex}`), {
-      method: 'DELETE',
-      headers: getDefaultHeaders(token)
-    })
-    return handleResponse(response)
-  },
-
-  async removeMGPlan(token, partnerId) {
-    const response = await fetch(buildUrl(`/api/admin/partners/${partnerId}/remove-mg-plan`), {
-      method: 'POST',
-      headers: getDefaultHeaders(token)
-    })
-    return handleResponse(response)
-  },
-
   async fetchPartnerServiceHubs(token, partnerId) {
     const response = await fetch(buildUrl(`/api/admin/partners/${partnerId}/service-hubs`), {
       headers: getDefaultHeaders(token)
@@ -1341,33 +1325,6 @@ export const adminApi = {
       method: 'PUT',
       headers: getDefaultHeaders(token),
       body: JSON.stringify({ rejectionReason: reason })
-    })
-    return handleResponse(response)
-  },
-
-  // Material Quotations
-  async getMaterialQuotations(token, params = {}) {
-    const queryParams = new URLSearchParams(params).toString()
-    const response = await fetch(buildUrl(`/api/admin/material-quotations?${queryParams}`), {
-      headers: getDefaultHeaders(token)
-    })
-    return handleResponse(response)
-  },
-
-  async approveMaterialQuotation(token, requestId, approvalData) {
-    const response = await fetch(buildUrl(`/api/admin/material-quotations/${requestId}/approve`), {
-      method: 'PUT',
-      headers: getDefaultHeaders(token),
-      body: JSON.stringify(approvalData)
-    })
-    return handleResponse(response)
-  },
-
-  async markMaterialsDelivered(token, requestId, deliveryData) {
-    const response = await fetch(buildUrl(`/api/admin/material-quotations/${requestId}/delivered`), {
-      method: 'PUT',
-      headers: getDefaultHeaders(token),
-      body: JSON.stringify(deliveryData)
     })
     return handleResponse(response)
   },

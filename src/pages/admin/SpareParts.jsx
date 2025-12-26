@@ -1,32 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { FiAlertTriangle, FiBox, FiLink2, FiTruck, FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiArrowUp, FiArrowDown, FiSearch, FiClock, FiPackage, FiRefreshCw, FiUser, FiEye, FiFileText } from 'react-icons/fi'
+import { FiAlertTriangle, FiBox, FiLink2, FiTruck, FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiArrowUp, FiArrowDown, FiSearch, FiClock, FiPackage, FiRefreshCw, FiUser, FiEye } from 'react-icons/fi'
 import ModuleHeader from '../../components/admin/ModuleHeader.jsx'
 import StatCard from '../../components/admin/StatCard.jsx'
 import DataTable from '../../components/admin/DataTable.jsx'
 import { useAdminData } from '../../hooks/useAdminData.js'
 import { adminApi } from '../../services/adminApi.js'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
-
-// Unit options for inventory management
-const UNIT_OPTIONS = [
-  { value: 'pieces', label: 'Pieces', category: 'Count' },
-  { value: 'units', label: 'Units', category: 'Count' },
-  { value: 'sets', label: 'Sets', category: 'Count' },
-  { value: 'pairs', label: 'Pairs', category: 'Count' },
-  { value: 'boxes', label: 'Boxes', category: 'Count' },
-  { value: 'packets', label: 'Packets', category: 'Count' },
-  { value: 'rolls', label: 'Rolls', category: 'Count' },
-  { value: 'kg', label: 'Kilograms (kg)', category: 'Weight' },
-  { value: 'grams', label: 'Grams (g)', category: 'Weight' },
-  { value: 'liters', label: 'Liters (L)', category: 'Volume' },
-  { value: 'ml', label: 'Milliliters (ml)', category: 'Volume' },
-  { value: 'meters', label: 'Meters (m)', category: 'Length' },
-  { value: 'cm', label: 'Centimeters (cm)', category: 'Length' },
-  { value: 'feet', label: 'Feet (ft)', category: 'Length' },
-  { value: 'inches', label: 'Inches (in)', category: 'Length' },
-  { value: 'sqft', label: 'Square Feet (sq ft)', category: 'Area' },
-  { value: 'sqm', label: 'Square Meters (sq m)', category: 'Area' }
-]
 
 // Comprehensive Material Icons List
 const MATERIAL_ICONS = [
@@ -107,6 +86,103 @@ const MATERIAL_ICONS = [
   { emoji: '🪛', name: 'Screwdriver', category: 'Tools' },
 ]
 
+const inventoryColumns = [
+  { header: 'SKU', accessor: 'sku' },
+  { header: 'Part Name', accessor: 'name' },
+  { header: 'Category', accessor: 'category' },
+  { header: 'Location', accessor: 'location' },
+  {
+    header: 'Stock',
+    accessor: 'stock',
+    render: (value, row) => {
+      const stockValue = typeof value === 'string' ? value : `${row.stock || 0} ${row.unit || 'units'}`
+      return (
+      <span
+        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+          row.status === 'Critical'
+            ? 'bg-rose-500/10 text-rose-600'
+            : row.status === 'Low'
+            ? 'bg-amber-500/10 text-amber-600'
+            : 'bg-emerald-500/10 text-emerald-600'
+        }`}
+      >
+          {stockValue}
+      </span>
+    )
+    }
+  },
+  { header: 'Supplier', accessor: 'supplier' },
+  {
+    header: 'Lead Time',
+    accessor: 'leadTime',
+    render: (value) => typeof value === 'string' ? value : `${value || 0} days`
+  },
+  {
+    header: 'Actions',
+    accessor: '_id',
+    render: (value) => (
+      <button
+        onClick={() => fetchItemHistory(value)}
+        className="p-1.5 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition"
+        title="View History"
+      >
+        <FiClock className="w-4 h-4" />
+      </button>
+    )
+  }
+]
+
+const procurementColumns = [
+  { header: 'PO', accessor: 'poId' },
+  { header: 'Supplier', accessor: 'supplier' },
+  {
+    header: 'Parts',
+    accessor: 'items',
+    render: (value) => {
+      if (typeof value === 'string') return value
+      if (Array.isArray(value)) {
+        return value.map(item => `${item.name || item.sku} (${item.quantity})`).join(', ')
+      }
+      return 'N/A'
+    }
+  },
+  {
+    header: 'Value',
+    accessor: 'value',
+    render: (value, row) => {
+      if (typeof value === 'string') return value
+      const totalValue = row.totalValue || 0
+      return totalValue > 100000 ? `₹${(totalValue / 100000).toFixed(1)}L` : `₹${totalValue.toLocaleString()}`
+    }
+  },
+  {
+    header: 'Status',
+    accessor: 'status',
+    render: (value) => (
+      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+        value === 'Delivered' ? 'bg-emerald-500/10 text-emerald-600' :
+        value === 'In Transit' ? 'bg-blue-500/10 text-blue-600' :
+        value === 'Pending' ? 'bg-amber-500/10 text-amber-600' :
+        value === 'Cancelled' ? 'bg-rose-500/10 text-rose-600' :
+        'bg-slate-500/10 text-slate-600'
+      }`}>
+        {value}
+      </span>
+    )
+  },
+  {
+    header: 'ETA',
+    accessor: 'eta',
+    render: (value, row) => {
+      if (typeof value === 'string') return value
+      if (row.expectedDeliveryDate) {
+        return new Date(row.expectedDeliveryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+      }
+      return 'N/A'
+    }
+  }
+]
+
 const SpareParts = () => {
   const { token } = useAdminAuth()
   const [activeTab, setActiveTab] = useState('inventory') // 'inventory', 'materials', or 'vendor-parts'
@@ -119,39 +195,13 @@ const SpareParts = () => {
     order: 0,
     isActive: true
   })
-  const [newItem, setNewItem] = useState({ 
-    name: '', 
-    description: '',
-    priceMin: '', 
-    priceMax: '', 
-    stock: '',
-    unit: 'pieces',
-    sku: '',
-    brand: '',
-    specifications: '',
-    minOrderQuantity: '1'
-  })
-  const [editingItemIndex, setEditingItemIndex] = useState(null)
-  const [editingItem, setEditingItem] = useState({ 
-    name: '', 
-    description: '',
-    priceMin: '', 
-    priceMax: '', 
-    stock: '',
-    unit: 'pieces',
-    sku: '',
-    brand: '',
-    specifications: '',
-    minOrderQuantity: '1'
-  })
+  const [newItem, setNewItem] = useState({ name: '', priceMin: '', priceMax: '' })
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [showIconPicker, setShowIconPicker] = useState(false)
   const [iconSearchTerm, setIconSearchTerm] = useState('')
   const [showPOModal, setShowPOModal] = useState(false)
-  const [showPODetails, setShowPODetails] = useState(false)
-  const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState(null)
   const [showThresholdModal, setShowThresholdModal] = useState(false)
   const [poFormData, setPOFormData] = useState({
     supplier: '',
@@ -169,8 +219,6 @@ const SpareParts = () => {
   })
   const [inventoryItemSearch, setInventoryItemSearch] = useState('')
   const [showInventoryDropdown, setShowInventoryDropdown] = useState(false)
-  const [showInventoryDetails, setShowInventoryDetails] = useState(false)
-  const [selectedInventoryItem, setSelectedInventoryItem] = useState(null)
   const [showItemHistory, setShowItemHistory] = useState(false)
   const [selectedItemForHistory, setSelectedItemForHistory] = useState(null)
   const [itemHistoryData, setItemHistoryData] = useState([])
@@ -197,12 +245,9 @@ const SpareParts = () => {
     []
   )
 
-  // Fetch purchase orders with enhanced debugging
+  // Fetch purchase orders
   const { data: purchaseOrdersData, isLoading: poLoading, error: poError, refresh: refreshPOs } = useAdminData(
-    (token) => {
-      console.log('🔄 Fetching purchase orders with token:', token ? 'Present' : 'Missing')
-      return adminApi.fetchPurchaseOrders(token)
-    },
+    (token) => adminApi.fetchPurchaseOrders(token),
     []
   )
 
@@ -220,17 +265,6 @@ const SpareParts = () => {
   const materials = materialsData?.data || []
   const inventoryItems = inventoryItemsData?.data || []
   const purchaseOrders = purchaseOrdersData?.data || []
-  
-  // Enhanced debugging for purchase orders
-  useEffect(() => {
-    console.log('📊 Purchase Orders Debug Info:')
-    console.log('   Raw Data:', purchaseOrdersData)
-    console.log('   Processed Array:', purchaseOrders)
-    console.log('   Array Length:', purchaseOrders.length)
-    console.log('   Loading State:', poLoading)
-    console.log('   Error State:', poError)
-    console.log('   Token Available:', !!token)
-  }, [purchaseOrdersData, purchaseOrders, poLoading, poError, token])
   const stats = inventoryStatsData?.data || {}
   const vendorSpareParts = vendorSparePartsData?.data || []
 
@@ -253,395 +287,15 @@ const SpareParts = () => {
 
   // Fetch item history
   const fetchItemHistory = async (itemId) => {
-    console.log('🔍 Fetching history for item:', itemId)
-    if (!itemId) {
-      console.error('❌ No item ID provided for history fetch')
-      setErrorMsg('Invalid item ID. Cannot fetch history.')
-      setTimeout(() => setErrorMsg(''), 3000)
-      return
-    }
-    
     try {
       const data = await adminApi.fetchInventoryItemHistory(token, itemId)
-      console.log('📊 History data received:', data)
       setItemHistoryData(data.data?.history || [])
       setSelectedItemForHistory(itemId)
       setShowItemHistory(true)
     } catch (error) {
-      console.error('❌ Failed to load item history:', error)
-      setErrorMsg('Failed to load item history: ' + (error.message || 'Unknown error'))
-      setTimeout(() => setErrorMsg(''), 3000)
+      setErrorMsg('Failed to load item history')
     }
   }
-
-  // Handle inventory item operations
-  const handleDeleteInventoryItem = async (itemId) => {
-    console.log('🗑️ Attempting to delete item:', itemId)
-    
-    if (!itemId) {
-      console.error('❌ No item ID provided for deletion')
-      setErrorMsg('Invalid item ID. Cannot delete item.')
-      setTimeout(() => setErrorMsg(''), 3000)
-      return
-    }
-    
-    if (!window.confirm('Are you sure you want to delete this inventory item? This action cannot be undone.')) {
-      return
-    }
-
-    try {
-      await adminApi.deleteInventoryItem(token, itemId)
-      console.log('✅ Item deleted successfully')
-      setSuccessMsg('Inventory item deleted successfully!')
-      setTimeout(() => {
-        refreshInventory()
-        refreshStats()
-        setSuccessMsg('')
-      }, 1000)
-    } catch (error) {
-      console.error('❌ Failed to delete inventory item:', error)
-      setErrorMsg(error.message || 'Failed to delete inventory item')
-      setTimeout(() => setErrorMsg(''), 3000)
-    }
-  }
-
-  // Handle view inventory item details
-  const handleViewInventoryItem = (item) => {
-    console.log('👁️ Viewing item details:', item)
-    if (!item || !item._id) {
-      console.error('❌ Invalid item data:', item)
-      setErrorMsg('Invalid item data. Cannot view details.')
-      setTimeout(() => setErrorMsg(''), 3000)
-      return
-    }
-    setSelectedInventoryItem(item)
-    setShowInventoryDetails(true)
-  }
-
-  // Handle purchase order operations
-  const handleViewPurchaseOrder = (po) => {
-    console.log('👁️ Viewing purchase order details:', po)
-    console.log('📊 PO items structure:', po.items)
-    console.log('📊 PO items type:', typeof po.items)
-    console.log('📊 PO items is array:', Array.isArray(po.items))
-    
-    if (!po || !po._id) {
-      console.error('❌ Invalid purchase order data:', po)
-      setErrorMsg('Invalid purchase order data. Cannot view details.')
-      setTimeout(() => setErrorMsg(''), 3000)
-      return
-    }
-    
-    // Ensure items is an array
-    if (po.items && !Array.isArray(po.items)) {
-      console.warn('⚠️ PO items is not an array, converting:', po.items)
-      po.items = []
-    }
-    
-    setSelectedPurchaseOrder(po)
-    setShowPODetails(true)
-  }
-
-  const handleDeletePurchaseOrder = async (poId) => {
-    console.log('🗑️ Attempting to delete purchase order:', poId)
-    
-    if (!poId) {
-      console.error('❌ No purchase order ID provided for deletion')
-      setErrorMsg('Invalid purchase order ID. Cannot delete.')
-      setTimeout(() => setErrorMsg(''), 3000)
-      return
-    }
-    
-    if (!window.confirm('Are you sure you want to delete this purchase order? This action cannot be undone.')) {
-      return
-    }
-
-    try {
-      await adminApi.deletePurchaseOrder(token, poId)
-      console.log('✅ Purchase order deleted successfully')
-      setSuccessMsg('Purchase order deleted successfully!')
-      setTimeout(() => {
-        refreshPOs()
-        refreshStats()
-        setSuccessMsg('')
-      }, 1000)
-    } catch (error) {
-      console.error('❌ Failed to delete purchase order:', error)
-      setErrorMsg(error.message || 'Failed to delete purchase order')
-      setTimeout(() => setErrorMsg(''), 3000)
-    }
-  }
-
-  // Define inventory columns inside component so functions are in scope
-  const inventoryColumns = [
-    { header: 'SKU', accessor: 'sku' },
-    { 
-      header: 'Product Details', 
-      accessor: 'name',
-      render: (value, row) => (
-        <div className="min-w-0">
-          <div className="font-semibold text-slate-800 text-sm">{value}</div>
-          {row.brand && (
-            <div className="text-xs text-purple-600 font-medium mt-0.5">{row.brand}</div>
-          )}
-          {row.specifications && (
-            <div className="text-xs text-slate-500 mt-0.5 truncate" title={row.specifications}>
-              {row.specifications}
-            </div>
-          )}
-          {row.description && (
-            <div className="text-xs text-slate-400 mt-0.5 italic truncate" title={row.description}>
-              {row.description}
-            </div>
-          )}
-        </div>
-      )
-    },
-    { header: 'Category', accessor: 'category' },
-    { header: 'Location', accessor: 'location' },
-    {
-      header: 'Stock',
-      accessor: 'stock',
-      render: (value, row) => {
-        // Handle both string and number formats
-        let stockValue = 0;
-        let unit = row.unit || 'units';
-        
-        if (typeof value === 'string') {
-          const parts = value.split(' ');
-          stockValue = parseInt(parts[0]) || 0;
-          unit = parts.slice(1).join(' ') || unit;
-        } else if (typeof value === 'number') {
-          stockValue = value;
-        }
-        
-        // Determine status color based on stock level
-        let statusColor = 'bg-emerald-500/10 text-emerald-600'; // Healthy
-        if (stockValue === 0) {
-          statusColor = 'bg-rose-500/10 text-rose-600'; // Critical
-        } else if (stockValue <= (row.minStockLevel || 5)) {
-          statusColor = 'bg-rose-500/10 text-rose-600'; // Critical
-        } else if (stockValue <= (row.reorderLevel || 10)) {
-          statusColor = 'bg-amber-500/10 text-amber-600'; // Low
-        }
-        
-        return (
-          <div className="space-y-1">
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
-              {stockValue} {unit}
-            </span>
-            {row.minOrderQuantity && row.minOrderQuantity > 1 && (
-              <div className="text-xs text-slate-500">
-                Min: {row.minOrderQuantity}
-              </div>
-            )}
-          </div>
-        )
-      }
-    },
-    { 
-      header: 'Unit Price', 
-      accessor: 'unitPrice',
-      render: (value) => `₹${(value || 0).toLocaleString('en-IN')}`
-    },
-    { header: 'Supplier', accessor: 'supplier' },
-    {
-      header: 'Lead Time',
-      accessor: 'leadTime',
-      render: (value) => typeof value === 'string' ? value : `${value || 0} days`
-    },
-    {
-      header: 'Status',
-      accessor: 'status',
-      render: (value, row) => {
-        // Auto-calculate status if not provided
-        let status = value;
-        if (!status) {
-          const stockValue = typeof row.stock === 'string' ? parseInt(row.stock.split(' ')[0]) || 0 : row.stock || 0;
-          if (stockValue === 0 || stockValue <= (row.minStockLevel || 5)) {
-            status = 'Critical';
-          } else if (stockValue <= (row.reorderLevel || 10)) {
-            status = 'Low';
-          } else {
-            status = 'Healthy';
-          }
-        }
-        
-        return (
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-            status === 'Critical' ? 'bg-rose-500/10 text-rose-600' :
-            status === 'Low' ? 'bg-amber-500/10 text-amber-600' :
-            'bg-emerald-500/10 text-emerald-600'
-          }`}>
-            {status}
-          </span>
-        )
-      }
-    },
-    {
-      header: 'Actions',
-      accessor: '_id',
-      render: (value, row) => {
-        if (!value) {
-          console.warn('⚠️ No ID found for inventory item:', row)
-          return <span className="text-xs text-slate-400">No actions available</span>
-        }
-        
-        return (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                console.log('👁️ View button clicked for item:', value, row)
-                try {
-                  handleViewInventoryItem(row)
-                } catch (error) {
-                  console.error('Error in view handler:', error)
-                  alert('Error viewing item details: ' + error.message)
-                }
-              }}
-              className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-              title="View Details"
-            >
-              <FiEye className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                console.log('📊 History button clicked for item:', value)
-                try {
-                  fetchItemHistory(value)
-                } catch (error) {
-                  console.error('Error in history handler:', error)
-                  alert('Error fetching item history: ' + error.message)
-                }
-              }}
-              className="p-1.5 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition"
-              title="View History"
-            >
-              <FiClock className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                console.log('🗑️ Delete button clicked for item:', value)
-                try {
-                  handleDeleteInventoryItem(value)
-                } catch (error) {
-                  console.error('Error in delete handler:', error)
-                  alert('Error deleting item: ' + error.message)
-                }
-              }}
-              className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-              title="Delete Item"
-            >
-              <FiTrash2 className="w-4 h-4" />
-            </button>
-            <div className="px-2 py-1 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 font-medium">
-              Auto-Generated
-            </div>
-          </div>
-        )
-      }
-    }
-  ]
-
-  // Define procurement columns inside component so functions are in scope
-  const procurementColumns = [
-    { header: 'PO', accessor: 'poId' },
-    { header: 'Supplier', accessor: 'supplier' },
-    {
-      header: 'Parts',
-      accessor: 'itemsDisplay',
-      render: (value, row) => {
-        // Use itemsDisplay if available (formatted string), otherwise format items array
-        if (value) return value
-        if (Array.isArray(row.items)) {
-          return row.items.map(item => `${item.name || item.sku} (${item.quantity})`).join(', ')
-        }
-        return row.items || 'N/A'
-      }
-    },
-    {
-      header: 'Value',
-      accessor: 'value',
-      render: (value, row) => {
-        if (typeof value === 'string') return value
-        const totalValue = row.totalValue || 0
-        return totalValue > 100000 ? `₹${(totalValue / 100000).toFixed(1)}L` : `₹${totalValue.toLocaleString()}`
-      }
-    },
-    {
-      header: 'Status',
-      accessor: 'status',
-      render: (value) => (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-          value === 'Delivered' ? 'bg-emerald-500/10 text-emerald-600' :
-          value === 'In Transit' ? 'bg-blue-500/10 text-blue-600' :
-          value === 'Pending' ? 'bg-amber-500/10 text-amber-600' :
-          value === 'Cancelled' ? 'bg-rose-500/10 text-rose-600' :
-          'bg-slate-500/10 text-slate-600'
-        }`}>
-          {value}
-        </span>
-      )
-    },
-    {
-      header: 'ETA',
-      accessor: 'eta',
-      render: (value, row) => {
-        if (typeof value === 'string') return value
-        if (row.expectedDeliveryDate) {
-          return new Date(row.expectedDeliveryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-        }
-        return 'N/A'
-      }
-    },
-    {
-      header: 'Actions',
-      accessor: '_id',
-      render: (value, row) => {
-        if (!value) {
-          return <span className="text-xs text-slate-400">No actions available</span>
-        }
-        
-        return (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                handleViewPurchaseOrder(row)
-              }}
-              className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-              title="View Purchase Order Details"
-            >
-              <FiEye className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                handleDeletePurchaseOrder(value)
-              }}
-              className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-              title="Delete Purchase Order"
-            >
-              <FiTrash2 className="w-4 h-4" />
-            </button>
-          </div>
-        )
-      }
-    }
-  ]
 
   const dynamicStats = [
     {
@@ -675,224 +329,6 @@ const SpareParts = () => {
     }
   ]
 
-  // Auto-generate inventory from all material categories
-  const autoGenerateInventoryFromAllMaterials = async () => {
-    setSubmitting(true)
-    setErrorMsg('')
-    setSuccessMsg('')
-
-    try {
-      console.log('🔄 Auto-generating inventory from all material categories...')
-      console.log('📦 Available materials:', materials.length)
-
-      let createdCount = 0
-      let updatedCount = 0
-      let skippedCount = 0
-
-      for (const material of materials) {
-        if (!material.items || material.items.length === 0) {
-          console.log(`⏭️ Skipping ${material.name} - no items`)
-          continue
-        }
-
-        console.log(`📋 Processing category: ${material.name} (${material.items.length} items)`)
-
-        for (const item of material.items) {
-          // Generate SKU from category and item name
-          const categoryCode = material.name.substring(0, 4).toUpperCase().replace(/[^A-Z]/g, '')
-          const itemCode = item.name.substring(0, 6).toUpperCase().replace(/[^A-Z0-9]/g, '')
-          const timestamp = Date.now().toString().slice(-4)
-          const sku = item.sku || `${categoryCode}-${itemCode}-${timestamp}`
-
-          // Check if inventory item already exists by SKU or name+category combination
-          const existingItem = inventoryItems.find(invItem => 
-            invItem.sku === sku || 
-            (invItem.name?.toLowerCase() === item.name?.toLowerCase() && 
-             invItem.category?.toLowerCase() === material.name?.toLowerCase())
-          )
-
-          const inventoryData = {
-            sku: existingItem ? existingItem.sku : sku,
-            name: item.name,
-            category: material.name,
-            location: 'Main Warehouse',
-            stock: item.stock || 0,
-            unit: item.unit || 'pieces',
-            supplier: 'Default Supplier',
-            supplierContact: '+91-9876543210',
-            leadTime: 3,
-            unitPrice: item.priceMin || item.priceMax || 0,
-            reorderLevel: Math.max(Math.floor((item.stock || 0) * 0.3), 5),
-            minStockLevel: Math.max(Math.floor((item.stock || 0) * 0.1), 2),
-            description: item.description || `${item.name} from ${material.name} category`,
-            brand: item.brand || '',
-            specifications: item.specifications || '',
-            minOrderQuantity: item.minOrderQuantity || 1
-          }
-
-          try {
-            if (existingItem) {
-              // Update existing item with latest information from material
-              await adminApi.updateInventoryItem(token, existingItem._id, {
-                ...inventoryData,
-                stock: item.stock || existingItem.stock // Use material stock if available
-              })
-              updatedCount++
-              console.log(`✅ Updated: ${item.name}`)
-            } else {
-              // Create new inventory item
-              await adminApi.createInventoryItem(token, inventoryData)
-              createdCount++
-              console.log(`✅ Created: ${item.name}`)
-            }
-          } catch (itemError) {
-            console.error(`❌ Error processing ${item.name}:`, itemError)
-            skippedCount++
-          }
-        }
-      }
-
-      const totalProcessed = createdCount + updatedCount
-      if (totalProcessed > 0) {
-        setSuccessMsg(`Inventory auto-generated! Created: ${createdCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`)
-        setTimeout(() => {
-          refreshInventory()
-          refreshStats()
-          setSuccessMsg('')
-        }, 2000)
-      } else {
-        setErrorMsg('No inventory items were generated. Make sure your material categories have products.')
-        setTimeout(() => setErrorMsg(''), 5000)
-      }
-
-    } catch (error) {
-      console.error('❌ Error auto-generating inventory:', error)
-      setErrorMsg('Failed to auto-generate inventory: ' + (error.message || 'Unknown error'))
-      setTimeout(() => setErrorMsg(''), 5000)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  // Auto-sync inventory when materials change
-  useEffect(() => {
-    if (materials.length > 0 && !materialsLoading) {
-      // Auto-generate inventory in the background when materials are loaded
-      const hasItemsWithStock = materials.some(material => 
-        material.items && material.items.some(item => item.stock && item.stock > 0)
-      )
-      
-      if (hasItemsWithStock && inventoryItems.length === 0) {
-        console.log('🔄 Auto-syncing inventory from materials...')
-        autoGenerateInventoryFromAllMaterials()
-      }
-    }
-  }, [materials, materialsLoading])
-
-  // Generate inventory from material categories (renamed for clarity)
-  const generateInventoryFromMaterials = async () => {
-    setSubmitting(true)
-    setErrorMsg('')
-    setSuccessMsg('')
-
-    try {
-      console.log('🔄 Generating inventory from materials...')
-      console.log('📦 Available materials:', materials.length)
-
-      let createdCount = 0
-      let updatedCount = 0
-      let skippedCount = 0
-
-      for (const material of materials) {
-        if (!material.items || material.items.length === 0) {
-          console.log(`⏭️ Skipping ${material.name} - no items`)
-          continue
-        }
-
-        console.log(`📋 Processing category: ${material.name} (${material.items.length} items)`)
-
-        for (const item of material.items) {
-          // Only process items that have stock information
-          if (!item.stock || item.stock === 0) {
-            console.log(`⏭️ Skipping ${item.name} - no stock information`)
-            skippedCount++
-            continue
-          }
-
-          // Generate SKU from category and item name
-          const categoryCode = material.name.substring(0, 4).toUpperCase().replace(/[^A-Z]/g, '')
-          const itemCode = item.name.substring(0, 6).toUpperCase().replace(/[^A-Z0-9]/g, '')
-          const sku = `${categoryCode}-${itemCode}-001`
-
-          // Check if inventory item already exists
-          const existingItem = inventoryItems.find(invItem => 
-            invItem.name?.toLowerCase() === item.name?.toLowerCase() && 
-            invItem.category?.toLowerCase() === material.name?.toLowerCase()
-          )
-
-          const inventoryData = {
-            sku: existingItem ? existingItem.sku : (item.sku || sku),
-            name: item.name,
-            category: material.name,
-            location: 'Main Warehouse', // Default location
-            stock: item.stock,
-            unit: item.unit || 'units', // Use item unit or default
-            supplier: 'Default Supplier', // Default supplier
-            supplierContact: '+91-9876543210', // Default contact
-            leadTime: 3, // Default lead time
-            unitPrice: item.priceMin || item.priceMax || 0, // Use min price or max price
-            reorderLevel: Math.max(Math.floor(item.stock * 0.3), 5), // 30% of stock or minimum 5
-            minStockLevel: Math.max(Math.floor(item.stock * 0.1), 2), // 10% of stock or minimum 2
-            description: item.description || `${item.name} from ${material.name} category. Auto-generated from material stock.`,
-            brand: item.brand || '',
-            specifications: item.specifications || '',
-            minOrderQuantity: item.minOrderQuantity || 1
-          }
-
-          try {
-            if (existingItem) {
-              // Update existing item
-              await adminApi.updateInventoryItem(token, existingItem._id, {
-                ...inventoryData,
-                stock: existingItem.stock + item.stock // Add to existing stock
-              })
-              updatedCount++
-              console.log(`✅ Updated: ${item.name}`)
-            } else {
-              // Create new item
-              await adminApi.createInventoryItem(token, inventoryData)
-              createdCount++
-              console.log(`✅ Created: ${item.name}`)
-            }
-          } catch (itemError) {
-            console.error(`❌ Error processing ${item.name}:`, itemError)
-            // Continue with other items even if one fails
-          }
-        }
-      }
-
-      const totalProcessed = createdCount + updatedCount
-      if (totalProcessed > 0) {
-        setSuccessMsg(`Inventory generated successfully! Created: ${createdCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`)
-        setTimeout(() => {
-          refreshInventory()
-          refreshStats()
-          setSuccessMsg('')
-        }, 2000)
-      } else {
-        setErrorMsg('No inventory items were generated. Make sure your material categories have items with stock information.')
-        setTimeout(() => setErrorMsg(''), 5000)
-      }
-
-    } catch (error) {
-      console.error('❌ Error generating inventory:', error)
-      setErrorMsg('Failed to generate inventory: ' + (error.message || 'Unknown error'))
-      setTimeout(() => setErrorMsg(''), 5000)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const handleOpenMaterialModal = (material = null) => {
     if (material) {
       setEditingMaterial(material._id)
@@ -913,7 +349,7 @@ const SpareParts = () => {
         isActive: true
       })
     }
-    setNewItem({ name: '', priceMin: '', priceMax: '', stock: '' })
+    setNewItem({ name: '', priceMin: '', priceMax: '' })
     setShowMaterialModal(true)
     setErrorMsg('')
     setSuccessMsg('')
@@ -929,7 +365,7 @@ const SpareParts = () => {
       order: 0,
       isActive: true
     })
-    setNewItem({ name: '', priceMin: '', priceMax: '', stock: '' })
+    setNewItem({ name: '', priceMin: '', priceMax: '' })
     setErrorMsg('')
     setSuccessMsg('')
     setShowIconPicker(false)
@@ -942,99 +378,12 @@ const SpareParts = () => {
         ...prev,
         items: [...prev.items, {
           name: newItem.name.trim(),
-          description: newItem.description.trim(),
           priceMin: newItem.priceMin ? Number(newItem.priceMin) : null,
-          priceMax: newItem.priceMax ? Number(newItem.priceMax) : null,
-          stock: newItem.stock ? Number(newItem.stock) : 0,
-          unit: newItem.unit || 'pieces',
-          sku: newItem.sku.trim(),
-          brand: newItem.brand.trim(),
-          specifications: newItem.specifications.trim(),
-          minOrderQuantity: newItem.minOrderQuantity ? Number(newItem.minOrderQuantity) : 1,
-          isActive: true
+          priceMax: newItem.priceMax ? Number(newItem.priceMax) : null
         }]
       }))
-      setNewItem({ 
-        name: '', 
-        description: '',
-        priceMin: '', 
-        priceMax: '', 
-        stock: '',
-        unit: 'pieces',
-        sku: '',
-        brand: '',
-        specifications: '',
-        minOrderQuantity: '1'
-      })
+      setNewItem({ name: '', priceMin: '', priceMax: '' })
     }
-  }
-
-  const handleEditItem = (index, item) => {
-    setEditingItemIndex(index)
-    setEditingItem({
-      name: item.name || '',
-      description: item.description || '',
-      priceMin: item.priceMin || '',
-      priceMax: item.priceMax || '',
-      stock: item.stock || '',
-      unit: item.unit || 'pieces',
-      sku: item.sku || '',
-      brand: item.brand || '',
-      specifications: item.specifications || '',
-      minOrderQuantity: item.minOrderQuantity || '1'
-    })
-  }
-
-  const handleUpdateItem = () => {
-    if (editingItem.name.trim() && editingItemIndex !== null) {
-      setMaterialFormData(prev => ({
-        ...prev,
-        items: prev.items.map((item, index) => 
-          index === editingItemIndex ? {
-            name: editingItem.name.trim(),
-            description: editingItem.description.trim(),
-            priceMin: editingItem.priceMin ? Number(editingItem.priceMin) : null,
-            priceMax: editingItem.priceMax ? Number(editingItem.priceMax) : null,
-            stock: editingItem.stock ? Number(editingItem.stock) : 0,
-            unit: editingItem.unit || 'pieces',
-            sku: editingItem.sku.trim(),
-            brand: editingItem.brand.trim(),
-            specifications: editingItem.specifications.trim(),
-            minOrderQuantity: editingItem.minOrderQuantity ? Number(editingItem.minOrderQuantity) : 1,
-            isActive: item.isActive !== undefined ? item.isActive : true
-          } : item
-        )
-      }))
-      setEditingItemIndex(null)
-      setEditingItem({ 
-        name: '', 
-        description: '',
-        priceMin: '', 
-        priceMax: '', 
-        stock: '',
-        unit: 'pieces',
-        sku: '',
-        brand: '',
-        specifications: '',
-        minOrderQuantity: '1'
-      })
-    }
-  }
-
-  const handleCancelEdit = () => {
-    setEditingItemIndex(null)
-    setEditingItem({ 
-      name: '', 
-      description: '',
-      priceMin: '', 
-      priceMax: '', 
-      stock: '',
-      unit: 'pieces',
-      sku: '',
-      brand: '',
-      specifications: '',
-      minOrderQuantity: '1'
-    })
   }
 
   const handleRemoveItem = (index) => {
@@ -1125,36 +474,11 @@ const SpareParts = () => {
     { 
       header: 'Items', 
       accessor: 'items',
-      render: (value) => {
-        const itemsArray = Array.isArray(value) ? value : [];
-        const totalItems = itemsArray.length;
-        const itemsWithStock = itemsArray.filter(item => item.stock && item.stock > 0).length;
-        const totalStock = itemsArray.reduce((sum, item) => sum + (item.stock || 0), 0);
-        
-        return (
-          <div className="space-y-1">
-            <span className="text-sm text-slate-600">
-              {totalItems} items
-            </span>
-            {totalItems > 0 && (
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                  itemsWithStock > 0 
-                    ? 'bg-emerald-100 text-emerald-700' 
-                    : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {itemsWithStock} with stock
-                </span>
-                {totalStock > 0 && (
-                  <span className="text-xs text-blue-600 font-semibold">
-                    {totalStock} total units
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      }
+      render: (value) => (
+        <span className="text-sm text-slate-600">
+          {Array.isArray(value) ? value.length : 0} items
+        </span>
+      )
     },
     { 
       header: 'Status', 
@@ -1233,16 +557,8 @@ const SpareParts = () => {
                   onClick={() => setShowThresholdModal(true)}
                   className="px-4 py-2 rounded-xl border border-primary text-primary text-sm font-semibold hover:bg-primary/10 transition"
                 >
-                  Configure Thresholds
-                </button>
-                <button
-                  onClick={autoGenerateInventoryFromAllMaterials}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition flex items-center gap-2 disabled:opacity-50"
-                >
-                  <FiRefreshCw className="w-4 h-4" />
-                  {submitting ? 'Generating...' : 'Generate Inventory'}
-                </button>
+            Configure Thresholds
+          </button>
               </>
             )}
           </div>
@@ -1428,42 +744,6 @@ const SpareParts = () => {
         ))}
       </div>
 
-      {/* Debug Information */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h3 className="text-sm font-semibold text-yellow-800 mb-2">Debug Information</h3>
-          <div className="text-xs text-yellow-700 space-y-1">
-            <p>Inventory Items Count: {inventoryItems.length}</p>
-            <p>Loading: {inventoryLoading ? 'Yes' : 'No'}</p>
-            <p>Error: {inventoryError ? inventoryError.message || 'Yes' : 'No'}</p>
-            <p>Stats: {JSON.stringify(stats)}</p>
-            <p>Raw Data: {inventoryItemsData ? 'Available' : 'Not Available'}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Auto-Generation Info */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <FiRefreshCw className="w-4 h-4 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-blue-800 mb-2">Auto-Generated Inventory</h3>
-            <p className="text-sm text-blue-700 mb-2">
-              Inventory items are automatically generated from your material categories. 
-              When you add stock information to material items, they become inventory items with full details.
-            </p>
-            <div className="text-xs text-blue-600 space-y-1">
-              <p>• <strong>SKU:</strong> Auto-generated from category and item name</p>
-              <p>• <strong>Pricing:</strong> Uses min/max price from material items</p>
-              <p>• <strong>Stock Levels:</strong> Smart reorder levels based on stock quantity</p>
-              <p>• <strong>Location:</strong> Default warehouse assignment</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="space-y-8">
         <section>
           <div className="flex items-center justify-between mb-4">
@@ -1492,42 +772,7 @@ const SpareParts = () => {
           <DataTable
             columns={inventoryColumns}
             data={inventoryItems}
-            emptyLabel={
-              <div className="text-center py-12">
-                <FiPackage className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500 mb-2">No inventory items found.</p>
-                <p className="text-slate-400 text-sm mb-6">
-                  Add stock information to your material categories, then generate inventory automatically.
-                </p>
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={autoGenerateInventoryFromAllMaterials}
-                    disabled={submitting || materials.length === 0}
-                    className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-semibold flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <FiRefreshCw className="w-5 h-5" />
-                    {submitting ? 'Generating...' : 'Generate from Materials'}
-                  </button>
-                  {materials.length === 0 && (
-                    <button
-                      onClick={() => setActiveTab('materials')}
-                      className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition font-semibold flex items-center gap-2"
-                    >
-                      <FiPlus className="w-5 h-5" />
-                      Add Materials First
-                    </button>
-                  )}
-                </div>
-                {materials.length > 0 && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg max-w-md mx-auto">
-                    <p className="text-sm text-blue-700">
-                      <strong>Found {materials.length} material categories.</strong><br/>
-                      Items with stock information will be converted to inventory items.
-                    </p>
-                  </div>
-                )}
-              </div>
-            }
+            emptyLabel="No inventory items found. Add items to track stock levels."
           />
         </section>
 
@@ -1546,42 +791,18 @@ const SpareParts = () => {
               <div className="text-center py-8 text-slate-400 text-sm">No material categories found</div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {materials.map((material) => {
-                  const totalItems = Array.isArray(material.items) ? material.items.length : 0
-                  const itemsWithStock = Array.isArray(material.items) ? material.items.filter(item => item.stock && item.stock > 0).length : 0
-                  const totalStock = Array.isArray(material.items) ? material.items.reduce((sum, item) => sum + (item.stock || 0), 0) : 0
-                  
-                  return (
-                    <div
-                      key={material._id}
-                      className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl border border-primary/20"
-                    >
-                      <div className="text-3xl mb-2">{material.icon}</div>
-                      <div className="font-semibold text-sm text-primary mb-1">{material.name}</div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-slate-600">
-                          {totalItems} items
-                        </div>
-                        {totalItems > 0 && (
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                              itemsWithStock > 0 
-                                ? 'bg-emerald-100 text-emerald-700' 
-                                : 'bg-gray-100 text-gray-600'
-                            }`}>
-                              {itemsWithStock} with stock
-                            </span>
-                            {totalStock > 0 && (
-                              <span className="text-xs text-blue-600 font-semibold">
-                                {totalStock} total units
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                {materials.map((material) => (
+                  <div
+                    key={material._id}
+                    className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl border border-primary/20"
+                  >
+                    <div className="text-3xl mb-2">{material.icon}</div>
+                    <div className="font-semibold text-sm text-primary mb-1">{material.name}</div>
+                    <div className="text-xs text-slate-600">
+                      {Array.isArray(material.items) ? material.items.length : 0} items
                     </div>
-                  )
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -1593,76 +814,13 @@ const SpareParts = () => {
               <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
                 Procurement Tracker
               </h2>
-              <div className="flex items-center gap-3">
-                {poError && (
-                  <span className="text-xs text-rose-500">
-                    Error: {poError}. {purchaseOrders.length > 0 ? `Showing ${purchaseOrders.length} cached items.` : 'No data available.'}
-                  </span>
-                )}
-                {poLoading && <span className="text-xs text-slate-400">Loading purchase orders...</span>}
-                {!poLoading && !poError && (
-                  <span className="text-xs text-slate-500">{purchaseOrders.length} orders</span>
-                )}
-                <button
-                  onClick={() => {
-                    console.log('🔄 Manual refresh triggered')
-                    refreshPOs()
-                  }}
-                  className="text-xs text-primary hover:text-primary-dark font-semibold flex items-center gap-1"
-                >
-                  <FiRefreshCw className="w-3 h-3" />
-                  Refresh
-                </button>
-              </div>
+              {poError && <span className="text-xs text-rose-500">Error loading orders</span>}
+              {poLoading && <span className="text-xs text-slate-400">Loading...</span>}
             </div>
-            
-            {/* Debug Information */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <h4 className="text-sm font-semibold text-yellow-800 mb-2">Debug: Purchase Orders</h4>
-                <div className="text-xs text-yellow-700 space-y-1">
-                  <p>Data Available: {purchaseOrdersData ? 'Yes' : 'No'}</p>
-                  <p>Array Length: {purchaseOrders.length}</p>
-                  <p>Loading: {poLoading ? 'Yes' : 'No'}</p>
-                  <p>Error: {poError || 'None'}</p>
-                  <p>Token: {token ? 'Available' : 'Missing'}</p>
-                  <p>Raw Response: {JSON.stringify(purchaseOrdersData)}</p>
-                </div>
-              </div>
-            )}
-            
             <DataTable
               columns={procurementColumns}
               data={purchaseOrders}
-              emptyLabel={
-                <div className="text-center py-12">
-                  <FiPackage className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-500 mb-2">No purchase orders found.</p>
-                  {poError ? (
-                    <div className="space-y-2">
-                      <p className="text-rose-500 text-sm">Error loading data: {poError}</p>
-                      <button
-                        onClick={() => refreshPOs()}
-                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-semibold"
-                      >
-                        Retry Loading
-                      </button>
-                    </div>
-                  ) : poLoading ? (
-                    <p className="text-slate-400 text-sm">Loading purchase orders...</p>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-slate-400 text-sm">Create a purchase order to track procurement.</p>
-                      <button
-                        onClick={() => setShowPOModal(true)}
-                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-semibold"
-                      >
-                        Create First Purchase Order
-                      </button>
-                    </div>
-                  )}
-                </div>
-              }
+              emptyLabel="No purchase orders found. Create a purchase order to track procurement."
             />
           </div>
 
@@ -1702,63 +860,26 @@ const SpareParts = () => {
                   setPOItemForm({ selectedInventoryItem: '', sku: '', name: '', quantity: '', unitPrice: '' })
                   setInventoryItemSearch('')
                   setShowInventoryDropdown(false)
-                  setErrorMsg('')
-                  setSuccessMsg('')
                 }}
                 className="p-2 hover:bg-slate-100 rounded-lg transition"
               >
                 <FiX className="w-5 h-5" />
               </button>
-            </div>
-
-            {/* Error and Success Messages */}
-            {errorMsg && (
-              <div className="mx-5 mt-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-sm">
-                {errorMsg}
-              </div>
-            )}
-            {successMsg && (
-              <div className="mx-5 mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm">
-                {successMsg}
-              </div>
-            )}
+    </div>
 
             <form
               onSubmit={async (e) => {
                 e.preventDefault()
-                console.log('🔄 Submitting Purchase Order...')
-                console.log('📊 Form Data:', poFormData)
-                
-                // Validation checks
-                if (!poFormData.supplier || !poFormData.supplier.trim()) {
-                  setErrorMsg('Please enter supplier name')
-                  setTimeout(() => setErrorMsg(''), 3000)
-                  return
-                }
-                
-                if (!poFormData.expectedDeliveryDate) {
-                  setErrorMsg('Please select expected delivery date')
-                  setTimeout(() => setErrorMsg(''), 3000)
-                  return
-                }
-                
                 if (poFormData.items.length === 0) {
                   setErrorMsg('Please add at least one item to the purchase order')
-                  setTimeout(() => setErrorMsg(''), 3000)
                   return
                 }
-                
                 setSubmitting(true)
-                setErrorMsg('') // Clear any previous errors
-                
                 try {
-                  console.log('📤 Sending PO data to backend...')
-                  const response = await adminApi.createPurchaseOrder(token, {
+                  await adminApi.createPurchaseOrder(token, {
                     ...poFormData,
                     expectedDeliveryDate: new Date(poFormData.expectedDeliveryDate).toISOString()
                   })
-                  
-                  console.log('✅ PO created successfully:', response)
                   setSuccessMsg('Purchase order created successfully!')
                   refreshPOs()
                   refreshStats()
@@ -1774,12 +895,9 @@ const SpareParts = () => {
                     setPOItemForm({ selectedInventoryItem: '', sku: '', name: '', quantity: '', unitPrice: '' })
                     setInventoryItemSearch('')
                     setShowInventoryDropdown(false)
-                    setSuccessMsg('')
-                  }, 2000)
+                  }, 1000)
                 } catch (error) {
-                  console.error('❌ PO creation failed:', error)
                   setErrorMsg(error.message || 'Failed to create purchase order')
-                  setTimeout(() => setErrorMsg(''), 5000)
                 } finally {
                   setSubmitting(false)
                 }
@@ -1852,41 +970,37 @@ const SpareParts = () => {
                                   item.category?.toLowerCase().includes(inventoryItemSearch.toLowerCase())
                                 )
                                 .slice(0, 10)
-                                .map((item) => {
-                                  // Calculate stock number for display
-                                  const stockNum = typeof item.stock === 'string' 
-                                    ? parseInt(item.stock.split(' ')[0]) || 0 
-                                    : item.stock || 0
-                                  
-                                  return (
-                                    <button
-                                      key={item._id}
-                                      type="button"
-                                      onClick={() => {
-                                        setPOItemForm({
-                                          selectedInventoryItem: item._id,
-                                          sku: item.sku,
-                                          name: item.name,
-                                          quantity: '',
-                                          unitPrice: item.unitPrice || 0
-                                        })
-                                        setInventoryItemSearch(`${item.sku} - ${item.name}`)
-                                        setShowInventoryDropdown(false)
-                                      }}
-                                      className="w-full text-left px-4 py-2 hover:bg-primary/10 transition flex items-center justify-between"
-                                    >
-                                      <div>
-                                        <div className="font-semibold text-sm">{item.sku}</div>
-                                        <div className="text-xs text-slate-600">{item.name}</div>
-                                        <div className="text-xs text-slate-400">{item.category} • {item.location}</div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-xs font-semibold text-primary">₹{item.unitPrice || 0}</div>
-                                        <div className="text-xs text-slate-400">Stock: {stockNum}</div>
-                                      </div>
-                                    </button>
-                                  )
-                                })}
+                                .map((item) => (
+                                  <button
+                                    key={item._id}
+                                    type="button"
+                                    onClick={() => {
+                                      const stockNum = typeof item.stock === 'string' 
+                                        ? parseInt(item.stock.split(' ')[0]) || 0 
+                                        : item.stock || 0
+                                      setPOItemForm({
+                                        selectedInventoryItem: item._id,
+                                        sku: item.sku,
+                                        name: item.name,
+                                        quantity: '',
+                                        unitPrice: item.unitPrice || 0
+                                      })
+                                      setInventoryItemSearch(`${item.sku} - ${item.name}`)
+                                      setShowInventoryDropdown(false)
+                                    }}
+                                    className="w-full text-left px-4 py-2 hover:bg-primary/10 transition flex items-center justify-between"
+                                  >
+                                    <div>
+                                      <div className="font-semibold text-sm">{item.sku}</div>
+                                      <div className="text-xs text-slate-600">{item.name}</div>
+                                      <div className="text-xs text-slate-400">{item.category} • {item.location}</div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-xs font-semibold text-primary">₹{item.unitPrice || 0}</div>
+                                      <div className="text-xs text-slate-400">Stock: {stockNum}</div>
+                                    </div>
+                                  </button>
+                                ))}
                               {inventoryItems.filter(item => 
                                 inventoryItemSearch === '' ||
                                 item.sku?.toLowerCase().includes(inventoryItemSearch.toLowerCase()) ||
@@ -1975,8 +1089,6 @@ const SpareParts = () => {
                           type="button"
                           onClick={() => {
                             if (poItemForm.sku && poItemForm.name && poItemForm.quantity && poItemForm.unitPrice) {
-                              // Clear any previous error messages
-                              setErrorMsg('')
                               setPOFormData(prev => ({
                                 ...prev,
                                 items: [...prev.items, {
@@ -1992,7 +1104,6 @@ const SpareParts = () => {
                               setShowInventoryDropdown(false)
                             } else {
                               setErrorMsg('Please fill all item fields (SKU, Name, Quantity, Unit Price)')
-                              setTimeout(() => setErrorMsg(''), 3000)
                             }
                           }}
                           className="px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark font-semibold"
@@ -2475,76 +1586,22 @@ const SpareParts = () => {
                 
                 {/* Add Item Form */}
                 <div className="mb-4 p-4 bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl border-2 border-slate-200 shadow-sm">
-                  <div className="space-y-4">
-                    {/* Basic Information */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Item Name */}
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Product Name *</label>
-                        <input
-                          type="text"
-                          value={newItem.name}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
-                          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
-                          className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
-                          placeholder="e.g., PVC Pipe 2 inch, Copper Wire 2.5mm"
-                        />
-                      </div>
-
-                      {/* SKU */}
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">SKU/Product Code</label>
-                        <input
-                          type="text"
-                          value={newItem.sku}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, sku: e.target.value }))}
-                          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
-                          className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
-                          placeholder="e.g., PVC-2IN-001"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Description */}
+                  <div className="space-y-3">
+                    {/* Item Name Input */}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Description</label>
-                      <textarea
-                        value={newItem.description}
-                        onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))}
-                        className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white resize-none"
-                        placeholder="Brief description of the product..."
-                        rows="2"
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">Item Name *</label>
+                      <input
+                        type="text"
+                        value={newItem.name}
+                        onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
+                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
+                        className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
+                        placeholder="e.g., PVC Pipe, Copper Wire, Paint Bucket"
                       />
                     </div>
 
-                    {/* Brand and Specifications */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Brand</label>
-                        <input
-                          type="text"
-                          value={newItem.brand}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, brand: e.target.value }))}
-                          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
-                          className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
-                          placeholder="e.g., Supreme, Havells"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Specifications</label>
-                        <input
-                          type="text"
-                          value={newItem.specifications}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, specifications: e.target.value }))}
-                          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
-                          className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
-                          placeholder="e.g., 2 inch diameter, 6 meter length"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Price Range and Stock */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Price Range Inputs */}
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">Min Price (₹)</label>
                         <div className="relative">
@@ -2575,386 +1632,69 @@ const SpareParts = () => {
                           />
                         </div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Stock Quantity</label>
-                        <input
-                          type="number"
-                          value={newItem.stock}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, stock: e.target.value }))}
-                          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
-                          className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
-                          placeholder="50"
-                          min="0"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Unit</label>
-                        <select
-                          value={newItem.unit}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, unit: e.target.value }))}
-                          className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
-                        >
-                          {UNIT_OPTIONS.map((option, idx) => (
-                            <option key={idx} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
 
-                    {/* Min Order Quantity */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Min Order Quantity</label>
-                        <input
-                          type="number"
-                          value={newItem.minOrderQuantity}
-                          onChange={(e) => setNewItem(prev => ({ ...prev, minOrderQuantity: e.target.value }))}
-                          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddItem())}
-                          className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white"
-                          placeholder="1"
-                          min="1"
-                        />
-                      </div>
-                      <div className="flex items-end">
-                        {/* Add Button */}
-                        <button
-                          type="button"
-                          onClick={handleAddItem}
-                          disabled={!newItem.name.trim()}
-                          className="w-full px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-                        >
-                          <FiPlus className="w-4 h-4" />
-                          Add Product
-                        </button>
-                      </div>
-                    </div>
+                    {/* Add Button */}
+                    <button
+                      type="button"
+                      onClick={handleAddItem}
+                      disabled={!newItem.name.trim()}
+                      className="w-full px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                    >
+                      <FiPlus className="w-4 h-4" />
+                      Add Item
+                    </button>
                   </div>
                   <p className="text-xs text-slate-500 mt-3 flex items-start gap-1.5">
                     <span className="text-primary mt-0.5">💡</span>
-                    <span>Fill in product details for better inventory management. Only product name is required.</span>
+                    <span>Price range is optional. Press Enter to quickly add items.</span>
                   </p>
                 </div>
 
                 {/* Items List */}
                 {materialFormData.items.length > 0 ? (
-                  <div className="space-y-3">
-                    {/* Bulk Actions Header */}
-                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
-                      <span className="text-sm font-semibold text-slate-700">
-                        {materialFormData.items.length} {materialFormData.items.length === 1 ? 'item' : 'items'}
-                      </span>
-                      <div className="flex items-center gap-2">
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {materialFormData.items.map((item, index) => (
+                      <div 
+                        key={index} 
+                        className="group flex items-start gap-3 p-3 bg-white border-2 border-slate-200 rounded-lg hover:border-primary/50 hover:shadow-sm transition-all"
+                      >
+                        {/* Item Number Badge */}
+                        <div className="flex-shrink-0 w-7 h-7 bg-slate-100 group-hover:bg-primary/10 rounded-full flex items-center justify-center text-xs font-bold text-slate-600 group-hover:text-primary transition-colors">
+                          {index + 1}
+                        </div>
+
+                        {/* Item Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-slate-800 text-sm break-words">
+                            {item.name || item}
+                          </div>
+                          {(item.priceMin || item.priceMax) && (
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-md">
+                                <span className="text-xs font-semibold text-emerald-700">
+                                  ₹{item.priceMin || '0'}
+                                </span>
+                                <span className="text-xs text-emerald-600">→</span>
+                                <span className="text-xs font-semibold text-emerald-700">
+                                  ₹{item.priceMax || '∞'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Delete Button */}
                         <button
                           type="button"
-                          onClick={() => {
-                            const stockValue = prompt('Set stock for all items (enter 0 to clear stock):');
-                            if (stockValue !== null && !isNaN(stockValue) && stockValue >= 0) {
-                              setMaterialFormData(prev => ({
-                                ...prev,
-                                items: prev.items.map(item => ({ ...item, stock: parseInt(stockValue) || 0 }))
-                              }));
-                            }
-                          }}
-                          className="px-3 py-1.5 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition font-semibold flex items-center gap-1"
+                          onClick={() => handleRemoveItem(index)}
+                          className="flex-shrink-0 p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                          title="Remove item"
                         >
-                          <FiPackage className="w-3 h-3" />
-                          Bulk Stock Update
+                          <FiTrash2 className="w-4 h-4" />
                         </button>
                       </div>
-                    </div>
-                    
-                    {/* Items List */}
-                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                      {materialFormData.items.map((item, index) => (
-                      <div key={index}>
-                        {editingItemIndex === index ? (
-                          // Edit Form
-                          <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                            <div className="space-y-4">
-                              {/* Basic Information */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-600 mb-1">Product Name *</label>
-                                  <input
-                                    type="text"
-                                    value={editingItem.name}
-                                    onChange={(e) => setEditingItem(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm"
-                                    placeholder="Product name"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-600 mb-1">SKU/Code</label>
-                                  <input
-                                    type="text"
-                                    value={editingItem.sku}
-                                    onChange={(e) => setEditingItem(prev => ({ ...prev, sku: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm"
-                                    placeholder="Product code"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Description */}
-                              <div>
-                                <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                                <textarea
-                                  value={editingItem.description}
-                                  onChange={(e) => setEditingItem(prev => ({ ...prev, description: e.target.value }))}
-                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm resize-none"
-                                  placeholder="Product description"
-                                  rows="2"
-                                />
-                              </div>
-
-                              {/* Brand and Specifications */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-600 mb-1">Brand</label>
-                                  <input
-                                    type="text"
-                                    value={editingItem.brand}
-                                    onChange={(e) => setEditingItem(prev => ({ ...prev, brand: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm"
-                                    placeholder="Brand name"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-600 mb-1">Specifications</label>
-                                  <input
-                                    type="text"
-                                    value={editingItem.specifications}
-                                    onChange={(e) => setEditingItem(prev => ({ ...prev, specifications: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm"
-                                    placeholder="Product specs"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Price, Stock, Unit */}
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-600 mb-1">Min Price (₹)</label>
-                                  <input
-                                    type="number"
-                                    value={editingItem.priceMin}
-                                    onChange={(e) => setEditingItem(prev => ({ ...prev, priceMin: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm"
-                                    placeholder="Min price"
-                                    min="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-600 mb-1">Max Price (₹)</label>
-                                  <input
-                                    type="number"
-                                    value={editingItem.priceMax}
-                                    onChange={(e) => setEditingItem(prev => ({ ...prev, priceMax: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm"
-                                    placeholder="Max price"
-                                    min="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-600 mb-1">Stock</label>
-                                  <input
-                                    type="number"
-                                    value={editingItem.stock}
-                                    onChange={(e) => setEditingItem(prev => ({ ...prev, stock: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm"
-                                    placeholder="Stock qty"
-                                    min="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-600 mb-1">Unit</label>
-                                  <select
-                                    value={editingItem.unit}
-                                    onChange={(e) => setEditingItem(prev => ({ ...prev, unit: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm"
-                                  >
-                                    {UNIT_OPTIONS.map((option, idx) => (
-                                      <option key={idx} value={option.value}>
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </div>
-
-                              {/* Min Order Quantity */}
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-semibold text-slate-600 mb-1">Min Order Qty</label>
-                                  <input
-                                    type="number"
-                                    value={editingItem.minOrderQuantity}
-                                    onChange={(e) => setEditingItem(prev => ({ ...prev, minOrderQuantity: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary text-sm"
-                                    placeholder="Min order"
-                                    min="1"
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={handleUpdateItem}
-                                  disabled={!editingItem.name.trim()}
-                                  className="px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm font-semibold disabled:opacity-50 flex items-center gap-1"
-                                >
-                                  <FiSave className="w-3 h-3" />
-                                  Update
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleCancelEdit}
-                                  className="px-3 py-1.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          // Display Item
-                          <div className="group flex items-start gap-3 p-4 bg-white border-2 border-slate-200 rounded-lg hover:border-primary/50 hover:shadow-sm transition-all">
-                            {/* Item Number Badge */}
-                            <div className="flex-shrink-0 w-8 h-8 bg-slate-100 group-hover:bg-primary/10 rounded-full flex items-center justify-center text-xs font-bold text-slate-600 group-hover:text-primary transition-colors">
-                              {index + 1}
-                            </div>
-
-                            {/* Item Details */}
-                            <div className="flex-1 min-w-0">
-                              {/* Product Name and SKU */}
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex-1">
-                                  <div className="font-semibold text-slate-800 text-sm break-words">
-                                    {item.name || item}
-                                  </div>
-                                  {item.sku && (
-                                    <div className="text-xs text-slate-500 mt-0.5">
-                                      SKU: {item.sku}
-                                    </div>
-                                  )}
-                                </div>
-                                {item.brand && (
-                                  <div className="ml-2 px-2 py-0.5 bg-purple-50 border border-purple-200 rounded text-xs font-semibold text-purple-700">
-                                    {item.brand}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Description */}
-                              {item.description && (
-                                <div className="text-xs text-slate-600 mb-2 italic">
-                                  {item.description}
-                                </div>
-                              )}
-
-                              {/* Specifications */}
-                              {item.specifications && (
-                                <div className="text-xs text-slate-600 mb-2">
-                                  <span className="font-medium">Specs:</span> {item.specifications}
-                                </div>
-                              )}
-
-                              {/* Price, Stock, and Unit Information */}
-                              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                {/* Price Range */}
-                                {(item.priceMin || item.priceMax) && (
-                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-md">
-                                    <span className="text-xs font-semibold text-emerald-700">
-                                      ₹{item.priceMin || '0'}
-                                    </span>
-                                    <span className="text-xs text-emerald-600">→</span>
-                                    <span className="text-xs font-semibold text-emerald-700">
-                                      ₹{item.priceMax || '∞'}
-                                    </span>
-                                  </div>
-                                )}
-
-                                {/* Stock Information */}
-                                {item.stock !== undefined && item.stock !== null ? (
-                                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md ${
-                                    item.stock > 0 
-                                      ? 'bg-blue-50 border border-blue-200' 
-                                      : 'bg-amber-50 border border-amber-200'
-                                  }`}>
-                                    <FiPackage className={`w-3 h-3 ${
-                                      item.stock > 0 ? 'text-blue-600' : 'text-amber-600'
-                                    }`} />
-                                    <span className={`text-xs font-semibold ${
-                                      item.stock > 0 ? 'text-blue-700' : 'text-amber-700'
-                                    }`}>
-                                      {item.stock} {item.unit || 'units'}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-md">
-                                    <span className="text-xs text-gray-500">
-                                      Stock not set
-                                    </span>
-                                  </div>
-                                )}
-
-                                {/* Min Order Quantity */}
-                                {item.minOrderQuantity && item.minOrderQuantity > 1 && (
-                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 border border-orange-200 rounded-md">
-                                    <span className="text-xs font-semibold text-orange-700">
-                                      Min: {item.minOrderQuantity} {item.unit || 'units'}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Edit and Delete Buttons */}
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleEditItem(index, item)}
-                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                title="Edit product"
-                              >
-                                <FiEdit2 className="w-3 h-3" />
-                              </button>
-                              {/* Quick Stock Edit Button */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newStock = prompt(`Update stock for "${item.name}":`, item.stock || 0);
-                                  if (newStock !== null && !isNaN(newStock) && newStock >= 0) {
-                                    setMaterialFormData(prev => ({
-                                      ...prev,
-                                      items: prev.items.map((itm, idx) => 
-                                        idx === index ? { ...itm, stock: parseInt(newStock) || 0 } : itm
-                                      )
-                                    }));
-                                  }
-                                }}
-                                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                                title="Quick stock update"
-                              >
-                                <FiPackage className="w-3 h-3" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItem(index)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                                title="Remove product"
-                              >
-                                <FiTrash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     ))}
-                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8 px-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-lg">
@@ -3010,467 +1750,6 @@ const SpareParts = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Professional Inventory Details Modal */}
-      {showInventoryDetails && selectedInventoryItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-primary to-primary-dark p-6 text-white relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12"></div>
-              
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                    <FiPackage size={32} />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold mb-1">Inventory Item Details</h3>
-                    <p className="text-blue-100 text-sm">Complete product information and stock details</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowInventoryDetails(false)
-                    setSelectedInventoryItem(null)
-                  }}
-                  className="p-3 hover:bg-white/20 rounded-xl transition-colors"
-                >
-                  <FiX size={24} />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              {/* Product Header */}
-              <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl p-6 mb-6 border border-slate-200">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <h2 className="text-2xl font-bold text-slate-800">{selectedInventoryItem.name}</h2>
-                      {selectedInventoryItem.brand && (
-                        <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
-                          {selectedInventoryItem.brand}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-slate-600">
-                      <span className="flex items-center gap-1">
-                        <FiPackage className="w-4 h-4" />
-                        SKU: <span className="font-mono font-semibold">{selectedInventoryItem.sku}</span>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <FiBox className="w-4 h-4" />
-                        Category: <span className="font-semibold">{selectedInventoryItem.category}</span>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-primary mb-1">
-                      ₹{(selectedInventoryItem.unitPrice || 0).toLocaleString('en-IN')}
-                    </div>
-                    <div className="text-sm text-slate-500">per {selectedInventoryItem.unit || 'unit'}</div>
-                  </div>
-                </div>
-                
-                {selectedInventoryItem.description && (
-                  <div className="mt-4 p-4 bg-white rounded-lg border border-slate-200">
-                    <h4 className="font-semibold text-slate-700 mb-2">Description</h4>
-                    <p className="text-slate-600 text-sm leading-relaxed">{selectedInventoryItem.description}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Main Content Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Stock Information */}
-                <div className="lg:col-span-1">
-                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                      <FiBox className="w-5 h-5 text-primary" />
-                      Stock Information
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      {/* Current Stock */}
-                      <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
-                        <div>
-                          <div className="text-sm text-blue-600 font-medium">Current Stock</div>
-                          <div className="text-2xl font-bold text-blue-800">
-                            {selectedInventoryItem.stock || 0} {selectedInventoryItem.unit || 'units'}
-                          </div>
-                        </div>
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                          (selectedInventoryItem.stock || 0) === 0 ? 'bg-red-100 text-red-600' :
-                          (selectedInventoryItem.stock || 0) <= (selectedInventoryItem.minStockLevel || 5) ? 'bg-amber-100 text-amber-600' :
-                          'bg-emerald-100 text-emerald-600'
-                        }`}>
-                          <FiPackage className="w-6 h-6" />
-                        </div>
-                      </div>
-
-                      {/* Stock Levels */}
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-slate-600">Reorder Level</span>
-                          <span className="font-semibold text-amber-600">{selectedInventoryItem.reorderLevel || 0}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-slate-600">Min Stock Level</span>
-                          <span className="font-semibold text-red-600">{selectedInventoryItem.minStockLevel || 0}</span>
-                        </div>
-                        {selectedInventoryItem.minOrderQuantity && selectedInventoryItem.minOrderQuantity > 1 && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-slate-600">Min Order Qty</span>
-                            <span className="font-semibold text-orange-600">{selectedInventoryItem.minOrderQuantity}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Status Badge */}
-                      <div className="pt-3 border-t border-slate-200">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">Status</span>
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            selectedInventoryItem.status === 'Critical' ? 'bg-red-100 text-red-700' :
-                            selectedInventoryItem.status === 'Low' ? 'bg-amber-100 text-amber-700' :
-                            'bg-emerald-100 text-emerald-700'
-                          }`}>
-                            {selectedInventoryItem.status || 'Healthy'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Product Details */}
-                <div className="lg:col-span-2">
-                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                      <FiFileText className="w-5 h-5 text-primary" />
-                      Product Details
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Basic Information */}
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Location</label>
-                          <div className="text-sm font-medium text-slate-800 mt-1">{selectedInventoryItem.location || 'N/A'}</div>
-                        </div>
-                        
-                        <div>
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unit</label>
-                          <div className="text-sm font-medium text-slate-800 mt-1">{selectedInventoryItem.unit || 'units'}</div>
-                        </div>
-
-                        {selectedInventoryItem.specifications && (
-                          <div>
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Specifications</label>
-                            <div className="text-sm font-medium text-slate-800 mt-1">{selectedInventoryItem.specifications}</div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Supplier Information */}
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Supplier</label>
-                          <div className="text-sm font-medium text-slate-800 mt-1">{selectedInventoryItem.supplier || 'N/A'}</div>
-                        </div>
-                        
-                        {selectedInventoryItem.supplierContact && (
-                          <div>
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Supplier Contact</label>
-                            <div className="text-sm font-medium text-slate-800 mt-1">{selectedInventoryItem.supplierContact}</div>
-                          </div>
-                        )}
-
-                        <div>
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Lead Time</label>
-                          <div className="text-sm font-medium text-slate-800 mt-1">{selectedInventoryItem.leadTime || 0} days</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Additional Information */}
-                    <div className="mt-6 pt-4 border-t border-slate-200">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="text-center p-3 bg-slate-50 rounded-lg">
-                          <div className="text-xs text-slate-500 font-medium">Created</div>
-                          <div className="text-sm font-semibold text-slate-800 mt-1">
-                            {selectedInventoryItem.createdAt ? new Date(selectedInventoryItem.createdAt).toLocaleDateString() : 'N/A'}
-                          </div>
-                        </div>
-                        <div className="text-center p-3 bg-slate-50 rounded-lg">
-                          <div className="text-xs text-slate-500 font-medium">Last Updated</div>
-                          <div className="text-sm font-semibold text-slate-800 mt-1">
-                            {selectedInventoryItem.updatedAt ? new Date(selectedInventoryItem.updatedAt).toLocaleDateString() : 'N/A'}
-                          </div>
-                        </div>
-                        <div className="text-center p-3 bg-primary/5 rounded-lg">
-                          <div className="text-xs text-primary font-medium">Source</div>
-                          <div className="text-sm font-semibold text-primary mt-1">Auto-Generated</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 mt-6 pt-4 border-t border-slate-200">
-                <button
-                  onClick={() => {
-                    fetchItemHistory(selectedInventoryItem._id)
-                    setShowInventoryDetails(false) // Close details modal when opening history
-                  }}
-                  className="flex-1 px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition font-semibold flex items-center justify-center gap-2"
-                >
-                  <FiClock className="w-5 h-5" />
-                  View History
-                </button>
-                <button
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to delete this inventory item?')) {
-                      handleDeleteInventoryItem(selectedInventoryItem._id)
-                      setShowInventoryDetails(false)
-                      setSelectedInventoryItem(null)
-                    }
-                  }}
-                  className="px-6 py-3 border-2 border-red-200 text-red-600 rounded-xl hover:bg-red-50 transition font-semibold flex items-center justify-center gap-2"
-                >
-                  <FiTrash2 className="w-5 h-5" />
-                  Delete Item
-                </button>
-                <button
-                  onClick={() => {
-                    setShowInventoryDetails(false)
-                    setSelectedInventoryItem(null)
-                  }}
-                  className="px-6 py-3 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition font-semibold"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Purchase Order Details Modal */}
-      {showPODetails && selectedPurchaseOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex items-center justify-between rounded-t-2xl">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800">Purchase Order Details</h3>
-                <p className="text-sm text-slate-500 mt-1">PO ID: {selectedPurchaseOrder.poId || selectedPurchaseOrder._id}</p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowPODetails(false)
-                  setSelectedPurchaseOrder(null)
-                }}
-                className="p-2 hover:bg-slate-100 rounded-lg transition"
-              >
-                <FiX className="w-6 h-6 text-slate-400" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              {/* Purchase Order Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Supplier Information */}
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <h4 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                    <FiUser className="w-5 h-5 text-primary" />
-                    Supplier Information
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Supplier Name</label>
-                      <div className="text-sm font-medium text-slate-800 mt-1">{selectedPurchaseOrder.supplier || 'N/A'}</div>
-                    </div>
-                    {selectedPurchaseOrder.supplierContact && (
-                      <div>
-                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</label>
-                        <div className="text-sm font-medium text-slate-800 mt-1">{selectedPurchaseOrder.supplierContact}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Order Information */}
-                <div className="bg-primary/5 rounded-xl p-4">
-                  <h4 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                    <FiFileText className="w-5 h-5 text-primary" />
-                    Order Information
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</label>
-                      <div className="mt-1">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          selectedPurchaseOrder.status === 'Delivered' ? 'bg-emerald-500/10 text-emerald-600' :
-                          selectedPurchaseOrder.status === 'In Transit' ? 'bg-blue-500/10 text-blue-600' :
-                          selectedPurchaseOrder.status === 'Pending' ? 'bg-amber-500/10 text-amber-600' :
-                          selectedPurchaseOrder.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-600' :
-                          'bg-slate-500/10 text-slate-600'
-                        }`}>
-                          {selectedPurchaseOrder.status || 'Pending'}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Delivery</label>
-                      <div className="text-sm font-medium text-slate-800 mt-1">
-                        {selectedPurchaseOrder.expectedDeliveryDate 
-                          ? new Date(selectedPurchaseOrder.expectedDeliveryDate).toLocaleDateString('en-GB', { 
-                              day: 'numeric', 
-                              month: 'long', 
-                              year: 'numeric' 
-                            })
-                          : 'N/A'
-                        }
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Value</label>
-                      <div className="text-lg font-bold text-primary mt-1">
-                        ₹{(selectedPurchaseOrder.totalValue || 0).toLocaleString('en-IN')}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Items List */}
-              <div className="mb-6">
-                <h4 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                  <FiPackage className="w-5 h-5 text-primary" />
-                  Items ({Array.isArray(selectedPurchaseOrder.items) ? selectedPurchaseOrder.items.length : 0})
-                </h4>
-                <div className="bg-slate-50 rounded-xl overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-slate-100">
-                        <tr>
-                          <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">SKU</th>
-                          <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Item Name</th>
-                          <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Quantity</th>
-                          <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Unit Price</th>
-                          <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {Array.isArray(selectedPurchaseOrder.items) && selectedPurchaseOrder.items.length > 0 ? (
-                          selectedPurchaseOrder.items.map((item, index) => {
-                            const total = (item.quantity || 0) * (item.unitPrice || 0)
-                            return (
-                              <tr key={index} className="hover:bg-white transition">
-                                <td className="px-4 py-3 text-sm font-medium text-slate-800">{item.sku || 'N/A'}</td>
-                                <td className="px-4 py-3 text-sm text-slate-600">{item.name || 'N/A'}</td>
-                                <td className="px-4 py-3 text-sm text-slate-600 text-right">{item.quantity || 0}</td>
-                                <td className="px-4 py-3 text-sm text-slate-600 text-right">₹{(item.unitPrice || 0).toLocaleString('en-IN')}</td>
-                                <td className="px-4 py-3 text-sm font-semibold text-slate-800 text-right">₹{total.toLocaleString('en-IN')}</td>
-                              </tr>
-                            )
-                          })
-                        ) : (
-                          <tr>
-                            <td colSpan="5" className="px-4 py-8 text-center text-slate-500">
-                              {selectedPurchaseOrder.items 
-                                ? (typeof selectedPurchaseOrder.items === 'string' 
-                                    ? `Items: ${selectedPurchaseOrder.items}` 
-                                    : 'No items found')
-                                : 'Items data not available'
-                              }
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes */}
-              {selectedPurchaseOrder.notes && (
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-slate-800 mb-3">Notes</h4>
-                  <div className="bg-slate-50 rounded-xl p-4">
-                    <p className="text-sm text-slate-600">{selectedPurchaseOrder.notes}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Timestamps */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="text-center p-3 bg-slate-50 rounded-lg">
-                  <div className="text-xs text-slate-500 font-medium">Created</div>
-                  <div className="text-sm font-semibold text-slate-800 mt-1">
-                    {selectedPurchaseOrder.createdAt 
-                      ? new Date(selectedPurchaseOrder.createdAt).toLocaleDateString('en-GB', { 
-                          day: 'numeric', 
-                          month: 'short', 
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : 'N/A'
-                    }
-                  </div>
-                </div>
-                <div className="text-center p-3 bg-slate-50 rounded-lg">
-                  <div className="text-xs text-slate-500 font-medium">Last Updated</div>
-                  <div className="text-sm font-semibold text-slate-800 mt-1">
-                    {selectedPurchaseOrder.updatedAt 
-                      ? new Date(selectedPurchaseOrder.updatedAt).toLocaleDateString('en-GB', { 
-                          day: 'numeric', 
-                          month: 'short', 
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : 'N/A'
-                    }
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t border-slate-200">
-                <button
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to delete this purchase order? This action cannot be undone.')) {
-                      handleDeletePurchaseOrder(selectedPurchaseOrder._id)
-                      setShowPODetails(false)
-                      setSelectedPurchaseOrder(null)
-                    }
-                  }}
-                  className="px-6 py-3 border-2 border-red-200 text-red-600 rounded-xl hover:bg-red-50 transition font-semibold flex items-center justify-center gap-2"
-                >
-                  <FiTrash2 className="w-5 h-5" />
-                  Delete Purchase Order
-                </button>
-                <button
-                  onClick={() => {
-                    setShowPODetails(false)
-                    setSelectedPurchaseOrder(null)
-                  }}
-                  className="flex-1 px-6 py-3 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition font-semibold"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
