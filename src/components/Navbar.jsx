@@ -1,0 +1,499 @@
+import React, { useState, useEffect } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import Logo from './Logo'
+import { motion, AnimatePresence } from 'framer-motion'
+import { FaWhatsapp, FaBars, FaTimes, FaUserCheck, FaUser, FaChevronDown, FaSignOutAlt, FaTachometerAlt } from 'react-icons/fa'
+import { useHashNavigation } from '../utils/hashNavigation'
+import { useUserAuth } from '../context/UserAuthContext'
+
+const Navbar = () => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const [currentHash, setCurrentHash] = useState('')
+  const [showUserDropdown, setShowUserDropdown] = useState(false)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { handleHashClick } = useHashNavigation()
+  const { user, isAuthenticated, logout } = useUserAuth()
+  const whatsappNumber = "919590926068"
+
+  // Debug: Log user state changes
+  useEffect(() => {
+    console.log('Navbar - Auth State:', { isAuthenticated, user });
+  }, [isAuthenticated, user]);
+
+  const handleLogout = () => {
+    logout()
+    setShowUserDropdown(false)
+    navigate('/')
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserDropdown && !event.target.closest('.user-dropdown-container')) {
+        setShowUserDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showUserDropdown])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Track hash changes
+  useEffect(() => {
+    const updateHash = () => {
+      setCurrentHash(window.location.hash)
+    }
+    
+    // Initial hash
+    updateHash()
+    
+    // Listen for hash changes
+    window.addEventListener('hashchange', updateHash)
+    
+    // Also check location.hash from React Router
+    if (location.hash) {
+      setCurrentHash(location.hash)
+    }
+    
+    return () => {
+      window.removeEventListener('hashchange', updateHash)
+    }
+  }, [location.hash])
+
+  // Helper function to check if a link is active
+  const isLinkActive = (linkPath) => {
+    if (linkPath === '/') {
+      return location.pathname === '/' && !location.hash && !currentHash
+    }
+    if (linkPath.startsWith('/#')) {
+      const hash = linkPath.substring(2) // Remove '/#'
+      // Check both React Router's location.hash and tracked currentHash
+      const hashToCheck = location.hash || currentHash
+      return location.pathname === '/' && (hashToCheck === `#${hash}` || hashToCheck === hash)
+    }
+    return location.pathname === linkPath
+  }
+
+  const navLinks = [
+    { name: 'Home', path: '/' },
+    { name: 'Services', path: '/#services' },
+    { name: 'Emergency Service', path: '/emergency' },
+    { name: 'Material Store', path: '/materials' },
+    { name: 'Partner Program', path: '/partner' },
+    { name: 'AMC Plans', path: '/amc' },
+    { name: 'Lead Marketplace', path: '/leads' },
+    // { name: 'Admin Dashboard', path: '/admin-dashboard' },
+  ]
+
+  return (
+    <motion.nav
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.5 }}
+      className={`fixed top-0 left-0 right-0 z-[9999] transition-all duration-300 w-full max-w-full overflow-visible bg-white shadow-md ${
+        scrolled
+          ? 'shadow-lg'
+          : ''
+      }`}
+    >
+      {/* Animated background gradient */}
+      <div className="absolute inset-0 opacity-5 pointer-events-none">
+        <motion.div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(90deg, transparent 0%, rgba(33, 74, 115, 0.1) 50%, transparent 100%)',
+          }}
+          animate={{
+            x: ['-100%', '100%'],
+          }}
+          transition={{
+            duration: 15,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+        />
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-20">
+          {/* Logo Section */}
+          <div className="flex-shrink-0">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Link to="/">
+                <Logo variant="default" />
+              </Link>
+            </motion.div>
+          </div>
+
+          {/* Desktop Navigation - Large Screens */}
+          <nav className="hidden xl:flex items-center gap-1 flex-1 justify-center max-w-4xl mx-4">
+            {navLinks.map((link, index) => {
+              const isActive = isLinkActive(link.path)
+              return (
+                <motion.div
+                  key={link.name}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.05 }}
+                >
+                  {link.path.startsWith('/#') ? (
+                    <a
+                      href={link.path}
+                      onClick={(e) => handleHashClick(e, link.path)}
+                      className={`relative px-3 py-2 text-sm font-medium transition-colors duration-200 whitespace-nowrap cursor-pointer ${
+                        isActive
+                          ? 'text-primary'
+                          : 'text-gray-700 hover:text-primary'
+                      }`}
+                    >
+                      {link.name}
+                      {isActive && (
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                          layoutId="navbar-indicator"
+                          initial={false}
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                    </a>
+                  ) : (
+                    <Link
+                      to={link.path}
+                      className={`relative px-3 py-2 text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
+                        isActive
+                          ? 'text-primary'
+                          : 'text-gray-700 hover:text-primary'
+                      }`}
+                    >
+                      {link.name}
+                      {isActive && (
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                          layoutId="navbar-indicator"
+                          initial={false}
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                    </Link>
+                  )}
+                </motion.div>
+              )
+            })}
+          </nav>
+
+          {/* Desktop Navigation - Medium Large Screens (lg to xl) */}
+          <nav className="hidden lg:flex xl:hidden items-center gap-1 flex-1 justify-center max-w-3xl mx-2">
+            {navLinks.slice(0, 5).map((link, index) => {
+              const isActive = isLinkActive(link.path)
+              return (
+                link.path.startsWith('/#') ? (
+                  <a
+                    key={link.name}
+                    href={link.path}
+                    onClick={(e) => handleHashClick(e, link.path)}
+                    className={`px-2 py-2 text-xs font-medium transition-colors duration-200 whitespace-nowrap cursor-pointer ${
+                      isActive
+                        ? 'text-primary'
+                        : 'text-gray-700 hover:text-primary'
+                    }`}
+                  >
+                    {link.name.length > 15 ? link.name.substring(0, 12) + '...' : link.name}
+                  </a>
+                ) : (
+                  <Link
+                    key={link.name}
+                    to={link.path}
+                    className={`px-2 py-2 text-xs font-medium transition-colors duration-200 whitespace-nowrap ${
+                      isActive
+                        ? 'text-primary'
+                        : 'text-gray-700 hover:text-primary'
+                    }`}
+                  >
+                    {link.name.length > 15 ? link.name.substring(0, 12) + '...' : link.name}
+                  </Link>
+                )
+              )
+            })}
+          </nav>
+
+          {/* Right Side - User Profile & CTA Button */}
+          <div className="flex-shrink-0 flex items-center gap-3">
+            {/* User Profile Dropdown */}
+            {isAuthenticated && user ? (
+              <div className="relative hidden lg:block user-dropdown-container">
+                <motion.button
+                  onClick={() => setShowUserDropdown(!showUserDropdown)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-gray-100 transition-all duration-200"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden ring-2 ring-white shadow-md">
+                    {user.profilePicture ? (
+                      <img 
+                        src={user.profilePicture} 
+                        alt={user.name || 'User'} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{user.name?.charAt(0).toUpperCase() || 'U'}</span>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 hidden xl:block">{user.name}</span>
+                  <FaChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
+                </motion.button>
+
+                {/* Dropdown Menu */}
+                <AnimatePresence>
+                  {showUserDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-[10000]"
+                    >
+                      <Link
+                        to="/user/dashboard"
+                        onClick={() => setShowUserDropdown(false)}
+                        className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors"
+                      >
+                        <FaTachometerAlt className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-gray-700">Dashboard</span>
+                      </Link>
+                      <Link
+                        to="/user/dashboard/profile"
+                        onClick={() => setShowUserDropdown(false)}
+                        className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors"
+                      >
+                        <FaUser className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-gray-700">My Profile</span>
+                      </Link>
+                      <hr className="my-2 border-gray-200" />
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 transition-colors text-left"
+                      >
+                        <FaSignOutAlt className="w-4 h-4 text-red-600" />
+                        <span className="text-sm font-medium text-red-600">Logout</span>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="hidden lg:block"
+              >
+                <Link
+                  to="/user/login"
+                  className="flex items-center gap-2 px-4 py-2 text-primary hover:bg-primary/10 rounded-full transition-all duration-200 font-medium text-sm"
+                >
+                  <FaUser className="w-4 h-4" />
+                  <span>Login</span>
+                </Link>
+              </motion.div>
+            )}
+
+            {/* Desktop CTA */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="hidden lg:block"
+            >
+              <Link
+                to="/partner/onboard"
+                className="bg-primary text-white px-4 xl:px-5 py-2 xl:py-2.5 rounded-full hover:bg-primary-dark transition-all duration-300 font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 text-xs xl:text-sm whitespace-nowrap"
+              >
+                <FaUserCheck className="w-3 h-3 xl:w-4 xl:h-4" />
+                <span className="hidden 2xl:inline">Become a Partner</span>
+                <span className="2xl:hidden">Partner</span>
+              </Link>
+            </motion.div>
+          </div>
+
+          {/* Mobile menu button */}
+          <motion.button
+            onClick={() => setIsOpen(!isOpen)}
+            className="md:hidden focus:outline-none p-2 transition-colors duration-200 text-primary"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <AnimatePresence mode="wait">
+              {isOpen ? (
+                <motion.div
+                  key="close"
+                  initial={{ rotate: -90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: 90, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <FaTimes className="h-6 w-6" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="menu"
+                  initial={{ rotate: 90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: -90, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <FaBars className="h-6 w-6" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.button>
+        </div>
+
+        {/* Mobile Navigation */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="md:hidden overflow-y-auto max-h-[calc(100vh-5rem)]"
+            >
+              <div className="py-4 space-y-2 border-t border-gray-200 mt-2">
+                {navLinks.map((link, index) => {
+                  const isActive = isLinkActive(link.path)
+                  return (
+                    <motion.div
+                      key={link.name}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                    >
+                      {link.path.startsWith('/#') ? (
+                        <a
+                          href={link.path}
+                          onClick={(e) => {
+                            handleHashClick(e, link.path)
+                            setIsOpen(false)
+                          }}
+                          className={`block px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer ${
+                            isActive
+                              ? 'bg-primary/10 text-primary font-semibold'
+                              : 'text-gray-700 hover:bg-gray-100 hover:text-primary'
+                          }`}
+                        >
+                          {link.name}
+                        </a>
+                      ) : (
+                        <Link
+                          to={link.path}
+                          onClick={() => setIsOpen(false)}
+                          className={`block px-4 py-3 rounded-lg transition-all duration-200 ${
+                            isActive
+                              ? 'bg-primary/10 text-primary font-semibold'
+                              : 'text-gray-700 hover:bg-gray-100 hover:text-primary'
+                          }`}
+                        >
+                          {link.name}
+                        </Link>
+                      )}
+                    </motion.div>
+                  )
+                })}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: navLinks.length * 0.1 }}
+                  className="pt-2 space-y-2"
+                >
+                  {/* Mobile User Profile */}
+                  {isAuthenticated && user ? (
+                    <>
+                      <div className="mx-4 p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center text-white font-bold overflow-hidden ring-2 ring-white shadow-md">
+                            {user.profilePicture ? (
+                              <img 
+                                src={user.profilePicture} 
+                                alt={user.name || 'User'} 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span>{user.name?.charAt(0).toUpperCase() || 'U'}</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{user.name}</p>
+                            <p className="text-xs text-gray-600">{user.email || user.phone}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Link
+                            to="/user/dashboard"
+                            onClick={() => setIsOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg hover:bg-gray-50 transition-colors"
+                          >
+                            <FaTachometerAlt className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-medium">Dashboard</span>
+                          </Link>
+                          <Link
+                            to="/user/dashboard/profile"
+                            onClick={() => setIsOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg hover:bg-gray-50 transition-colors"
+                          >
+                            <FaUser className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-medium">My Profile</span>
+                          </Link>
+                          <button
+                            onClick={() => {
+                              handleLogout()
+                              setIsOpen(false)
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg hover:bg-red-100 transition-colors text-left"
+                          >
+                            <FaSignOutAlt className="w-4 h-4 text-red-600" />
+                            <span className="text-sm font-medium text-red-600">Logout</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <Link
+                      to="/user/login"
+                      onClick={() => setIsOpen(false)}
+                      className="block mx-4 bg-gray-100 text-primary px-6 py-3 rounded-full text-center font-semibold flex items-center justify-center gap-2 border-2 border-primary/20"
+                    >
+                      <FaUser className="w-4 h-4" />
+                      Login
+                    </Link>
+                  )}
+                  <Link
+                    to="/partner/onboard"
+                    onClick={() => setIsOpen(false)}
+                    className="block mx-4 bg-primary text-white px-6 py-3 rounded-full text-center font-semibold shadow-lg flex items-center justify-center gap-2"
+                  >
+                    <FaUserCheck className="w-4 h-4" />
+                    Become a Partner
+                  </Link>
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.nav>
+  )
+}
+
+export default Navbar
