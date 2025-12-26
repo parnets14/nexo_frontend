@@ -27,6 +27,24 @@ const AMCManagement = () => {
   const [selectedSubscription, setSelectedSubscription] = useState(null)
   const [selectedPartner, setSelectedPartner] = useState('')
   const [assigningPartner, setAssigningPartner] = useState(false)
+  const [showContractModal, setShowContractModal] = useState(false)
+  const [contractFormData, setContractFormData] = useState({
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    customerAddress: '',
+    partnerId: '',
+    planId: '',
+    startDate: '',
+    duration: 12,
+    durationUnit: 'months',
+    totalAmount: '',
+    paymentTerms: 'monthly',
+    specialTerms: '',
+    status: 'draft'
+  })
+  const [availablePlans, setAvailablePlans] = useState([])
+  const [creatingContract, setCreatingContract] = useState(false)
 
   // Fetch AMC subscribers and calculate stats
   useEffect(() => {
@@ -87,8 +105,21 @@ const AMCManagement = () => {
     if (token) {
       fetchSubscribers()
       fetchPartners()
+      fetchAMCPlans()
     }
   }, [token])
+
+  // Fetch available AMC plans for contract creation
+  const fetchAMCPlans = async () => {
+    try {
+      const data = await adminApi.fetchAMCPlans(token)
+      if (data && data.success) {
+        setAvailablePlans(data.data || [])
+      }
+    } catch (err) {
+      console.error('Error fetching AMC plans:', err)
+    }
+  }
 
   const handleAssignPartner = (subscription) => {
     setSelectedSubscription(subscription)
@@ -131,6 +162,49 @@ const AMCManagement = () => {
       alert('Error assigning partner: ' + err.message)
     } finally {
       setAssigningPartner(false)
+    }
+  }
+
+  const handleCreateContract = () => {
+    setContractFormData({
+      customerName: '',
+      customerPhone: '',
+      customerEmail: '',
+      customerAddress: '',
+      partnerId: '',
+      planId: '',
+      startDate: new Date().toISOString().split('T')[0],
+      duration: 12,
+      durationUnit: 'months',
+      totalAmount: '',
+      paymentTerms: 'monthly',
+      specialTerms: '',
+      status: 'draft'
+    })
+    setShowContractModal(true)
+  }
+
+  const handleContractSubmit = async (e) => {
+    e.preventDefault()
+    setCreatingContract(true)
+    
+    try {
+      // Create the contract via API
+      const response = await adminApi.createAMCContract(token, contractFormData)
+      
+      if (response.success) {
+        alert('AMC Contract created successfully!')
+        setShowContractModal(false)
+        // Refresh data if needed
+        fetchSubscribers()
+      } else {
+        alert('Failed to create contract: ' + (response.message || 'Unknown error'))
+      }
+    } catch (err) {
+      console.error('Error creating contract:', err)
+      alert('Error creating contract: ' + err.message)
+    } finally {
+      setCreatingContract(false)
     }
   }
 
@@ -237,7 +311,10 @@ const AMCManagement = () => {
         title="AMC Management"
         subtitle="Coordinate multi-asset contracts, recurring maintenance routines, and SLA commitments with predictive renewal insights."
         actions={
-          <button className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition">
+          <button 
+            onClick={handleCreateContract}
+            className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition"
+          >
             New AMC Contract
           </button>
         }
@@ -384,6 +461,272 @@ const AMCManagement = () => {
           </div>
         </section>
       </div>
+
+      {/* AMC Contract Creation Modal */}
+      {showContractModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <h3 className="text-xl font-semibold text-slate-900">Create New AMC Contract</h3>
+              <button
+                onClick={() => setShowContractModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleContractSubmit} className="p-6 space-y-6">
+              {/* Customer Information */}
+              <div>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <FiUsers className="w-5 h-5 text-primary" />
+                  Customer Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Customer Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={contractFormData.customerName}
+                      onChange={(e) => setContractFormData(prev => ({ ...prev, customerName: e.target.value }))}
+                      required
+                      placeholder="Enter customer name"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={contractFormData.customerPhone}
+                      onChange={(e) => setContractFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
+                      required
+                      placeholder="Enter phone number"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={contractFormData.customerEmail}
+                      onChange={(e) => setContractFormData(prev => ({ ...prev, customerEmail: e.target.value }))}
+                      placeholder="Enter email address"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={contractFormData.customerAddress}
+                      onChange={(e) => setContractFormData(prev => ({ ...prev, customerAddress: e.target.value }))}
+                      required
+                      placeholder="Enter customer address"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contract Details */}
+              <div>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <FiFileText className="w-5 h-5 text-primary" />
+                  Contract Details
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Select AMC Plan <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={contractFormData.planId}
+                      onChange={(e) => {
+                        const selectedPlan = availablePlans.find(plan => plan._id === e.target.value)
+                        setContractFormData(prev => ({ 
+                          ...prev, 
+                          planId: e.target.value,
+                          totalAmount: selectedPlan ? selectedPlan.price : ''
+                        }))
+                      }}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">Choose an AMC plan...</option>
+                      {availablePlans.map((plan) => (
+                        <option key={plan._id} value={plan._id}>
+                          {plan.name} - ₹{plan.price?.toLocaleString('en-IN')} ({plan.planType})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Assign Partner <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={contractFormData.partnerId}
+                      onChange={(e) => setContractFormData(prev => ({ ...prev, partnerId: e.target.value }))}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">Choose a partner...</option>
+                      {partners.map((partner) => (
+                        <option key={partner._id} value={partner._id}>
+                          {partner.profile?.name || partner.phone} - {partner.profile?.city || 'No city'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Contract Start Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={contractFormData.startDate}
+                      onChange={(e) => setContractFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Contract Duration
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={contractFormData.duration}
+                        onChange={(e) => setContractFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 1 }))}
+                        min="1"
+                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                      <select
+                        value={contractFormData.durationUnit}
+                        onChange={(e) => setContractFormData(prev => ({ ...prev, durationUnit: e.target.value }))}
+                        className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      >
+                        <option value="months">Months</option>
+                        <option value="years">Years</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Terms */}
+              <div>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <FiDollarSign className="w-5 h-5 text-primary" />
+                  Financial Terms
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Total Contract Amount (₹) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={contractFormData.totalAmount}
+                      onChange={(e) => setContractFormData(prev => ({ ...prev, totalAmount: e.target.value }))}
+                      required
+                      min="0"
+                      step="0.01"
+                      placeholder="Enter total amount"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Payment Terms
+                    </label>
+                    <select
+                      value={contractFormData.paymentTerms}
+                      onChange={(e) => setContractFormData(prev => ({ ...prev, paymentTerms: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="half-yearly">Half-Yearly</option>
+                      <option value="yearly">Yearly</option>
+                      <option value="upfront">Full Payment Upfront</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Terms */}
+              <div>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <FiFileText className="w-5 h-5 text-primary" />
+                  Additional Terms & Conditions
+                </h4>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Special Terms & Conditions
+                  </label>
+                  <textarea
+                    value={contractFormData.specialTerms}
+                    onChange={(e) => setContractFormData(prev => ({ ...prev, specialTerms: e.target.value }))}
+                    rows="4"
+                    placeholder="Enter any special terms, conditions, or notes for this contract..."
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Contract Status */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Contract Status
+                </label>
+                <select
+                  value={contractFormData.status}
+                  onChange={(e) => setContractFormData(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="pending">Pending Approval</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowContractModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingContract}
+                  className="px-6 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {creatingContract && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
+                  {creatingContract ? 'Creating Contract...' : 'Create Contract'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Partner Assignment Modal */}
       {showAssignModal && (

@@ -735,6 +735,40 @@ export const adminApi = {
     return handleResponse(response)
   },
 
+  // AMC Contract Management
+  async createAMCContract(token, contractData) {
+    const response = await fetch(buildUrl('/api/admin/amc-contracts'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(contractData)
+    })
+    return handleResponse(response)
+  },
+
+  async fetchAMCContracts(token) {
+    const response = await fetch(buildUrl('/api/admin/amc-contracts'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async updateAMCContract(token, contractId, contractData) {
+    const response = await fetch(buildUrl(`/api/admin/amc-contracts/${contractId}`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(contractData)
+    })
+    return handleResponse(response)
+  },
+
+  async deleteAMCContract(token, contractId) {
+    const response = await fetch(buildUrl(`/api/admin/amc-contracts/${contractId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
   // Featured Reviews Management
   async fetchFeaturedReviews(token) {
     const response = await fetch(buildUrl('/api/admin/featured-reviews'), {
