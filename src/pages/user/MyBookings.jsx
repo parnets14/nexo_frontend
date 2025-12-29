@@ -6,7 +6,7 @@ import {
   FiFileText, FiPrinter, FiDownload 
 } from 'react-icons/fi';
 import axios from 'axios';
-import InvoiceButton, { SuccessInvoiceButton } from '../components/InvoiceButton';
+import InvoiceButton, { SuccessInvoiceButton } from '../../components/InvoiceButton';
 
 const MyBookings = () => {
   const navigate = useNavigate();

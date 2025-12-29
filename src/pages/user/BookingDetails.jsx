@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiCalendar, FiMapPin, FiUser, FiPhone, FiDollarSign, FiClock } from 'react-icons/fi';
 import axios from 'axios';
-import InvoiceButton from '../components/InvoiceButton';
+import InvoiceButton from '../../components/InvoiceButton';
 
 // Helper function to check if cancellation is allowed (before 2 hours of scheduled time)
 const isCancellationAllowed = (bookingData) => {
