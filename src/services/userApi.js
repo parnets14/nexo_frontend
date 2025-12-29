@@ -170,6 +170,8 @@ export const userApi = {
 
   // Bookings
   async getBookings(token) {
+    console.log('🔍 userApi.getBookings called');
+    console.log('   buildUrl result:', buildUrl('/bookings'));
     const response = await fetch(buildUrl('/bookings'), {
       headers: getDefaultHeaders(token)
     })

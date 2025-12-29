@@ -1,0 +1,148 @@
+/* Ultra-compact single page print styles */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    box-sizing: border-box;
+  }
+
+  @page {
+    margin: 0.2in;
+    size: A4;
+  }
+
+  body {
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Hide print button */
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Single page container */
+  .single-page-invoice {
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    transform: scale(0.88) !important;
+    transform-origin: top left !important;
+    width: 113.6% !important;
+  }
+
+  /* Ensure logo prints */
+  .print-logo {
+    background-color: #2563eb !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ultra compact spacing */
+  .mb-4 { margin-bottom: 0.25rem !important; }
+  .mb-3 { margin-bottom: 0.2rem !important; }
+  .mb-2 { margin-bottom: 0.15rem !important; }
+  .mb-1 { margin-bottom: 0.1rem !important; }
+  .mt-0\.5 { margin-top: 0.05rem !important; }
+  .py-0\.5 { padding-top: 0.05rem !important; padding-bottom: 0.05rem !important; }
+  .px-1 { padding-left: 0.1rem !important; padding-right: 0.1rem !important; }
+  .px-2 { padding-left: 0.15rem !important; padding-right: 0.15rem !important; }
+  .py-1 { padding-top: 0.1rem !important; padding-bottom: 0.1rem !important; }
+  .pt-1 { padding-top: 0.1rem !important; }
+  .pb-1 { padding-bottom: 0.1rem !important; }
+  .gap-2 { gap: 0.15rem !important; }
+
+  /* Ultra compact table */
+  .ultra-compact-table {
+    font-size: 7px !important;
+    border-collapse: collapse !important;
+  }
+
+  .ultra-compact-table th,
+  .ultra-compact-table td {
+    border: 1px solid #000 !important;
+    padding: 1px 2px !important;
+    line-height: 1 !important;
+  }
+
+  /* Text sizes for print */
+  .text-xs { font-size: 0.6rem !important; }
+  .text-sm { font-size: 0.7rem !important; }
+  .text-lg { font-size: 0.9rem !important; }
+  .text-xl { font-size: 1rem !important; }
+
+  /* Leading tight */
+  .leading-tight { line-height: 1 !important; }
+
+  /* Colors for print */
+  .bg-gray-800 {
+    background-color: #1f2937 !important;
+    color: white !important;
+  }
+
+  .bg-gray-50 {
+    background-color: #f9fafb !important;
+  }
+
+  .text-blue-600 { color: #2563eb !important; }
+  .text-green-600 { color: #059669 !important; }
+  .text-gray-600 { color: #4b5563 !important; }
+  .text-gray-500 { color: #6b7280 !important; }
+  .text-gray-800 { color: #1f2937 !important; }
+
+  /* Status badges */
+  .bg-blue-100 { background-color: #dbeafe !important; }
+  .text-blue-800 { color: #1e40af !important; }
+  .bg-green-100 { background-color: #dcfce7 !important; }
+  .text-green-800 { color: #166534 !important; }
+  .bg-gray-100 { background-color: #f3f4f6 !important; }
+
+  /* Grid layout */
+  .grid-cols-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Borders */
+  .border-b { border-bottom: 1px solid #d1d5db !important; }
+  .border-t { border-top: 1px solid #d1d5db !important; }
+  .border { border: 1px solid #d1d5db !important; }
+  .border-gray-300 { border-color: #d1d5db !important; }
+
+  /* Flex utilities */
+  .flex { display: flex !important; }
+  .justify-between { justify-content: space-between !important; }
+  .justify-end { justify-content: flex-end !important; }
+  .items-center { align-items: center !important; }
+  .text-center { text-align: center !important; }
+  .text-right { text-align: right !important; }
+  .text-left { text-align: left !important; }
+
+  /* Font weights */
+  .font-bold { font-weight: 700 !important; }
+  .font-semibold { font-weight: 600 !important; }
+  .font-medium { font-weight: 500 !important; }
+  .font-light { font-weight: 300 !important; }
+
+  /* Prevent any page breaks */
+  * {
+    page-break-inside: avoid !important;
+  }
+
+  /* Rounded corners for logo */
+  .rounded { border-radius: 0.25rem !important; }
+
+  /* Width utilities */
+  .w-8 { width: 2rem !important; }
+  .h-8 { height: 2rem !important; }
+  .w-16 { width: 4rem !important; }
+  .w-20 { width: 5rem !important; }
+  .w-40 { width: 10rem !important; }
+  .w-full { width: 100% !important; }
+
+  /* Inline block for badges */
+  .inline-block { display: inline-block !important; }
+}

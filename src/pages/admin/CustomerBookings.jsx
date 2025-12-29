@@ -21,6 +21,7 @@ import {
 } from 'react-icons/fi'
 import { adminApi } from '../../services/adminApi'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
+import { CompactInvoiceButton } from '../../components/InvoiceButton'
 
 const CustomerBookings = () => {
   const { token } = useAdminAuth()
@@ -647,23 +648,31 @@ const CustomerBookings = () => {
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {booking.partnerName === 'Still not assigned' ? (
-                        <button
-                          onClick={() => openAssignModal(booking)}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-xs"
-                        >
-                          <FiUserPlus className="text-xs" />
-                          Assign
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => openAssignModal(booking)}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition text-xs"
-                        >
-                          <FiEye className="text-xs" />
-                          Change
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {booking.partnerName === 'Still not assigned' ? (
+                          <button
+                            onClick={() => openAssignModal(booking)}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-xs"
+                          >
+                            <FiUserPlus className="text-xs" />
+                            Assign
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => openAssignModal(booking)}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition text-xs"
+                          >
+                            <FiEye className="text-xs" />
+                            Change
+                          </button>
+                        )}
+                        
+                        {/* Invoice Button */}
+                        <CompactInvoiceButton 
+                          booking={booking}
+                          className="ml-2"
+                        />
+                      </div>
                     </td>
                   </tr>
                 )

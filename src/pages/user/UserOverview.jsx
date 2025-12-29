@@ -6,6 +6,36 @@ import axios from 'axios';
 import { useUserAuth } from '../../context/UserAuthContext';
 import AMCPlanSelector from '../../components/AMCPlanSelector';
 
+// Helper function to safely get booking data
+const getBookingData = (booking) => {
+  if (!booking) return null;
+  
+  return {
+    id: booking._id || booking.id || 'N/A',
+    serviceName: booking.serviceName || 
+                 booking.service?.name || 
+                 booking.subService?.name || 
+                 booking.subService?.service?.name ||
+                 booking.product?.name ||
+                 'Service Booking',
+    
+    status: booking.status || 'pending',
+    
+    date: booking.scheduledDate || 
+          booking.bookingDate || 
+          booking.serviceDate ||
+          booking.createdAt || 
+          booking.date ||
+          new Date(),
+          
+    amount: booking.totalAmount || 
+            booking.amount || 
+            booking.price ||
+            booking.cost ||
+            0
+  };
+};
+
 const UserOverview = () => {
   const navigate = useNavigate();
   const { user } = useUserAuth();
@@ -42,16 +72,68 @@ const UserOverview = () => {
       const userId = user?._id || localStorage.getItem('userId');
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      // Fetch bookings
-      const bookingsRes = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/user/bookings`, 
-        config
-      ).catch(err => {
-        console.error('Error fetching bookings:', err);
-        return { data: { bookings: [] } };
-      });
+      // console.log('🔍 Dashboard: Fetching booking data...');
+      // console.log('   User ID:', userId);
+      // console.log('   Token exists:', !!token);
 
-      const bookings = bookingsRes.data.bookings || [];
+      // Try multiple booking endpoints
+      let bookings = [];
+      
+      try {
+        // Try the main endpoint first (getAllUserBookings)
+        console.log('📋 Trying main bookings endpoint...');
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/user/bookings`,
+          config
+        );
+        
+        console.log('📋 Bookings API Response:', response.data);
+        
+        if (response.data.success && response.data.data) {
+          bookings = response.data.data.bookings || response.data.data || [];
+        } else if (response.data.bookings) {
+          bookings = response.data.bookings;
+        } else if (Array.isArray(response.data.data)) {
+          bookings = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          bookings = response.data;
+        }
+        
+        console.log('📋 Processed bookings from main endpoint:', bookings.length);
+        
+      } catch (mainError) {
+        console.warn('⚠️ Main endpoint failed, trying alternative...');
+        console.warn('   Main error:', mainError.message);
+        
+        try {
+          // Try alternative endpoint (getUserBookings)
+          const altResponse = await axios.get(
+            `${import.meta.env.VITE_API_URL}/api/user/bookings/all`,
+            config
+          );
+          
+          console.log('📋 Alternative API Response:', altResponse.data);
+          
+          if (altResponse.data.success && altResponse.data.data) {
+            if (altResponse.data.data.bookings) {
+              bookings = altResponse.data.data.bookings;
+            } else if (Array.isArray(altResponse.data.data)) {
+              bookings = altResponse.data.data;
+            }
+          }
+          
+          console.log('📋 Processed bookings from alternative endpoint:', bookings.length);
+          
+        } catch (altError) {
+          console.error('❌ Both booking endpoints failed');
+          console.error('   Alt error:', altError.message);
+          bookings = [];
+        }
+      }
+
+      // Ensure bookings is always an array
+      bookings = Array.isArray(bookings) ? bookings : [];
+      console.log('📋 Final bookings array:', bookings.length);
       
       // Fetch wallet balance
       let walletBalance = 0;
@@ -354,43 +436,54 @@ const UserOverview = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentBookings.map((booking, index) => (
-                <div
-                  key={booking._id}
-                  onClick={() => navigate(`/user/dashboard/bookings/${booking._id}`)}
-                  className="group flex items-center justify-between p-4 border-2 border-slate-200 rounded-xl hover:border-primary hover:bg-primary/5 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] animate-slide-in-left"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="w-12 h-12 bg-gradient-to-br from-primary/10 to-primary-light/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <FiCalendar className="text-primary" size={20} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-slate-800 group-hover:text-primary transition-colors">{booking.serviceName || 'Service Booking'}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <FiClock className="text-slate-400" size={14} />
-                        <p className="text-sm text-slate-600">
-                          {new Date(booking.bookingDate).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                        </p>
+              {recentBookings.map((booking, index) => {
+                const bookingData = getBookingData(booking);
+                if (!bookingData) return null;
+                
+                return (
+                  <div
+                    key={bookingData.id}
+                    onClick={() => navigate(`/user/dashboard/bookings/${bookingData.id}`)}
+                    className="group flex items-center justify-between p-4 border-2 border-slate-200 rounded-xl hover:border-primary hover:bg-primary/5 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] animate-slide-in-left"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-12 h-12 bg-gradient-to-br from-primary/10 to-primary-light/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <FiCalendar className="text-primary" size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-slate-800 group-hover:text-primary transition-colors">{bookingData.serviceName}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <FiClock className="text-slate-400" size={14} />
+                          <p className="text-sm text-slate-600">
+                            {new Date(bookingData.date).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </p>
+                          {bookingData.amount > 0 && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="text-sm font-medium text-slate-700">₹{bookingData.amount}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 capitalize
+                        ${bookingData.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                          bookingData.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                          'bg-blue-50 text-blue-700 border-blue-200'}`}
+                      >
+                        {bookingData.status}
+                      </span>
+                      <FiArrowRight className="text-slate-400 group-hover:text-primary group-hover:translate-x-1 transition-all" size={20} />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`px-4 py-2 rounded-xl text-sm font-semibold border-2
-                      ${booking.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
-                        booking.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
-                        'bg-blue-50 text-blue-700 border-blue-200'}`}
-                    >
-                      {booking.status}
-                    </span>
-                    <FiArrowRight className="text-slate-400 group-hover:text-primary group-hover:translate-x-1 transition-all" size={20} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,512 +1,211 @@
-import React, { useRef } from 'react'
-import { FiPrinter, FiX } from 'react-icons/fi'
+import React from 'react';
+import { format } from 'date-fns';
+import PrintOptions from './PrintOptions';
 
-const Invoice = ({ data, type = 'booking', onClose }) => {
-  const invoiceRef = useRef(null)
+const Invoice = ({ invoiceData, onPrint }) => {
+  const {
+    invoiceNumber,
+    date,
+    status = 'CONFIRMED',
+    customer,
+    services,
+    paymentDetails,
+    companyDetails
+  } = invoiceData;
 
-  // Determine invoice type and extract data
-  const isBooking = type === 'booking' || type === 'job'
-  const isTransaction = type === 'transaction'
+  const subtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
+  const totalAmount = subtotal; // Add tax calculations if needed
 
-  const invoiceNumber = isBooking 
-    ? (data?.bookingId || data?._id?.toString().slice(-8) || `INV-${Date.now()}`)
-    : (data?.transactionId || data?._id?.toString().slice(-8) || `TXN-${Date.now()}`)
-  
-  const invoiceDate = isBooking
-    ? (data?.completedAt || data?.createdAt || new Date())
-    : (data?.createdAt || new Date())
-
-  const customerName = isBooking
-    ? (data?.user?.name || data?.customerName || 'Customer')
-    : (data?.partner?.profile?.name || data?.partnerName || 'Partner')
-
-  const customerPhone = isBooking
-    ? (data?.user?.phone || data?.customerPhone || 'N/A')
-    : (data?.partner?.phone || 'N/A')
-
-  const serviceName = isBooking
-    ? (data?.subService?.name || data?.serviceName || data?.service?.name || 'Service')
-    : null
-
-  // Calculate amount - use price breakdown total for fee transactions if available
-  const amount = isBooking
-    ? (data?.amount || 0)
-    : (data?.metadata?.priceBreakdown?.totalAmount || data?.amount || 0)
-
-  const status = isBooking
-    ? (data?.status || 'pending')
-    : (data?.status || 'success')
-
-  const paymentMode = isBooking
-    ? (data?.paymentMode || 'cash')
-    : null
-
-  const location = isBooking
-    ? (data?.location || {})
-    : null
-
-  const description = isTransaction
-    ? (data?.description || 'Transaction')
-    : serviceName
-
-  const handlePrint = async () => {
-    // Get logo image as base64 for print
-    const logoImg = invoiceRef.current?.querySelector('.invoice-logo-img')
-    let logoDataUrl = ''
-    
-    if (logoImg && logoImg.src) {
-      try {
-        // Use the actual image element if it's already loaded
-        if (logoImg.complete && logoImg.naturalWidth > 0) {
-          const canvas = document.createElement('canvas')
-          canvas.width = logoImg.naturalWidth || 60
-          canvas.height = logoImg.naturalHeight || 60
-          const ctx = canvas.getContext('2d')
-          ctx.drawImage(logoImg, 0, 0)
-          logoDataUrl = canvas.toDataURL('image/png')
-        } else {
-          // Load the image if not already loaded
-          const img = new Image()
-          img.crossOrigin = 'anonymous'
-          await new Promise((resolve, reject) => {
-            img.onload = () => {
-              const canvas = document.createElement('canvas')
-              canvas.width = img.width
-              canvas.height = img.height
-              const ctx = canvas.getContext('2d')
-              ctx.drawImage(img, 0, 0)
-              logoDataUrl = canvas.toDataURL('image/png')
-              resolve()
-            }
-            img.onerror = () => {
-              // If image fails, use absolute URL
-              logoDataUrl = logoImg.src.startsWith('http') ? logoImg.src : `${window.location.origin}${logoImg.src}`
-              resolve()
-            }
-            // Use absolute URL if relative
-            img.src = logoImg.src.startsWith('http') ? logoImg.src : `${window.location.origin}${logoImg.src}`
-          })
-        }
-      } catch (error) {
-        console.error('Error converting logo:', error)
-        // Fallback to absolute URL
-        if (logoImg.src) {
-          logoDataUrl = logoImg.src.startsWith('http') ? logoImg.src : `${window.location.origin}${logoImg.src}`
-        }
-      }
-    }
-
-    const printWindow = window.open('', '_blank')
-    let invoiceContent = invoiceRef.current.innerHTML
-    
-    // Replace logo image with base64 or absolute URL in print content
-    if (logoDataUrl) {
-      invoiceContent = invoiceContent.replace(
-        /<img[^>]*class="invoice-logo-img"[^>]*>/,
-        `<img src="${logoDataUrl}" alt="NEXO Logo" style="width: auto; height: 120px; object-fit: contain; display: block;" />`
-      )
-    }
-    
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice - ${invoiceNumber}</title>
-          <style>
-            @media print {
-              @page {
-                size: A4;
-                margin: 20mm;
-              }
-              body {
-                margin: 0;
-                padding: 0;
-              }
-              .no-print {
-                display: none !important;
-              }
-            }
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-              background: white;
-              color: #1a202c;
-              padding: 40px;
-            }
-            .invoice-container {
-              max-width: 800px;
-              margin: 0 auto;
-              background: white;
-            }
-            .invoice-header {
-              border-bottom: 3px solid #214A73;
-              padding-bottom: 30px;
-              margin-bottom: 30px;
-            }
-            .invoice-header-top {
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-              margin-bottom: 20px;
-            }
-            .invoice-logo-container {
-              display: flex;
-              align-items: center;
-            }
-            .invoice-logo-box {
-              width: auto;
-              height: 120px;
-              border-radius: 8px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              overflow: hidden;
-              padding: 10px;
-            }
-            .invoice-logo-img {
-              width: auto;
-              height: 100%;
-              object-fit: contain;
-              display: block;
-            }
-            img.invoice-logo-img {
-              max-width: none;
-              max-height: 120px;
-            }
-            .invoice-number {
-              text-align: right;
-            }
-            .invoice-number h1 {
-              font-size: 28px;
-              color: #214A73;
-              margin-bottom: 5px;
-            }
-            .invoice-number p {
-              color: #718096;
-              font-size: 14px;
-            }
-            .invoice-info {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 40px;
-              margin-bottom: 30px;
-            }
-            .info-section h3 {
-              color: #214A73;
-              font-size: 14px;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              margin-bottom: 15px;
-              padding-bottom: 8px;
-              border-bottom: 2px solid #e2e8f0;
-            }
-            .info-section p {
-              color: #4a5568;
-              margin-bottom: 8px;
-              font-size: 14px;
-            }
-            .invoice-items {
-              margin: 30px 0;
-            }
-            .invoice-items h3 {
-              color: #214A73;
-              font-size: 14px;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              margin-bottom: 15px;
-              padding-bottom: 8px;
-              border-bottom: 2px solid #e2e8f0;
-            }
-            .items-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            .items-table thead {
-              background: #f7fafc;
-            }
-            .items-table th {
-              padding: 12px;
-              text-align: left;
-              color: #214A73;
-              font-weight: 600;
-              font-size: 12px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            .items-table td {
-              padding: 15px 12px;
-              border-bottom: 1px solid #e2e8f0;
-              color: #2d3748;
-            }
-            .items-table tbody tr:last-child td {
-              border-bottom: none;
-            }
-            .invoice-total {
-              margin-top: 20px;
-              text-align: right;
-            }
-            .total-row {
-              display: flex;
-              justify-content: flex-end;
-              margin-bottom: 10px;
-              padding: 8px 0;
-            }
-            .total-label {
-              width: 200px;
-              text-align: right;
-              color: #4a5568;
-              font-size: 14px;
-            }
-            .total-value {
-              width: 150px;
-              text-align: right;
-              color: #1a202c;
-              font-weight: 600;
-              font-size: 14px;
-            }
-            .total-row.grand-total {
-              border-top: 2px solid #214A73;
-              padding-top: 15px;
-              margin-top: 15px;
-            }
-            .total-row.grand-total .total-label,
-            .total-row.grand-total .total-value {
-              font-size: 18px;
-              font-weight: 700;
-              color: #214A73;
-            }
-            .invoice-footer {
-              margin-top: 50px;
-              padding-top: 30px;
-              border-top: 2px solid #e2e8f0;
-              text-align: center;
-              color: #718096;
-              font-size: 12px;
-            }
-            .status-badge {
-              display: inline-block;
-              padding: 6px 12px;
-              border-radius: 6px;
-              font-size: 12px;
-              font-weight: 600;
-              text-transform: uppercase;
-            }
-            .status-completed {
-              background: #c6f6d5;
-              color: #22543d;
-            }
-            .status-success {
-              background: #c6f6d5;
-              color: #22543d;
-            }
-            .status-pending {
-              background: #feebc8;
-              color: #7c2d12;
-            }
-            .status-in_progress {
-              background: #bee3f8;
-              color: #2c5282;
-            }
-          </style>
-        </head>
-        <body>
-          ${invoiceContent}
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
-    setTimeout(() => {
-      printWindow.print()
-    }, 250)
-  }
-
+  const handlePrint = () => {
+    window.print();
+    if (onPrint) onPrint();
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full my-8">
-        {/* Header with Actions */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+    <div className="max-w-4xl mx-auto bg-white">
+      {/* Print Options - Hidden during print */}
+      <PrintOptions onPrint={onPrint} invoiceData={invoiceData} />
+
+      {/* Invoice Container */}
+      <div className="border border-gray-300 p-6 print:border-0 print:p-0 invoice-container no-page-break">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">Invoice</h2>
-            <p className="text-sm text-slate-600 mt-1">#{invoiceNumber}</p>
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl mr-3">
+                N
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">Nexo</h1>
+                <p className="text-sm text-gray-600">Professional Home Services</p>
+              </div>
+            </div>
+            
+            <div className="text-sm text-gray-600 space-y-0.5">
+              <p>{companyDetails?.name || 'Professional Home Services Private Limited'}</p>
+              <p>CIN: {companyDetails?.cin || 'U74999KA2023PTC123456'}</p>
+              <p>GSTIN: {companyDetails?.gstin || '29ABCDE1234F1Z5'}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2"
-            >
-              <FiPrinter /> Print
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition"
-            >
-              <FiX className="text-xl" />
-            </button>
+          
+          <div className="text-right">
+            <h2 className="text-3xl font-light text-gray-600 mb-2">INVOICE</h2>
+            <div className="text-sm space-y-0.5">
+              <p className="font-semibold">#{invoiceNumber}</p>
+              <p>Date: {format(new Date(date), 'dd MMMM yyyy')}</p>
+              <span className={`inline-block px-3 py-1 rounded text-xs font-medium ${
+                status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' : 
+                status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {status}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Invoice Content */}
-        <div className="p-8 overflow-y-auto max-h-[calc(100vh-200px)] bg-gradient-to-br from-slate-50 to-white">
-          <div ref={invoiceRef} className="invoice-container bg-white rounded-lg shadow-lg p-8">
-            {/* Invoice Header */}
-            <div className="invoice-header">
-              <div className="invoice-header-top">
-                <div className="invoice-logo-container">
-                  <div className="invoice-logo-box">
-                    <img 
-                      src="/logo.png" 
-                      alt="NEXO Logo" 
-                      className="invoice-logo-img"
-                    />
-                  </div>
-                </div>
-                <div className="invoice-number">
-                  <h1>INVOICE</h1>
-                  <p>#{invoiceNumber}</p>
-                </div>
-              </div>
-              
-              <div className="invoice-info">
-                <div className="info-section">
-                  <h3>Bill To</h3>
-                  <p className="font-semibold text-slate-800">{customerName}</p>
-                  <p>{customerPhone}</p>
-                  {location && location.address && (
-                    <p className="mt-2 text-sm">{location.address}</p>
-                  )}
-                  {location && location.city && (
-                    <p className="text-sm">{location.city} - {location.pincode}</p>
-                  )}
-                </div>
-                <div className="info-section">
-                  <h3>Invoice Details</h3>
-                  <p><strong>Date:</strong> {new Date(invoiceDate).toLocaleDateString('en-IN', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}</p>
-                  {isBooking && data?.scheduledDate && (
-                    <p><strong>Service Date:</strong> {new Date(data.scheduledDate).toLocaleDateString('en-IN')}</p>
-                  )}
-                  {isBooking && data?.scheduledTime && (
-                    <p><strong>Service Time:</strong> {data.scheduledTime}</p>
-                  )}
-                  <p className="mt-2">
-                    <span className={`status-badge ${
-                      status === 'completed' || status === 'success' ? 'status-completed' :
-                      status === 'pending' ? 'status-pending' :
-                      status === 'in_progress' ? 'status-in_progress' :
-                      'status-pending'
-                    }`}>
-                      {status}
-                    </span>
-                  </p>
-                </div>
+        {/* Company Details */}
+        <div className="mb-6 text-sm text-gray-600">
+          <p className="font-semibold mb-1">Registered Office:</p>
+          <p>{companyDetails?.address || '#123, Tech Park, Whitefield'}</p>
+          <p>{companyDetails?.city || 'Bengaluru, Karnataka - 560066'}</p>
+          <div className="mt-2 space-y-0.5">
+            <p>Contact: {companyDetails?.phone || '+91-80-4567-8900'}</p>
+            <p>Email: {companyDetails?.email || 'support@company.works'}</p>
+            <p>Website: {companyDetails?.website || 'www.nexo.works'}</p>
+          </div>
+        </div>
+
+        {/* Bill To and Service Details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Bill To */}
+          <div>
+            <h3 className="font-semibold text-gray-800 mb-3">BILL TO</h3>
+            <div className="space-y-1.5 text-sm">
+              <p className="font-semibold text-lg">{customer?.name}</p>
+              <p>Phone: {customer?.phone}</p>
+              <p>Email: {customer?.email}</p>
+              <div className="mt-2">
+                <p className="font-medium">Address:</p>
+                <p>{customer?.address}</p>
+                <p>Landmark: {customer?.landmark}</p>
+                <p>Pincode: {customer?.pincode}</p>
               </div>
             </div>
+          </div>
 
-            {/* Invoice Items */}
-            <div className="invoice-items">
-              <h3>Items</h3>
-              <table className="items-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th style={{ textAlign: 'right' }}>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>
-                      <div className="font-semibold text-slate-800">{description}</div>
-                      {isBooking && serviceName && (
-                        <div className="text-sm text-slate-600 mt-1">{serviceName}</div>
-                      )}
-                      {isTransaction && data?.reference && (
-                        <div className="text-sm text-slate-600 mt-1">Ref: {data.reference}</div>
-                      )}
-                      {isBooking && paymentMode && (
-                        <div className="text-sm text-slate-600 mt-1">Payment: {paymentMode}</div>
-                      )}
+          {/* Service Details */}
+          <div>
+            <h3 className="font-semibold text-gray-800 mb-3">SERVICE DETAILS</h3>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span>Booking ID:</span>
+                <span className="font-medium">#{paymentDetails?.bookingId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Service Date:</span>
+                <span>{format(new Date(paymentDetails?.serviceDate), 'dd MMMM yyyy')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Service Time:</span>
+                <span>{paymentDetails?.serviceTime}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Payment Mode:</span>
+                <span className="font-medium">{paymentDetails?.paymentMode || 'ONLINE'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Payment Status:</span>
+                <span className="font-medium text-green-600">{paymentDetails?.paymentStatus || 'COMPLETED'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Transaction ID:</span>
+                <span className="font-mono text-xs">{paymentDetails?.transactionId}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Services Table */}
+        <div className="mb-6">
+          <h3 className="font-semibold text-gray-800 mb-3">Services & Items</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="border border-gray-200 px-3 py-2 text-left text-sm font-medium text-gray-700">
+                    DESCRIPTION
+                  </th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-sm font-medium text-gray-700">
+                    QUANTITY
+                  </th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-sm font-medium text-gray-700">
+                    RATE
+                  </th>
+                  <th className="border border-gray-200 px-3 py-2 text-right text-sm font-medium text-gray-700">
+                    AMOUNT
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {services?.map((service, index) => (
+                  <tr key={index}>
+                    <td className="border border-gray-200 px-3 py-2 text-sm">
+                      {service.description}
                     </td>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>
-                      ₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <td className="border border-gray-200 px-3 py-2 text-center text-sm">
+                      {service.quantity}
+                    </td>
+                    <td className="border border-gray-200 px-3 py-2 text-center text-sm">
+                      ₹{service.rate}
+                    </td>
+                    <td className="border border-gray-200 px-3 py-2 text-right text-sm">
+                      ₹{service.quantity * service.rate}
                     </td>
                   </tr>
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-            {/* Invoice Total */}
-            <div className="invoice-total">
-              {/* Show breakdown subtotal for fee transactions */}
-              {isTransaction && data?.metadata?.priceBreakdown && (
-                <>
-                  {data.metadata.priceBreakdown.registrationFee > 0 && (
-                    <div className="total-row">
-                      <div className="total-label">Registration Fee:</div>
-                      <div className="total-value">₹{data.metadata.priceBreakdown.registrationFee.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    </div>
-                  )}
-                  {data.metadata.priceBreakdown.securityDeposit > 0 && (
-                    <div className="total-row">
-                      <div className="total-label">Security Deposit:</div>
-                      <div className="total-value">₹{data.metadata.priceBreakdown.securityDeposit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    </div>
-                  )}
-                  {data.metadata.priceBreakdown.toolkitPrice > 0 && (
-                    <div className="total-row">
-                      <div className="total-label">Toolkit:</div>
-                      <div className="total-value">₹{data.metadata.priceBreakdown.toolkitPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    </div>
-                  )}
-                  {data.metadata.priceBreakdown.mgPlanFee > 0 && (
-                    <div className="total-row">
-                      <div className="total-label">MG Plan Fee:</div>
-                      <div className="total-value">₹{data.metadata.priceBreakdown.mgPlanFee.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    </div>
-                  )}
-                  {data.metadata.priceBreakdown.leadFee > 0 && (
-                    <div className="total-row">
-                      <div className="total-label">Lead Fee:</div>
-                      <div className="total-value">₹{data.metadata.priceBreakdown.leadFee.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    </div>
-                  )}
-                </>
-              )}
-              <div className="total-row">
-                <div className="total-label">Subtotal:</div>
-                <div className="total-value">₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              </div>
-              <div className="total-row">
-                <div className="total-label">Tax:</div>
-                <div className="total-value">₹0.00</div>
-              </div>
-              <div className="total-row grand-total">
-                <div className="total-label">Total:</div>
-                <div className="total-value">₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              </div>
+        {/* Total Section */}
+        <div className="flex justify-end mb-6">
+          <div className="w-64">
+            <div className="flex justify-between py-1.5 text-sm">
+              <span>Subtotal:</span>
+              <span>₹{subtotal}</span>
             </div>
+            <div className="flex justify-between py-2 bg-gray-800 text-white px-3 font-semibold">
+              <span>TOTAL AMOUNT:</span>
+              <span>₹{totalAmount}</span>
+            </div>
+          </div>
+        </div>
 
-            {/* Invoice Footer */}
-            <div className="invoice-footer">
-              <p className="mb-2"><strong>Thank you for your business!</strong></p>
-              <p>This is a computer-generated invoice and does not require a signature.</p>
-              <p className="mt-4">For support, contact us at support@nexo.works</p>
-              <p className="mt-2">www.nexo.works</p>
-            </div>
+        {/* Footer */}
+        <div className="text-center border-t pt-4">
+          <h3 className="font-semibold text-gray-800 mb-3">Thank You for Choosing Our Services!</h3>
+          <div className="text-sm text-gray-600 space-y-1.5">
+            <p>
+              For any queries regarding this invoice, please contact us at{' '}
+              <span className="text-blue-600">{companyDetails?.email || 'support@company.works'}</span>{' '}
+              or call <span className="text-blue-600">{companyDetails?.phone || '+91-80-4567-8900'}</span>
+            </p>
+            <p>
+              Visit our website at{' '}
+              <span className="text-blue-600">{companyDetails?.website || 'www.nexo.works'}</span>{' '}
+              for more services
+            </p>
+            <p className="text-xs text-gray-500 mt-3">
+              This is a computer-generated invoice and does not require a physical signature.<br />
+              Subject to Bengaluru jurisdiction. Terms and conditions apply.
+            </p>
           </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Invoice
-
+export default Invoice;

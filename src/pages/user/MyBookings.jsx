@@ -6,6 +6,7 @@ import {
   FiFileText, FiPrinter, FiDownload 
 } from 'react-icons/fi';
 import axios from 'axios';
+import InvoiceButton, { SuccessInvoiceButton } from '../components/InvoiceButton';
 
 const MyBookings = () => {
   const navigate = useNavigate();
@@ -17,9 +18,147 @@ const MyBookings = () => {
   const [cancellingBooking, setCancellingBooking] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewingBooking, setReviewingBooking] = useState(null);
+  const [reviewData, setReviewData] = useState({
+    rating: 5,
+    comment: ''
+  });
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceBooking, setInvoiceBooking] = useState(null);
   const invoiceRef = useRef(null);
+
+  // Helper function to check if cancellation is allowed (before 2 hours of scheduled time)
+const isCancellationAllowed = (bookingData) => {
+  if (!bookingData.date) return false;
+  
+  // Get the scheduled date and time
+  let scheduledDateTime;
+  
+  if (bookingData.time) {
+    // If we have both date and time, combine them
+    const bookingDate = new Date(bookingData.date);
+    const [hours, minutes] = bookingData.time.split(':');
+    scheduledDateTime = new Date(bookingDate);
+    scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+  } else {
+    // If no time specified, assume it's at the start of the day
+    scheduledDateTime = new Date(bookingData.date);
+  }
+  
+  // Calculate 2 hours before the scheduled time
+  const twoHoursBefore = new Date(scheduledDateTime.getTime() - (2 * 60 * 60 * 1000));
+  const currentTime = new Date();
+  
+  // Allow cancellation if current time is before the 2-hour cutoff
+  return currentTime < twoHoursBefore;
+};
+
+// Helper function to safely format address
+  const formatAddress = (addressData) => {
+    if (!addressData) return null;
+    
+    // If it's already a string, return it
+    if (typeof addressData === 'string') return addressData;
+    
+    // If it's an object, format it properly
+    if (typeof addressData === 'object') {
+      const parts = [];
+      
+      // Check various possible field names for address components
+      const addressLine = addressData.address || 
+                         addressData.street || 
+                         addressData.addressLine1 || 
+                         addressData.line1 ||
+                         '';
+      
+      const landmark = addressData.landmark || '';
+      const city = addressData.city || '';
+      const pincode = addressData.pincode || addressData.zipcode || '';
+      
+      if (addressLine) parts.push(addressLine);
+      if (landmark) parts.push(landmark);
+      if (city) parts.push(city);
+      if (pincode) parts.push(pincode);
+      
+      return parts.filter(Boolean).join(', ') || null;
+    }
+    
+    return null;
+  };
+
+  // Helper function to safely get booking data
+  const getBookingData = (booking) => {
+    // Log the booking structure for debugging if needed
+    // console.log('🔍 Booking structure:', booking);
+    
+    // Handle address safely
+    let formattedAddress = null;
+    if (booking.address) {
+      formattedAddress = formatAddress(booking.address);
+    } else if (booking.userAddress) {
+      formattedAddress = formatAddress(booking.userAddress);
+    } else if (booking.serviceAddress) {
+      formattedAddress = formatAddress(booking.serviceAddress);
+    } else if (booking.location) {
+      formattedAddress = formatAddress(booking.location);
+    } else if (booking.user?.addresses?.[0]) {
+      formattedAddress = formatAddress(booking.user.addresses[0]);
+    }
+    
+    return {
+      id: booking._id || booking.id || 'N/A',
+      serviceName: booking.serviceName || 
+                   booking.service?.name || 
+                   booking.subService?.name || 
+                   booking.subService?.service?.name ||
+                   booking.product?.name ||
+                   'Service Booking',
+      
+      status: booking.status || 'pending',
+      
+      date: booking.scheduledDate || 
+            booking.bookingDate || 
+            booking.serviceDate ||
+            booking.createdAt || 
+            booking.date ||
+            null,
+            
+      time: booking.scheduledTime || 
+            booking.bookingTime || 
+            booking.serviceTime ||
+            booking.time ||
+            null,
+            
+      address: formattedAddress,
+               
+      amount: booking.totalAmount || 
+              booking.amount || 
+              booking.price ||
+              booking.cost ||
+              0,
+              
+      customerName: booking.user?.name || 
+                    booking.userName || 
+                    booking.customerName ||
+                    booking.name ||
+                    'Customer',
+                    
+      customerPhone: booking.user?.phone || 
+                     booking.userPhone || 
+                     booking.customerPhone ||
+                     booking.phone ||
+                     null,
+                     
+      cartItems: booking.cartItems || 
+                 booking.items || 
+                 booking.services ||
+                 [],
+                 
+      hasReview: booking.hasReview || false,
+      userRating: booking.userRating || null
+    };
+  };
 
   useEffect(() => {
     fetchBookings();
@@ -32,17 +171,86 @@ const MyBookings = () => {
   const fetchBookings = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/user/bookings`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      // Backend returns data.data (array of bookings)
-      const bookingsData = response.data.data || response.data.bookings || [];
+      console.log('🔍 Debug - Fetching bookings...');
+      console.log('   Token exists:', !!token);
+      console.log('   Token preview:', token ? `${token.substring(0, 20)}...` : 'No token');
+      
+      if (!token) {
+        console.error('❌ No authentication token found');
+        setBookings([]);
+        setLoading(false);
+        return;
+      }
+
+      let bookingsData = [];
+      
+      try {
+        // Try the main endpoint first (getAllUserBookings)
+        console.log('📋 Trying main bookings endpoint...');
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/user/bookings`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        
+        console.log('📋 Bookings API Response:', response.data);
+        
+        if (response.data.success && response.data.data) {
+          bookingsData = response.data.data.bookings || response.data.data || [];
+        } else if (response.data.bookings) {
+          bookingsData = response.data.bookings;
+        } else if (Array.isArray(response.data.data)) {
+          bookingsData = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          bookingsData = response.data;
+        }
+        
+        console.log('📋 Processed bookings from main endpoint:', bookingsData.length);
+        
+      } catch (mainError) {
+        console.warn('⚠️ Main endpoint failed, trying alternative...');
+        console.warn('   Main error:', mainError.message);
+        
+        try {
+          // Try alternative endpoint (getUserBookings)
+          const altResponse = await axios.get(
+            `${import.meta.env.VITE_API_URL}/api/user/bookings/all`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          
+          console.log('📋 Alternative API Response:', altResponse.data);
+          
+          if (altResponse.data.success && altResponse.data.data) {
+            if (altResponse.data.data.bookings) {
+              bookingsData = altResponse.data.data.bookings;
+            } else if (Array.isArray(altResponse.data.data)) {
+              bookingsData = altResponse.data.data;
+            }
+          }
+          
+          console.log('📋 Processed bookings from alternative endpoint:', bookingsData.length);
+          
+        } catch (altError) {
+          console.error('❌ Both endpoints failed');
+          throw mainError; // Throw the original error
+        }
+      }
+      
       // Ensure it's always an array
-      setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+      const finalBookings = Array.isArray(bookingsData) ? bookingsData : [];
+      console.log('📋 Final bookings count:', finalBookings.length);
+      
+      // Log first booking for structure inspection if needed
+      // if (finalBookings.length > 0) {
+      //   console.log('📋 First booking structure:', finalBookings[0]);
+      // }
+      
+      setBookings(finalBookings);
+      
     } catch (error) {
-      console.error('Error fetching bookings:', error);
-      setBookings([]); // Set empty array on error
+      console.error('❌ Error fetching bookings:', error);
+      console.error('   Error response:', error.response?.data);
+      console.error('   Error status:', error.response?.status);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -81,14 +289,58 @@ const MyBookings = () => {
     return icons[status] || <FiAlertCircle className="inline" size={14} />;
   };
 
+  const handleSubmitReview = async () => {
+    if (!reviewingBooking) return;
+
+    try {
+      const token = localStorage.getItem('userToken');
+      const bookingData = getBookingData(reviewingBooking);
+      
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/user/bookings/${bookingData.id}/review`,
+        {
+          rating: reviewData.rating,
+          comment: reviewData.comment,
+          bookingId: bookingData.id
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setSuccessMessage('Review submitted successfully');
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      setShowReviewModal(false);
+      setReviewingBooking(null);
+      setReviewData({ rating: 5, comment: '' });
+      fetchBookings();
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to submit review. Please try again.';
+      alert(errorMessage);
+    }
+  };
+
   const handleCancelBooking = async () => {
     if (!cancellingBooking) return;
 
     try {
       const token = localStorage.getItem('userToken');
+      const bookingData = getBookingData(cancellingBooking);
+      
+      // Double-check cancellation is still allowed
+      if (!isCancellationAllowed(bookingData)) {
+        alert('Cancellation is no longer available. Bookings can only be cancelled up to 2 hours before the scheduled time.');
+        setShowCancelModal(false);
+        setCancellingBooking(null);
+        return;
+      }
+
       await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/user/bookings/${cancellingBooking._id}/cancel`,
-        {},
+        `${import.meta.env.VITE_API_URL}/api/user/bookings/${bookingData.id}/cancel`,
+        {
+          cancellationReason: 'Customer requested cancellation',
+          cancellationTime: new Date().toISOString()
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -100,31 +352,252 @@ const MyBookings = () => {
       fetchBookings();
     } catch (error) {
       console.error('Error cancelling booking:', error);
-      alert('Failed to cancel booking. Please try again.');
+      const errorMessage = error.response?.data?.message || 'Failed to cancel booking. Please try again.';
+      alert(errorMessage);
     }
   };
 
   const handlePrintInvoice = () => {
     const printContent = invoiceRef.current;
-    const originalContents = document.body.innerHTML;
     const printWindow = window.open('', '', 'height=800,width=800');
     
     printWindow.document.write('<html><head><title>Invoice</title>');
     printWindow.document.write('<style>');
     printWindow.document.write(`
-      body { font-family: Arial, sans-serif; padding: 20px; }
-      .invoice-container { max-width: 800px; margin: 0 auto; }
-      .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #214A73; padding-bottom: 20px; }
-      .invoice-logo { font-size: 32px; font-weight: bold; color: #214A73; margin-bottom: 10px; }
-      .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
-      .invoice-section { flex: 1; }
-      .invoice-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-      .invoice-table th, .invoice-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-      .invoice-table th { background-color: #f8f9fa; font-weight: bold; }
-      .invoice-total { text-align: right; margin-top: 20px; font-size: 18px; font-weight: bold; }
-      .invoice-footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
+      @page {
+        size: A4;
+        margin: 20mm;
+      }
+      
+      body { 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        padding: 0;
+        margin: 0;
+        color: #333;
+        line-height: 1.4;
+      }
+      
+      .invoice-container { 
+        max-width: 800px; 
+        margin: 0 auto; 
+        background: white;
+        border: 2px solid #e5e7eb;
+      }
+      
+      .invoice-header { 
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 30px;
+        border-bottom: 2px solid #e5e7eb;
+        background: #f9fafb;
+      }
+      
+      .company-info h1 {
+        font-size: 32px;
+        font-weight: bold;
+        color: #1e40af;
+        margin: 0 0 5px 0;
+      }
+      
+      .company-info p {
+        margin: 2px 0;
+        font-size: 12px;
+        color: #6b7280;
+      }
+      
+      .invoice-title {
+        text-align: right;
+      }
+      
+      .invoice-title h2 {
+        font-size: 36px;
+        font-weight: bold;
+        color: #374151;
+        margin: 0;
+      }
+      
+      .invoice-number {
+        font-size: 14px;
+        color: #1e40af;
+        font-weight: 600;
+        margin: 5px 0;
+      }
+      
+      .invoice-date {
+        font-size: 12px;
+        color: #6b7280;
+      }
+      
+      .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        background: #10b981;
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 4px;
+        margin-top: 5px;
+      }
+      
+      .invoice-body {
+        padding: 30px;
+      }
+      
+      .billing-section {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+      }
+      
+      .bill-to, .service-details {
+        flex: 1;
+      }
+      
+      .service-details {
+        margin-left: 40px;
+      }
+      
+      .section-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      
+      .customer-info, .service-info {
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      
+      .customer-name {
+        font-weight: 600;
+        color: #111827;
+        font-size: 16px;
+        margin-bottom: 5px;
+      }
+      
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 3px;
+      }
+      
+      .info-label {
+        color: #6b7280;
+        min-width: 120px;
+      }
+      
+      .info-value {
+        color: #111827;
+        font-weight: 500;
+      }
+      
+      .services-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 30px 0;
+        border: 1px solid #e5e7eb;
+      }
+      
+      .services-table th {
+        background: #f3f4f6;
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #374151;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e5e7eb;
+      }
+      
+      .services-table td {
+        padding: 15px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 13px;
+      }
+      
+      .services-table .description {
+        font-weight: 500;
+        color: #111827;
+      }
+      
+      .services-table .quantity, .services-table .rate, .services-table .amount {
+        text-align: right;
+        font-weight: 500;
+      }
+      
+      .totals-section {
+        margin-top: 30px;
+        display: flex;
+        justify-content: flex-end;
+      }
+      
+      .totals-table {
+        width: 300px;
+      }
+      
+      .total-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-size: 13px;
+      }
+      
+      .total-row.subtotal {
+        border-bottom: 1px solid #e5e7eb;
+        color: #6b7280;
+      }
+      
+      .total-row.final {
+        border-top: 2px solid #374151;
+        padding-top: 15px;
+        margin-top: 10px;
+        font-size: 18px;
+        font-weight: bold;
+        color: #111827;
+      }
+      
+      .total-row.final .amount {
+        background: #374151;
+        color: white;
+        padding: 8px 15px;
+        border-radius: 4px;
+      }
+      
+      .footer {
+        margin-top: 50px;
+        text-align: center;
+        padding-top: 30px;
+        border-top: 2px solid #e5e7eb;
+      }
+      
+      .thank-you {
+        font-size: 18px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 15px;
+      }
+      
+      .contact-info {
+        font-size: 12px;
+        color: #6b7280;
+        line-height: 1.6;
+      }
+      
+      .disclaimer {
+        font-size: 10px;
+        color: #9ca3af;
+        margin-top: 20px;
+        font-style: italic;
+      }
+      
       @media print {
         body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        .invoice-container { border: none; }
       }
     `);
     printWindow.document.write('</style></head><body>');
@@ -147,6 +620,7 @@ const MyBookings = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <p className="ml-4 text-gray-600">Loading your bookings...</p>
       </div>
     );
   }
@@ -250,146 +724,164 @@ const MyBookings = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {filteredBookings.map((booking) => (
-            <div
-              key={booking._id}
-              className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-primary/30 overflow-hidden"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-primary/10 to-primary-light/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <FiPackage className="text-primary" size={20} />
+          {filteredBookings.map((booking) => {
+            const bookingData = getBookingData(booking);
+            
+            return (
+              <div
+                key={bookingData.id}
+                className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-primary/30 overflow-hidden"
+              >
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-primary/10 to-primary-light/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <FiPackage className="text-primary" size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-800 mb-1">
+                            {bookingData.serviceName}
+                          </h3>
+                          <p className="text-sm text-gray-500">Booking ID: #{bookingData.id.slice(-8)}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-800 mb-1">
-                          {booking.serviceName || 'Service Booking'}
-                        </h3>
-                        <p className="text-sm text-gray-500">Booking ID: #{booking._id.slice(-8)}</p>
+                      
+                      <div className="space-y-2 ml-15">
+                        {bookingData.date && (
+                          <div className="flex items-center text-gray-600">
+                            <FiCalendar className="mr-2 text-primary" size={16} />
+                            <span className="text-sm font-medium">
+                              {new Date(bookingData.date).toLocaleDateString('en-IN', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        )}
+                        {bookingData.time && (
+                          <div className="flex items-center text-gray-600">
+                            <FiClock className="mr-2 text-primary" size={16} />
+                            <span className="text-sm font-medium">{bookingData.time}</span>
+                          </div>
+                        )}
+                        {bookingData.address && (
+                          <div className="flex items-start text-gray-600">
+                            <FiMapPin className="mr-2 mt-1 text-primary flex-shrink-0" size={16} />
+                            <span className="text-sm">
+                              {typeof bookingData.address === 'string' ? bookingData.address : 'Address not available'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
-                    <div className="space-y-2 ml-15">
-                      <div className="flex items-center text-gray-600">
-                        <FiCalendar className="mr-2 text-primary" size={16} />
-                        <span className="text-sm font-medium">
-                          {new Date(booking.bookingDate).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
-                          })}
+                    <span className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 flex items-center gap-2 ${getStatusColor(bookingData.status)}`}>
+                      {getStatusIcon(bookingData.status)}
+                      {bookingData.status.replace('-', ' ')}
+                    </span>
+                  </div>
+
+                  {/* Services List */}
+                  {bookingData.cartItems && bookingData.cartItems.length > 0 && (
+                    <div className="pt-4 border-t border-gray-100">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Services:</p>
+                      <div className="space-y-1">
+                        {bookingData.cartItems.slice(0, 3).map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-sm">
+                            <span className="text-gray-600">• {item.name || item.serviceName || item.productName || 'Service Item'}</span>
+                            <span className="text-gray-800 font-medium">₹{item.price || item.amount || item.cost || 0}</span>
+                          </div>
+                        ))}
+                        {bookingData.cartItems.length > 3 && (
+                          <p className="text-xs text-gray-500 italic">
+                            +{bookingData.cartItems.length - 3} more service(s)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {bookingData.amount > 0 && (
+                    <div className="pt-4 border-t border-gray-100 mt-4">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="text-gray-600 font-medium">Total Amount</span>
+                        <span className="text-2xl font-bold text-primary">
+                          ₹{bookingData.amount}
                         </span>
                       </div>
-                      {booking.bookingTime && (
-                        <div className="flex items-center text-gray-600">
-                          <FiClock className="mr-2 text-primary" size={16} />
-                          <span className="text-sm font-medium">{booking.bookingTime}</span>
-                        </div>
-                      )}
-                      {booking.address && (
-                        <div className="flex items-start text-gray-600">
-                          <FiMapPin className="mr-2 mt-1 text-primary flex-shrink-0" size={16} />
-                          <span className="text-sm">{booking.address}</span>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                  
-                  <span className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 flex items-center gap-2 ${getStatusColor(booking.status)}`}>
-                    {getStatusIcon(booking.status)}
-                    {booking.status.replace('-', ' ')}
-                  </span>
-                </div>
+                  )}
 
-                {/* Services List */}
-                {booking.cartItems && booking.cartItems.length > 0 && (
-                  <div className="pt-4 border-t border-gray-100">
-                    <p className="text-sm font-semibold text-gray-700 mb-2">Services:</p>
-                    <div className="space-y-1">
-                      {booking.cartItems.slice(0, 3).map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span className="text-gray-600">• {item.name || item.serviceName}</span>
-                          <span className="text-gray-800 font-medium">₹{item.price || item.amount || 0}</span>
-                        </div>
-                      ))}
-                      {booking.cartItems.length > 3 && (
-                        <p className="text-xs text-gray-500 italic">
-                          +{booking.cartItems.length - 3} more service(s)
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {booking.totalAmount && (
-                  <div className="pt-4 border-t border-gray-100 mt-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-gray-600 font-medium">Total Amount</span>
-                      <span className="text-2xl font-bold text-primary">
-                        ₹{booking.totalAmount}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex flex-wrap gap-3 mt-4">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/user/dashboard/bookings/${booking._id}`);
-                    }}
-                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-all font-medium"
-                  >
-                    <FiEye size={18} />
-                    View Details
-                  </button>
-                  
-                  {['confirmed', 'completed'].includes(booking.status) && (
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-3 mt-4">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setInvoiceBooking(booking);
-                        setShowInvoiceModal(true);
+                        navigate(`/user/dashboard/bookings/${bookingData.id}`);
                       }}
-                      className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition-all font-medium border-2 border-green-200"
+                      className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-all font-medium"
                     >
-                      <FiFileText size={18} />
-                      View Invoice
+                      <FiEye size={18} />
+                      View Details
                     </button>
-                  )}
-                  
-                  {['pending', 'confirmed'].includes(booking.status) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCancellingBooking(booking);
-                        setShowCancelModal(true);
-                      }}
-                      className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all font-medium border-2 border-red-200"
-                    >
-                      <FiX size={18} />
-                      Cancel Booking
-                    </button>
-                  )}
-                  
-                  {booking.status === 'completed' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        alert('Review feature coming soon!');
-                      }}
-                      className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-50 text-yellow-700 rounded-xl hover:bg-yellow-100 transition-all font-medium border-2 border-yellow-200"
-                    >
-                      <FiStar size={18} />
-                      Write Review
-                    </button>
-                  )}
+                    
+                    {/* Invoice Button - New Component */}
+                    <SuccessInvoiceButton 
+                      booking={booking}
+                      className="flex-1 min-w-[140px]"
+                    />
+                    
+                    {['pending', 'confirmed'].includes(bookingData.status) && isCancellationAllowed(bookingData) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCancellingBooking(booking);
+                          setShowCancelModal(true);
+                        }}
+                        className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all font-medium border-2 border-red-200"
+                      >
+                        <FiX size={18} />
+                        Cancel Booking
+                      </button>
+                    )}
+                    
+                    {['pending', 'confirmed'].includes(bookingData.status) && !isCancellationAllowed(bookingData) && (
+                      <div 
+                        className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-50 text-gray-500 rounded-xl border-2 border-gray-200 cursor-help"
+                        title="Cancellation is only available up to 2 hours before the scheduled service time"
+                      >
+                        <FiClock size={18} />
+                        <span className="text-sm">Cannot Cancel</span>
+                      </div>
+                    )}
+                    
+                    {bookingData.status === 'completed' && !bookingData.hasReview && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReviewingBooking(booking);
+                          setShowReviewModal(true);
+                        }}
+                        className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-50 text-yellow-700 rounded-xl hover:bg-yellow-100 transition-all font-medium border-2 border-yellow-200"
+                      >
+                        <FiStar size={18} />
+                        Write Review
+                      </button>
+                    )}
+                    
+                    {bookingData.status === 'completed' && bookingData.hasReview && (
+                      <div className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 rounded-xl border-2 border-green-200">
+                        <FiStar size={18} />
+                        <span className="text-sm">Review Submitted</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -411,12 +903,14 @@ const MyBookings = () => {
             
             <div className="p-6">
               <p className="text-gray-700 mb-6">
-                Are you sure you want to cancel this booking for <strong>{cancellingBooking.serviceName}</strong>?
+                Are you sure you want to cancel this booking for <strong>
+                  {getBookingData(cancellingBooking).serviceName}
+                </strong>?
               </p>
               
               <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 mb-6">
                 <p className="text-sm text-yellow-800">
-                  <strong>Note:</strong> Cancellation charges may apply based on the cancellation policy.
+                  <strong>Cancellation Policy:</strong> Bookings can only be cancelled up to 2 hours before the scheduled service time. Cancellation charges may apply based on the cancellation policy.
                 </p>
               </div>
 
@@ -469,106 +963,186 @@ const MyBookings = () => {
             <div className="p-8">
               <div ref={invoiceRef}>
                 <div className="invoice-container">
-                  {/* Invoice Header */}
-                  <div className="invoice-header text-center mb-8 pb-6 border-b-2 border-primary">
-                    <div className="invoice-logo text-4xl font-bold text-primary mb-2">Nexo</div>
-                    <p className="text-gray-600">Professional Home Services</p>
-                    <p className="text-sm text-gray-500 mt-2">Invoice Date: {new Date().toLocaleDateString('en-IN')}</p>
-                  </div>
-
-                  {/* Invoice Details */}
-                  <div className="grid grid-cols-2 gap-8 mb-8">
-                    <div>
-                      <h4 className="font-bold text-gray-800 mb-3">Bill To:</h4>
-                      <p className="text-gray-700 font-medium">{invoiceBooking.userName || 'Customer'}</p>
-                      <p className="text-sm text-gray-600 mt-1">{invoiceBooking.userPhone || 'N/A'}</p>
-                      <p className="text-sm text-gray-600 mt-1">{invoiceBooking.address || 'N/A'}</p>
+                  {/* Professional Invoice Header */}
+                  <div className="invoice-header">
+                    <div className="company-info">
+                      <h1>NEXO</h1>
+                      <p>Professional Home Services</p>
+                      <p>Email: support@nexo.works</p>
+                      <p>Phone: +91 1800-XXX-XXXX</p>
+                      <p>Website: www.nexo.works</p>
                     </div>
-                    <div className="text-right">
-                      <h4 className="font-bold text-gray-800 mb-3">Invoice Details:</h4>
-                      <p className="text-sm text-gray-600">Invoice #: <span className="font-medium text-gray-800">INV-{invoiceBooking._id.slice(-8).toUpperCase()}</span></p>
-                      <p className="text-sm text-gray-600 mt-1">Booking ID: <span className="font-medium text-gray-800">#{invoiceBooking._id.slice(-8)}</span></p>
-                      <p className="text-sm text-gray-600 mt-1">Date: <span className="font-medium text-gray-800">{new Date(invoiceBooking.bookingDate).toLocaleDateString('en-IN')}</span></p>
-                      <p className="text-sm text-gray-600 mt-1">Status: <span className={`font-medium capitalize ${invoiceBooking.status === 'completed' ? 'text-green-600' : 'text-blue-600'}`}>{invoiceBooking.status}</span></p>
+                    <div className="invoice-title">
+                      <h2>INVOICE</h2>
+                      <div className="invoice-number">INV-{invoiceBooking._id ? invoiceBooking._id.slice(-8).toUpperCase() : 'N/A'}</div>
+                      <div className="invoice-date">Date: {new Date().toLocaleDateString('en-IN')}</div>
+                      <div className="status-badge">
+                        {invoiceBooking.status === 'completed' ? 'PAID' : invoiceBooking.status?.toUpperCase() || 'PENDING'}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Service Details Table */}
-                  <table className="w-full border-collapse mb-8">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="text-left p-4 font-bold text-gray-800 border-b-2 border-gray-300">Service Description</th>
-                        <th className="text-center p-4 font-bold text-gray-800 border-b-2 border-gray-300">Quantity</th>
-                        <th className="text-right p-4 font-bold text-gray-800 border-b-2 border-gray-300">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoiceBooking.cartItems && invoiceBooking.cartItems.length > 0 ? (
-                        invoiceBooking.cartItems.map((item, idx) => (
-                          <tr key={idx}>
-                            <td className="p-4 border-b border-gray-200">
-                              <p className="font-medium text-gray-800">{item.name || item.serviceName}</p>
-                              {item.description && (
-                                <p className="text-sm text-gray-600 mt-1">{item.description}</p>
-                              )}
-                            </td>
-                            <td className="p-4 text-center border-b border-gray-200 text-gray-700">{item.quantity || 1}</td>
-                            <td className="p-4 text-right border-b border-gray-200 font-medium text-gray-800">₹{item.price || item.amount || 0}</td>
-                          </tr>
-                        ))
-                      ) : (
+                  {/* Invoice Body */}
+                  <div className="invoice-body">
+                    {/* Billing Section */}
+                    <div className="billing-section">
+                      <div className="bill-to">
+                        <div className="section-title">Bill To</div>
+                        <div className="customer-info">
+                          <div className="customer-name">
+                            {invoiceBooking.user?.name || 
+                             invoiceBooking.userName || 
+                             invoiceBooking.customerName || 
+                             'Customer'}
+                          </div>
+                          <div className="info-row">
+                            <span className="info-label">Phone:</span>
+                            <span className="info-value">
+                              {invoiceBooking.user?.phone || 
+                               invoiceBooking.userPhone || 
+                               invoiceBooking.customerPhone || 
+                               'N/A'}
+                            </span>
+                          </div>
+                          <div className="info-row">
+                            <span className="info-label">Address:</span>
+                            <span className="info-value">
+                              {formatAddress(invoiceBooking.address || 
+                                           invoiceBooking.userAddress ||
+                                           (invoiceBooking.user?.addresses?.[0])) || 
+                               'Address not available'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="service-details">
+                        <div className="section-title">Service Details</div>
+                        <div className="service-info">
+                          <div className="info-row">
+                            <span className="info-label">Booking ID:</span>
+                            <span className="info-value">#{invoiceBooking._id ? invoiceBooking._id.slice(-8) : 'N/A'}</span>
+                          </div>
+                          <div className="info-row">
+                            <span className="info-label">Service Date:</span>
+                            <span className="info-value">
+                              {invoiceBooking.scheduledDate || invoiceBooking.bookingDate || invoiceBooking.createdAt ? 
+                                new Date(invoiceBooking.scheduledDate || invoiceBooking.bookingDate || invoiceBooking.createdAt).toLocaleDateString('en-IN') : 
+                                'Date not available'}
+                            </span>
+                          </div>
+                          {(invoiceBooking.scheduledTime || invoiceBooking.bookingTime) && (
+                            <div className="info-row">
+                              <span className="info-label">Service Time:</span>
+                              <span className="info-value">{invoiceBooking.scheduledTime || invoiceBooking.bookingTime}</span>
+                            </div>
+                          )}
+                          <div className="info-row">
+                            <span className="info-label">Status:</span>
+                            <span className="info-value">{invoiceBooking.status?.charAt(0).toUpperCase() + invoiceBooking.status?.slice(1) || 'Unknown'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Services Table */}
+                    <table className="services-table">
+                      <thead>
                         <tr>
-                          <td className="p-4 border-b border-gray-200">
-                            <p className="font-medium text-gray-800">{invoiceBooking.serviceName || 'Service'}</p>
-                            <p className="text-sm text-gray-600 mt-1">Booking Date: {new Date(invoiceBooking.bookingDate).toLocaleDateString('en-IN')}</p>
-                            {invoiceBooking.bookingTime && (
-                              <p className="text-sm text-gray-600">Time: {invoiceBooking.bookingTime}</p>
-                            )}
-                          </td>
-                          <td className="p-4 text-center border-b border-gray-200 text-gray-700">1</td>
-                          <td className="p-4 text-right border-b border-gray-200 font-medium text-gray-800">₹{invoiceBooking.amount || invoiceBooking.totalAmount || 0}</td>
+                          <th className="description">Description</th>
+                          <th className="quantity">Qty</th>
+                          <th className="rate">Rate</th>
+                          <th className="amount">Amount</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {invoiceBooking.cartItems && invoiceBooking.cartItems.length > 0 ? (
+                          invoiceBooking.cartItems.map((item, idx) => (
+                            <tr key={idx}>
+                              <td className="description">
+                                <div>{item.name || item.serviceName || item.productName || 'Service Item'}</div>
+                                {item.description && (
+                                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                                    {item.description}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="quantity">{item.quantity || 1}</td>
+                              <td className="rate">₹{item.price || item.amount || item.cost || 0}</td>
+                              <td className="amount">₹{(item.price || item.amount || item.cost || 0) * (item.quantity || 1)}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td className="description">
+                              <div>
+                                {invoiceBooking.serviceName || 
+                                 (invoiceBooking.subService && invoiceBooking.subService.name) ||
+                                 'Professional Service'}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                                Service provided on {invoiceBooking.scheduledDate || invoiceBooking.bookingDate || invoiceBooking.createdAt ? 
+                                  new Date(invoiceBooking.scheduledDate || invoiceBooking.bookingDate || invoiceBooking.createdAt).toLocaleDateString('en-IN') : 
+                                  'scheduled date'}
+                              </div>
+                            </td>
+                            <td className="quantity">1</td>
+                            <td className="rate">₹{invoiceBooking.amount || invoiceBooking.totalAmount || 0}</td>
+                            <td className="amount">₹{invoiceBooking.amount || invoiceBooking.totalAmount || 0}</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
 
-                  {/* Total Section */}
-                  <div className="flex justify-end mb-8">
-                    <div className="w-64">
-                      <div className="flex justify-between py-2 text-gray-700">
-                        <span>Subtotal:</span>
-                        <span>₹{invoiceBooking.amount || invoiceBooking.totalAmount || 0}</span>
-                      </div>
-                      {invoiceBooking.gstAmount > 0 && (
-                        <div className="flex justify-between py-2 text-gray-700">
-                          <span>GST (18%):</span>
-                          <span>₹{invoiceBooking.gstAmount}</span>
+                    {/* Totals Section */}
+                    <div className="totals-section">
+                      <div className="totals-table">
+                        <div className="total-row subtotal">
+                          <span>Subtotal</span>
+                          <span>₹{invoiceBooking.amount || invoiceBooking.totalAmount || 0}</span>
                         </div>
-                      )}
-                      {invoiceBooking.usewallet > 0 && (
-                        <div className="flex justify-between py-2 text-green-600">
-                          <span>Wallet Used:</span>
-                          <span>- ₹{invoiceBooking.usewallet}</span>
+                        
+                        {(invoiceBooking.gstAmount && invoiceBooking.gstAmount > 0) && (
+                          <div className="total-row subtotal">
+                            <span>GST (18%)</span>
+                            <span>₹{invoiceBooking.gstAmount}</span>
+                          </div>
+                        )}
+                        
+                        {(invoiceBooking.discount && invoiceBooking.discount > 0) && (
+                          <div className="total-row subtotal" style={{ color: '#10b981' }}>
+                            <span>Discount</span>
+                            <span>-₹{invoiceBooking.discount}</span>
+                          </div>
+                        )}
+                        
+                        {(invoiceBooking.usewallet && invoiceBooking.usewallet > 0) && (
+                          <div className="total-row subtotal" style={{ color: '#10b981' }}>
+                            <span>Wallet Used</span>
+                            <span>-₹{invoiceBooking.usewallet}</span>
+                          </div>
+                        )}
+                        
+                        <div className="total-row final">
+                          <span>Total Amount</span>
+                          <span className="amount">₹{invoiceBooking.totalAmount || invoiceBooking.amount || 0}</span>
                         </div>
-                      )}
-                      {invoiceBooking.discount > 0 && (
-                        <div className="flex justify-between py-2 text-green-600">
-                          <span>Discount:</span>
-                          <span>- ₹{invoiceBooking.discount}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between py-3 border-t-2 border-gray-300 font-bold text-lg text-primary">
-                        <span>Total Amount:</span>
-                        <span>₹{invoiceBooking.totalAmount || 0}</span>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Footer */}
-                  <div className="text-center pt-6 border-t border-gray-300">
-                    <p className="text-sm text-gray-600 mb-2">Thank you for choosing Nexo!</p>
-                    <p className="text-xs text-gray-500">For any queries, contact us at support@nexo.works | +91 1800-XXX-XXXX</p>
-                    <p className="text-xs text-gray-400 mt-2">This is a computer-generated invoice and does not require a signature.</p>
+                    {/* Footer */}
+                    <div className="footer">
+                      <div className="thank-you">Thank you for choosing Nexo!</div>
+                      <div className="contact-info">
+                        For any queries or support, please contact us:<br/>
+                        Email: support@nexo.works | Phone: +91 1800-XXX-XXXX<br/>
+                        Visit us at: www.nexo.works
+                      </div>
+                      <div className="disclaimer">
+                        This is a computer-generated invoice and does not require a physical signature.
+                        All services are subject to our terms and conditions.
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -594,6 +1168,98 @@ const MyBookings = () => {
                   className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-all"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review Modal */}
+      {showReviewModal && reviewingBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-slide-up">
+            <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-6 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <FiStar size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Write a Review</h3>
+                  <p className="text-yellow-100 text-sm">Share your experience</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-800 mb-2">
+                  {getBookingData(reviewingBooking).serviceName}
+                </h4>
+                <p className="text-sm text-gray-600">
+                  Booking ID: #{getBookingData(reviewingBooking).id.slice(-8)}
+                </p>
+              </div>
+
+              {/* Rating */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Rating
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setReviewData({ ...reviewData, rating: star })}
+                      className={`p-2 rounded-lg transition-all ${
+                        star <= reviewData.rating
+                          ? 'text-yellow-500 bg-yellow-50'
+                          : 'text-gray-300 hover:text-yellow-400'
+                      }`}
+                    >
+                      <FiStar size={24} fill={star <= reviewData.rating ? 'currentColor' : 'none'} />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-sm text-gray-500 mt-2">
+                  {reviewData.rating === 1 && 'Poor'}
+                  {reviewData.rating === 2 && 'Fair'}
+                  {reviewData.rating === 3 && 'Good'}
+                  {reviewData.rating === 4 && 'Very Good'}
+                  {reviewData.rating === 5 && 'Excellent'}
+                </p>
+              </div>
+
+              {/* Comment */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Comment (Optional)
+                </label>
+                <textarea
+                  value={reviewData.comment}
+                  onChange={(e) => setReviewData({ ...reviewData, comment: e.target.value })}
+                  placeholder="Share your experience with this service..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent resize-none"
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setShowReviewModal(false);
+                    setReviewingBooking(null);
+                    setReviewData({ rating: 5, comment: '' });
+                  }}
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitReview}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl hover:from-yellow-600 hover:to-yellow-700 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  Submit Review
                 </button>
               </div>
             </div>

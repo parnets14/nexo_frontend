@@ -68,6 +68,8 @@ import UserLogin from './pages/UserLogin.jsx'
 import UserRegister from './pages/UserRegister.jsx'
 import PaymentResult from './pages/PaymentResult.jsx'
 import TestPayment from './pages/TestPayment.jsx'
+import InvoicePage from './pages/InvoicePage.jsx'
+import InvoiceViewer from './components/InvoiceViewer.jsx'
 
 function App() {
   return (
@@ -85,6 +87,8 @@ function App() {
           <Route path="/payment" element={<PaymentResult />} />
           <Route path="/payment-result" element={<PaymentResult />} />
           <Route path="/test-payment" element={<TestPayment />} />
+          <Route path="/invoice" element={<InvoiceViewer />} />
+          <Route path="/invoice/sample" element={<InvoicePage />} />
           <Route path="/partner" element={<PartnerOnboarding />} />
           <Route path="/leads" element={<LeadMarketplace />} />
           <Route path="/materials" element={<MaterialStore />} />

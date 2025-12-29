@@ -951,7 +951,7 @@ const ServiceDetail = () => {
                             <FaAward className="text-white text-lg sm:text-xl" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h2 className="text-lg sm:text-xl font-bold text-white truncate">Add-On Services</h2>
+                            <h2 className="text-lg sm:text-xl font-bold text-white truncate">Services</h2>
                             <p className="text-white/90 text-xs font-medium">Enhance your service</p>
                           </div>
                         </div>
@@ -1097,7 +1097,7 @@ const ServiceDetail = () => {
                   </motion.div>
                 ) : (
                   <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                    <p className="text-gray-500">No add-on services available</p>
+                    <p className="text-gray-500">No services available</p>
                   </div>
                 )}
               </div>
@@ -1594,7 +1594,7 @@ const ServiceDetail = () => {
                       <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary/10 to-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
                         <FaAward className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                       </div>
-                      <h2 className="text-sm sm:text-lg font-bold text-gray-900 truncate">Add-On Sub-Services</h2>
+                      <h2 className="text-sm sm:text-lg font-bold text-gray-900 truncate">Sub-Services</h2>
                     </div>
                     {subService && subService.length > 0 && (
                       <span className="bg-primary text-white text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 ml-2">
