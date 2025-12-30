@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import WalletTab from './tabs/WalletTab'
 import TeamMembersTab from './tabs/TeamMembersTab'
 import JobsManagementTab from './tabs/JobsManagementTab'
+import JobItemsTab from './tabs/JobItemsTab'
 import SubscriptionPlanTab from './tabs/SubscriptionPlanTab'
 import SparePartsTab from './tabs/SparePartsTab'
 import TransactionsTab from './tabs/TransactionsTab'
@@ -23,6 +24,7 @@ const PartnerDashboard = () => {
         <Route path="wallet" element={<WalletTab />} />
         {showTeamTab && <Route path="team" element={<TeamMembersTab />} />}
         <Route path="jobs" element={<JobsManagementTab />} />
+        <Route path="job-items" element={<JobItemsTab />} />
         <Route path="subscription" element={<SubscriptionPlanTab />} />
         <Route path="spare-parts" element={<SparePartsTab />} />
         <Route path="transactions" element={<TransactionsTab />} />

@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Invoice from './Invoice';
-import CompactInvoice from './CompactInvoice';
-import SinglePageInvoice from './SinglePageInvoice';
+import ProfessionalInvoice from './ProfessionalInvoice';
 import { generateInvoiceFromBooking } from '../utils/invoiceGenerator';
-import '../styles/print.css';
-import '../styles/single-page-print.css';
+import '../styles/professional-invoice-print.css';
 
 const InvoiceViewer = () => {
   const [searchParams] = useSearchParams();
   const [invoiceData, setInvoiceData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [layoutType, setLayoutType] = useState('single'); // Default to single-page
 
   const bookingId = searchParams.get('bookingId');
 
@@ -25,34 +21,50 @@ const InvoiceViewer = () => {
       }
 
       try {
-        // Replace this with your actual API call
-        // const response = await fetch(`/api/bookings/${bookingId}`);
-        // const bookingData = await response.json();
+        // Get user token from localStorage (same as MyBookings)
+        const token = localStorage.getItem('userToken');
         
-        // For now, using sample data - replace with actual API call
-        const sampleBookingData = {
-          bookingId: bookingId,
-          customerName: 'Shubham',
-          customerPhone: '9031277796',
-          customerEmail: 'shubchy14@gmail.com',
-          address: 'Old Mysuru Road, Gopalpura, Bengaluru Central City Corporation, Bengaluru, Bangalore North, Bengaluru Urban, Karnataka, 560023, India',
-          landmark: 'Gopalpura',
-          pincode: '560023',
-          serviceName: 'AC Inspection / Diagnosis',
-          totalAmount: 1,
-          serviceDate: '2025-12-28',
-          serviceTime: '10:00 AM',
-          paymentMethod: 'ONLINE',
-          paymentStatus: 'COMPLETED',
-          transactionId: 'TXN766814462972123KEN9',
-          status: 'confirmed',
-          createdAt: '2025-12-27'
-        };
+        if (!token) {
+          throw new Error('No authentication token found. Please login again.');
+        }
 
-        const invoice = generateInvoiceFromBooking(sampleBookingData);
+        // Fetch actual booking data from API using axios (same pattern as MyBookings)
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/bookings/${bookingId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch booking: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('📋 Full API Response:', result);
+        console.log('📋 Response keys:', Object.keys(result));
+        
+        const bookingData = result.booking || result.data || result;
+        console.log('📋 Extracted Booking Data:', bookingData);
+        console.log('📋 Booking Data keys:', Object.keys(bookingData || {}));
+        
+        // Log specific fields we're looking for
+        console.log('🔍 Field Analysis:');
+        console.log('  - customerDetails:', bookingData?.customerDetails);
+        console.log('  - location:', bookingData?.location);
+        console.log('  - txnid:', bookingData?.txnid);
+        console.log('  - paymentDetails:', bookingData?.paymentDetails);
+        console.log('  - scheduledDate:', bookingData?.scheduledDate);
+        console.log('  - scheduledTime:', bookingData?.scheduledTime);
+        console.log('  - serviceName:', bookingData?.serviceName);
+        console.log('  - totalAmount:', bookingData?.totalAmount);
+        
+        // Generate invoice from actual booking data only
+        const invoice = generateInvoiceFromBooking(bookingData);
         setInvoiceData(invoice);
       } catch (err) {
-        setError('Failed to load booking data');
+        setError('Failed to load booking data. Please check the booking ID and try again.');
         console.error('Error fetching booking:', err);
       } finally {
         setLoading(false);
@@ -96,60 +108,12 @@ const InvoiceViewer = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
-        {/* Layout Toggle - Hidden during print */}
-        <div className="mb-4 print:hidden text-center">
-          <div className="inline-flex rounded-lg border border-gray-200 p-1">
-            <button
-              onClick={() => setLayoutType('single')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                layoutType === 'single' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              Single Page
-            </button>
-            <button
-              onClick={() => setLayoutType('compact')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                layoutType === 'compact' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              Compact
-            </button>
-            <button
-              onClick={() => setLayoutType('standard')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                layoutType === 'standard' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              Standard
-            </button>
-          </div>
-        </div>
-
-        {layoutType === 'single' ? (
-          <SinglePageInvoice 
-            invoiceData={invoiceData} 
-            onPrint={handlePrint}
-          />
-        ) : layoutType === 'compact' ? (
-          <CompactInvoice 
-            invoiceData={invoiceData} 
-            onPrint={handlePrint}
-          />
-        ) : (
-          <Invoice 
-            invoiceData={invoiceData} 
-            onPrint={handlePrint}
-          />
-        )}
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-8">
+      <div className="container mx-auto px-4 flex justify-center">
+        <ProfessionalInvoice 
+          invoiceData={invoiceData} 
+          onPrint={handlePrint}
+        />
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ const SinglePageInvoice = ({ invoiceData, onPrint }) => {
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-800 leading-tight">Nexo</h1>
-              <p className="text-xs text-gray-600 leading-tight">Professional Home Services</p>
+              <p className="text-xs text-gray-600 leading-tight">ParNets Software India PVT LTD</p>
             </div>
           </div>
           
@@ -60,14 +60,14 @@ const SinglePageInvoice = ({ invoiceData, onPrint }) => {
         <div className="mb-2 text-xs text-gray-600 border-b pb-1">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <span className="font-medium">{companyDetails?.name || 'Professional Home Services Pvt Ltd'}</span>
+              <span className="font-medium">{companyDetails?.name || 'ParNets Software India PVT LTD'}</span>
               <br />
-              <span>CIN: {companyDetails?.cin || 'U74999KA2023PTC123456'} | GSTIN: {companyDetails?.gstin || '29ABCDE1234F1Z5'}</span>
+              <span>GSTIN: {companyDetails?.gstin || '29AANCP7155K1ZN'}</span>
             </div>
             <div className="text-right">
-              <span>{companyDetails?.address || '#123, Tech Park, Whitefield, Bengaluru - 560066'}</span>
+              <span>{companyDetails?.address || 'GROUND FLOOR, 104/1, Singapura Main Road, Grace Mens Wear, Singapura, Bengaluru, Bengaluru Urban, Karnataka, 560097'}</span>
               <br />
-              <span>Ph: {companyDetails?.phone || '+91-80-4567-8900'} | {companyDetails?.email || 'support@nexo.works'}</span>
+              <span>Ph: {companyDetails?.phone || '+91-9740016068'} | {companyDetails?.email || 'support@nexo.works'}</span>
             </div>
           </div>
         </div>
@@ -138,7 +138,7 @@ const SinglePageInvoice = ({ invoiceData, onPrint }) => {
         <div className="text-center border-t pt-1">
           <h3 className="font-semibold text-xs mb-1">Thank You for Choosing Our Services!</h3>
           <div className="text-xs text-gray-600">
-            <p>For queries: <span className="text-blue-600">{companyDetails?.email || 'support@nexo.works'}</span> | <span className="text-blue-600">{companyDetails?.phone || '+91-80-4567-8900'}</span></p>
+            <p>For queries: <span className="text-blue-600">{companyDetails?.email || 'support@nexo.works'}</span> | <span className="text-blue-600">{companyDetails?.phone || '+91-9740016068'}</span></p>
             <p className="text-xs text-gray-500 mt-0.5">Computer-generated invoice. No signature required. Subject to Bengaluru jurisdiction.</p>
           </div>
         </div>

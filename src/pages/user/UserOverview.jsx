@@ -224,50 +224,7 @@ const UserOverview = () => {
         </div>
       )}
 
-      {/* Welcome Section */}
-      <div className="relative bg-gradient-to-br from-primary via-primary-dark to-[#152d47] rounded-3xl p-8 md:p-12 text-white overflow-hidden shadow-2xl animate-fade-in">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -mr-48 -mt-48 animate-pulse-slow"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full -ml-32 -mb-32"></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzR2LTRoLTJ2NGgtNHYyaDR2NGgydi00aDR2LTJoLTR6bTAtMzBWMGgtMnY0aC00djJoNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20"></div>
-        <div className="relative z-10">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="flex items-center gap-4 md:gap-6 animate-slide-in-left">
-              {/* User Profile Image */}
-              <div className="relative group">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center transform hover:scale-110 hover:rotate-6 transition-all duration-300 overflow-hidden ring-4 ring-white/30 shadow-2xl">
-                  {user?.profilePicture ? (
-                    <img 
-                      src={user.profilePicture} 
-                      alt={user.name || 'User'} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center">
-                      <FiUser className="text-white" size={32} />
-                    </div>
-                  )}
-                </div>
-                {/* Online indicator */}
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-4 border-primary-dark animate-pulse"></div>
-              </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                  Welcome Back, {user?.name?.split(' ')[0] || 'User'}! 👋
-                </h1>
-                <p className="text-blue-100 text-lg">Manage your bookings and services with ease</p>
-              </div>
-            </div>
-            <div className="flex gap-3 animate-slide-in-right">
-              <button
-                onClick={() => navigate('/')}
-                className="px-6 py-3 bg-white text-primary rounded-xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold"
-              >
-                Book Now
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+   
 
       {/* Promotional Banner - Fast Service (Compact) */}
       <div className="relative bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 rounded-2xl p-4 md:p-6 text-white overflow-hidden shadow-xl animate-fade-in" style={{ animationDelay: '200ms' }}>

@@ -146,7 +146,7 @@ const SparePartsTab = () => {
                 {part.image ? (
                   <>
                     <img
-                      src={part.image.startsWith('http') ? part.image : (part.image.startsWith('/') ? `${import.meta.env.VITE_API_BASE_URL || 'https://nexo.works'}${part.image}` : part.image)}
+                      src={part.image.startsWith('http') ? part.image : (part.image.startsWith('/') ? `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:9088'}${part.image}` : part.image)}
                       alt={part.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {

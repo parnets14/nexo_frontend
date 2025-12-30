@@ -38,6 +38,7 @@
 
   /* Custom Scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
+    height: 6px;
     width: 6px;
   }
 
@@ -53,6 +54,18 @@
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #2d5a8a;
+  }
+
+  /* Hide scrollbar for horizontal scroll on mobile */
+  @media (max-width: 640px) {
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
   }
 }
 

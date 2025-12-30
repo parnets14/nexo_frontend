@@ -37,14 +37,13 @@ const Invoice = ({ invoiceData, onPrint }) => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Nexo</h1>
-                <p className="text-sm text-gray-600">Professional Home Services</p>
+                <p className="text-sm text-gray-600">ParNets Software India PVT LTD</p>
               </div>
             </div>
             
             <div className="text-sm text-gray-600 space-y-0.5">
-              <p>{companyDetails?.name || 'Professional Home Services Private Limited'}</p>
-              <p>CIN: {companyDetails?.cin || 'U74999KA2023PTC123456'}</p>
-              <p>GSTIN: {companyDetails?.gstin || '29ABCDE1234F1Z5'}</p>
+              <p>{companyDetails?.name || 'ParNets Software India PVT LTD'}</p>
+              <p>GSTIN: {companyDetails?.gstin || '29AANCP7155K1ZN'}</p>
             </div>
           </div>
           
@@ -67,11 +66,11 @@ const Invoice = ({ invoiceData, onPrint }) => {
         {/* Company Details */}
         <div className="mb-6 text-sm text-gray-600">
           <p className="font-semibold mb-1">Registered Office:</p>
-          <p>{companyDetails?.address || '#123, Tech Park, Whitefield'}</p>
-          <p>{companyDetails?.city || 'Bengaluru, Karnataka - 560066'}</p>
+          <p>{companyDetails?.address || 'GROUND FLOOR, 104/1, Singapura Main Road, Grace Mens Wear, Singapura'}</p>
+          <p>{companyDetails?.city || 'Bengaluru, Bengaluru Urban, Karnataka, 560097'}</p>
           <div className="mt-2 space-y-0.5">
-            <p>Contact: {companyDetails?.phone || '+91-80-4567-8900'}</p>
-            <p>Email: {companyDetails?.email || 'support@company.works'}</p>
+            <p>Contact: {companyDetails?.phone || '+91-9740016068'}</p>
+            <p>Email: {companyDetails?.email || 'support@nexo.works'}</p>
             <p>Website: {companyDetails?.website || 'www.nexo.works'}</p>
           </div>
         </div>
@@ -189,8 +188,8 @@ const Invoice = ({ invoiceData, onPrint }) => {
           <div className="text-sm text-gray-600 space-y-1.5">
             <p>
               For any queries regarding this invoice, please contact us at{' '}
-              <span className="text-blue-600">{companyDetails?.email || 'support@company.works'}</span>{' '}
-              or call <span className="text-blue-600">{companyDetails?.phone || '+91-80-4567-8900'}</span>
+              <span className="text-blue-600">{companyDetails?.email || 'support@nexo.works'}</span>{' '}
+              or call <span className="text-blue-600">{companyDetails?.phone || '+91-9740016068'}</span>
             </p>
             <p>
               Visit our website at{' '}

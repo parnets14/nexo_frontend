@@ -25,6 +25,9 @@ export const useAdminData = (fetcher, deps = []) => {
   const mountedRef = useRef(true)
   const cacheKeyRef = useRef(null)
 
+  // Check if we should skip loading
+  const shouldSkip = deps.includes('skip')
+
   // Update fetcher ref when it changes
   useEffect(() => {
     fetcherRef.current = fetcher
@@ -38,13 +41,13 @@ export const useAdminData = (fetcher, deps = []) => {
   }, [deps])
   
   cacheKeyRef.current = useMemo(() => {
-    if (!token) return null
+    if (!token || shouldSkip) return null
     // Include deps in cache key to ensure different filter combinations get different cache entries
     return getCacheKey(fetcher, token, deps)
-  }, [fetcher, token, depsString])
+  }, [fetcher, token, depsString, shouldSkip])
 
   const load = useCallback(async () => {
-    if (!token || !cacheKeyRef.current) {
+    if (!token || !cacheKeyRef.current || shouldSkip) {
       setIsLoading(false)
       return
     }
@@ -124,18 +127,23 @@ export const useAdminData = (fetcher, deps = []) => {
 
     // Wait for the request to complete
     await requestPromise
-  }, [token])
+  }, [token, shouldSkip])
 
   // Only run effect when token changes or deps change, not when fetcher changes
   useEffect(() => {
     mountedRef.current = true
-    load()
+    if (!shouldSkip) {
+      load()
+    } else {
+      // If skipping, set loading to false immediately
+      setIsLoading(false)
+    }
     
     return () => {
       mountedRef.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, ...deps])
+  }, [token, shouldSkip, ...deps])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -146,7 +154,7 @@ export const useAdminData = (fetcher, deps = []) => {
 
   // Manual refresh function that bypasses cache
   const refresh = useCallback(async () => {
-    if (!token || !cacheKeyRef.current) return
+    if (!token || !cacheKeyRef.current || shouldSkip) return
     
     const cacheKey = cacheKeyRef.current
     
@@ -156,7 +164,7 @@ export const useAdminData = (fetcher, deps = []) => {
     
     // Reload
     await load()
-  }, [token, load])
+  }, [token, load, shouldSkip])
 
   return { data, isLoading, error, refresh }
 }

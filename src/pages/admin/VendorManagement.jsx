@@ -347,6 +347,31 @@ const VendorManagement = () => {
       ) : error ? (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
           <p className="text-rose-500">{error}</p>
+          <button 
+            onClick={fetchVendors}
+            className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition"
+          >
+            Retry
+          </button>
+        </div>
+      ) : vendors.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-12 text-center">
+          <FiUsers className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-slate-700 mb-2">No Vendors Found</h3>
+          <p className="text-slate-500 mb-6">
+            {searchTerm || statusFilter !== 'all' 
+              ? 'No vendors match your current filters. Try adjusting your search or filters.'
+              : 'Get started by creating your first vendor account.'
+            }
+          </p>
+          {!searchTerm && statusFilter === 'all' && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2 mx-auto"
+            >
+              <FiPlus /> Create First Vendor
+            </button>
+          )}
         </div>
       ) : (
         <>

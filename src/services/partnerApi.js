@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const buildUrl = (path) => {
   if (path.startsWith('/api/')) {
@@ -640,10 +640,19 @@ export const partnerApi = {
   },
 
   async getQuotationsByBooking(token, bookingId) {
-    const response = await fetch(buildUrl(`/bookings/${bookingId}/quotations`), {
-      headers: getDefaultHeaders(token)
-    })
-    return handleResponse(response)
+    try {
+      const response = await fetch(buildUrl(`/bookings/${bookingId}/quotations`), {
+        headers: getDefaultHeaders(token),
+        timeout: 10000 // 10 second timeout
+      })
+      return handleResponse(response)
+    } catch (error) {
+      // If it's a network error, try to provide more context
+      if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+        throw new Error(`Network error fetching quotations for booking ${bookingId}. Please check your connection.`)
+      }
+      throw error
+    }
   },
 
   async getPartnerQuotations(token) {
@@ -655,6 +664,47 @@ export const partnerApi = {
 
   async getQuotationById(token, quotationId) {
     const response = await fetch(buildUrl(`/quotations/${quotationId}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Job Items Management
+  async getJobItems(token, jobId) {
+    const response = await fetch(buildUrl(`/jobs/${jobId}/items`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async addJobItem(token, jobItemData) {
+    const response = await fetch(buildUrl('/jobs/items'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(jobItemData)
+    })
+    return handleResponse(response)
+  },
+
+  async updateJobItem(token, jobItemId, updateData) {
+    const response = await fetch(buildUrl(`/jobs/items/${jobItemId}`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(updateData)
+    })
+    return handleResponse(response)
+  },
+
+  async deleteJobItem(token, jobItemId) {
+    const response = await fetch(buildUrl(`/jobs/items/${jobItemId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getJobItemsSummary(token, jobId) {
+    const response = await fetch(buildUrl(`/jobs/${jobId}/items/summary`), {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { usePartnerAuth } from '../../../context/PartnerAuthContext.jsx'
 import { partnerApi } from '../../../services/partnerApi.js'
-import { FiBriefcase, FiClock, FiCheckCircle, FiXCircle, FiRefreshCw, FiFilter, FiUser, FiUserPlus, FiFileText, FiDownload, FiPause, FiDollarSign, FiEye, FiPlay } from 'react-icons/fi'
+import { FiBriefcase, FiClock, FiCheckCircle, FiXCircle, FiRefreshCw, FiFilter, FiUser, FiFileText, FiDownload, FiPause, FiDollarSign, FiEye, FiPlay } from 'react-icons/fi'
 import Invoice from '../../../components/Invoice.jsx'
 import CompleteJobModal from '../../../components/CompleteJobModal.jsx'
 import PauseJobModal from '../../../components/PauseJobModal.jsx'
@@ -10,7 +10,7 @@ import QuotationDetailsModal from '../../../components/QuotationDetailsModal.jsx
 import { exportToExcel } from '../../../utils/excelExport.js'
 
 const JobsManagementTab = () => {
-  const { token, partner } = usePartnerAuth()
+  const { token } = usePartnerAuth()
   const [bookings, setBookings] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -23,6 +23,21 @@ const JobsManagementTab = () => {
   const [sendQuotationModal, setSendQuotationModal] = useState(null) // Booking for send quotation modal
   const [selectedQuotation, setSelectedQuotation] = useState(null) // Selected quotation for details
   const [quotations, setQuotations] = useState({}) // Store quotations by bookingId
+  const [quotationsLoading, setQuotationsLoading] = useState(false) // Loading state for quotations
+
+  // Helper function to retry failed requests
+  const retryWithDelay = async (fn, retries = 2, delay = 1000) => {
+    try {
+      return await fn()
+    } catch (error) {
+      if (retries > 0 && (error.message.includes('Network error') || error.message.includes('Failed to fetch'))) {
+        console.log(`Retrying request in ${delay}ms... (${retries} retries left)`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        return retryWithDelay(fn, retries - 1, delay * 2)
+      }
+      throw error
+    }
+  }
 
   useEffect(() => {
     fetchBookings()
@@ -30,23 +45,71 @@ const JobsManagementTab = () => {
   }, [token])
 
   useEffect(() => {
-    // Fetch quotations for all bookings
-    if (bookings.length > 0 && token) {
-      bookings.forEach(async (booking) => {
+    // Fetch quotations for all bookings with better error handling
+    const fetchQuotationsForBookings = async () => {
+      if (bookings.length > 0 && token) {
+        setQuotationsLoading(true)
+        
+        const quotationPromises = bookings.map(async (booking) => {
+          try {
+            const bookingId = booking._id || booking.bookingId
+            if (!bookingId) {
+              console.warn('Booking missing ID:', booking)
+              return null
+            }
+
+            const response = await retryWithDelay(() => 
+              partnerApi.getQuotationsByBooking(token, bookingId)
+            )
+            
+            if (response && response.success && response.data) {
+              return { bookingId, quotations: response.data }
+            }
+            return null
+          } catch (err) {
+            // Log specific booking that failed but don't stop others
+            console.error(`Failed to fetch quotations for booking ${booking._id || booking.bookingId} after retries:`, err.message)
+            return null
+          }
+        })
+
         try {
-          const response = await partnerApi.getQuotationsByBooking(token, booking._id || booking.bookingId)
-          if (response.success && response.data) {
-            setQuotations(prev => ({
-              ...prev,
-              [booking._id || booking.bookingId]: response.data
-            }))
+          const results = await Promise.allSettled(quotationPromises)
+          const newQuotations = {}
+          
+          results.forEach((result) => {
+            if (result.status === 'fulfilled' && result.value) {
+              const { bookingId, quotations } = result.value
+              newQuotations[bookingId] = quotations
+            }
+          })
+
+          if (Object.keys(newQuotations).length > 0) {
+            setQuotations(prev => ({ ...prev, ...newQuotations }))
           }
         } catch (err) {
-          console.error('Failed to fetch quotations:', err)
+          console.error('Error processing quotation results:', err)
+        } finally {
+          setQuotationsLoading(false)
         }
-      })
+      }
     }
+
+    fetchQuotationsForBookings()
   }, [bookings, token])
+
+  const refreshAll = async () => {
+    setLoading(true)
+    setQuotationsLoading(true)
+    try {
+      await fetchBookings()
+      await fetchTeamMembers()
+      // Quotations will be fetched automatically when bookings update
+    } catch (err) {
+      console.error('Error refreshing data:', err)
+      setError('Failed to refresh data. Please try again.')
+    }
+  }
 
   const fetchTeamMembers = async () => {
     if (!token) return
@@ -251,10 +314,11 @@ const JobsManagementTab = () => {
           <p className="text-sm sm:text-base text-slate-600">Manage all your service bookings and jobs</p>
         </div>
         <button
-          onClick={fetchBookings}
-          className="p-2.5 sm:p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200 self-start sm:self-auto"
+          onClick={refreshAll}
+          disabled={loading || quotationsLoading}
+          className="p-2.5 sm:p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200 self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <FiRefreshCw className="text-lg sm:text-xl text-slate-600" />
+          <FiRefreshCw className={`text-lg sm:text-xl text-slate-600 ${(loading || quotationsLoading) ? 'animate-spin' : ''}`} />
         </button>
       </div>
 

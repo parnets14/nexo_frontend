@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { FiX, FiPlus, FiTrash2, FiDollarSign, FiCalendar } from 'react-icons/fi'
+import React, { useState, useEffect } from 'react'
+import { FiX, FiPlus, FiTrash2, FiCalendar, FiPackage, FiSearch, FiShoppingCart, FiMinus } from 'react-icons/fi'
 
 const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
   const [items, setItems] = useState([{ name: '', description: '', quantity: 1, unitPrice: 0, total: 0 }])
@@ -13,6 +13,24 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  // Material selection state
+  const [showMaterialSelector, setShowMaterialSelector] = useState(false)
+  const [materialCategories, setMaterialCategories] = useState([])
+  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [availableItems, setAvailableItems] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [loadingMaterials, setLoadingMaterials] = useState(false)
+
+  useEffect(() => {
+    fetchMaterialCategories()
+  }, [])
+
+  useEffect(() => {
+    if (selectedCategory !== 'all') {
+      fetchCategoryItems(selectedCategory)
+    }
+  }, [selectedCategory])
+
   // Calculate totals when items change
   React.useEffect(() => {
     const calculatedSubtotal = items.reduce((sum, item) => {
@@ -25,8 +43,104 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
     setTotalAmount(calculatedTotal)
   }, [items, tax, discount])
 
+  const fetchMaterialCategories = async () => {
+    try {
+      const response = await fetch('/api/public/material-categories')
+      const data = await response.json()
+      if (data.success) {
+        setMaterialCategories(data.data || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch material categories:', err)
+    }
+  }
+
+  const fetchCategoryItems = async (categoryId) => {
+    if (!categoryId || categoryId === 'all') {
+      setAvailableItems([])
+      return
+    }
+    
+    setLoadingMaterials(true)
+    try {
+      // Find the selected category from the already fetched categories
+      const selectedCategory = materialCategories.find(cat => cat._id === categoryId)
+      if (selectedCategory && selectedCategory.items) {
+        // Transform the items to match the expected format
+        const transformedItems = selectedCategory.items.map((item, index) => ({
+          _id: `${categoryId}-${index}`, // Create a unique ID
+          name: typeof item === 'string' ? item : item.name,
+          description: typeof item === 'object' ? item.description || '' : '',
+          sellingPrice: typeof item === 'object' ? item.priceMax || item.priceMin || 0 : 0,
+          priceMin: typeof item === 'object' ? item.priceMin || 0 : 0,
+          priceMax: typeof item === 'object' ? item.priceMax || 0 : 0,
+          category: selectedCategory.name
+        }))
+        setAvailableItems(transformedItems)
+      } else {
+        setAvailableItems([])
+      }
+    } catch (err) {
+      console.error('Failed to fetch category items:', err)
+      setAvailableItems([])
+    } finally {
+      setLoadingMaterials(false)
+    }
+  }
+
   const addItem = () => {
     setItems([...items, { name: '', description: '', quantity: 1, unitPrice: 0, total: 0 }])
+  }
+
+  const addMaterialItem = (material) => {
+    // Check if item already exists in the quotation
+    const existingItemIndex = items.findIndex(item => 
+      item.materialId === material._id || 
+      (item.name === material.name && item.category === material.category)
+    )
+    
+    if (existingItemIndex !== -1) {
+      // If item exists, increase quantity
+      const updatedItems = [...items]
+      updatedItems[existingItemIndex].quantity += 1
+      updatedItems[existingItemIndex].total = updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].unitPrice
+      setItems(updatedItems)
+    } else {
+      // If item doesn't exist, add new item
+      const newItem = {
+        name: material.name,
+        description: material.description || '',
+        quantity: 1,
+        unitPrice: material.sellingPrice || material.priceMax || material.priceMin || 0,
+        total: material.sellingPrice || material.priceMax || material.priceMin || 0,
+        materialId: material._id,
+        category: material.category
+      }
+      setItems([...items, newItem])
+    }
+  }
+
+  const updateMaterialItemQuantity = (material, change) => {
+    const existingItemIndex = items.findIndex(item => 
+      item.materialId === material._id || 
+      (item.name === material.name && item.category === material.category)
+    )
+    
+    if (existingItemIndex !== -1) {
+      const updatedItems = [...items]
+      const newQuantity = Math.max(1, updatedItems[existingItemIndex].quantity + change)
+      updatedItems[existingItemIndex].quantity = newQuantity
+      updatedItems[existingItemIndex].total = newQuantity * updatedItems[existingItemIndex].unitPrice
+      setItems(updatedItems)
+    }
+  }
+
+  const getItemQuantityInQuotation = (material) => {
+    const existingItem = items.find(item => 
+      item.materialId === material._id || 
+      (item.name === material.name && item.category === material.category)
+    )
+    return existingItem ? existingItem.quantity : 0
   }
 
   const removeItem = (index) => {
@@ -81,7 +195,9 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
           description: item.description || '',
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          total: item.total
+          total: item.total,
+          materialId: item.materialId || null,
+          category: item.category || ''
         })),
         subtotal,
         tax,
@@ -106,9 +222,14 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
     return tomorrow.toISOString().split('T')[0]
   }
 
+  const filteredAvailableItems = availableItems.filter(item =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
           <h2 className="text-xl font-bold text-slate-900">Send Extra Quotation</h2>
           <button
@@ -143,19 +264,40 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
               <label className="block text-sm font-semibold text-slate-700">
                 Items <span className="text-red-500">*</span>
               </label>
-              <button
-                type="button"
-                onClick={addItem}
-                className="px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition inline-flex items-center gap-2"
-              >
-                <FiPlus className="w-4 h-4" /> Add Item
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowMaterialSelector(true)}
+                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition inline-flex items-center gap-2"
+                >
+                  <FiPackage className="w-4 h-4" /> Add from Materials
+                </button>
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition inline-flex items-center gap-2"
+                >
+                  <FiPlus className="w-4 h-4" /> Add Manual Item
+                </button>
+              </div>
             </div>
             <div className="space-y-3">
               {items.map((item, index) => (
                 <div key={index} className="border border-slate-200 rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-slate-700">Item {index + 1}</h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-semibold text-slate-700">Item {index + 1}</h4>
+                      {item.materialId && (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                          Material
+                        </span>
+                      )}
+                      {item.category && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          {item.category}
+                        </span>
+                      )}
+                    </div>
                     {items.length > 1 && (
                       <button
                         type="button"
@@ -339,6 +481,132 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
           </div>
         </form>
       </div>
+
+      {/* Material Selector Modal */}
+      {showMaterialSelector && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-900">Select Material Items</h3>
+              <button
+                onClick={() => setShowMaterialSelector(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <FiX className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {/* Category Filter */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Material Category</label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Categories</option>
+                  {materialCategories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.icon} {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search items..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Items List */}
+              <div className="max-h-96 overflow-y-auto space-y-2">
+                {loadingMaterials ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : filteredAvailableItems.length > 0 ? (
+                  filteredAvailableItems.map((item) => {
+                    const quantityInQuotation = getItemQuantityInQuotation(item)
+                    
+                    return (
+                      <div
+                        key={item._id}
+                        className={`flex items-center justify-between p-3 border rounded-lg transition-all ${
+                          quantityInQuotation > 0 
+                            ? 'border-green-300 bg-green-50 hover:bg-green-100' 
+                            : 'border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-slate-900">{item.name}</h4>
+                            {quantityInQuotation > 0 && (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                                Added
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-slate-600">
+                            <span>₹{item.sellingPrice || item.priceMax || item.priceMin || 0}</span>
+                          </div>
+                          {item.description && (
+                            <p className="text-xs text-slate-500 mt-1">{item.description}</p>
+                          )}
+                        </div>
+                        
+                        {quantityInQuotation > 0 ? (
+                          // Show quantity controls if item is already added
+                          <div className="flex items-center gap-2 ml-3">
+                            <button
+                              onClick={() => updateMaterialItemQuantity(item, -1)}
+                              className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                            >
+                              <FiMinus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center font-semibold text-slate-700">
+                              {quantityInQuotation}
+                            </span>
+                            <button
+                              onClick={() => updateMaterialItemQuantity(item, 1)}
+                              className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                            >
+                              <FiPlus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          // Show add button if item is not added yet
+                          <button
+                            onClick={() => addMaterialItem(item)}
+                            className="ml-3 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            <FiShoppingCart className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    <FiPackage className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No items found</p>
+                    {selectedCategory !== 'all' && (
+                      <p className="text-sm">Try selecting a different category</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

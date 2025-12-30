@@ -38,6 +38,44 @@ import { useUserAuth } from '../context/UserAuthContext'
 
 import '../styles/modal-layers.css'
 
+// Custom scrollbar styles
+const customScrollbarStyles = `
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  @media (max-width: 640px) {
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+  }
+`
+
 // Icon mapping utility
 const iconMap = {
   FaSnowflake,
@@ -61,7 +99,7 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const ServiceDetail = () => {
   const { serviceName } = useParams()
@@ -686,6 +724,7 @@ const ServiceDetail = () => {
 
   return (
     <>
+      <style>{customScrollbarStyles}</style>
       <SEO
         title={`${currentService.name} | Nexo`}
         description={`${currentService.description} ${currentService.trusted}. Book ${currentService.name} on WhatsApp with verified technicians.`}
@@ -878,6 +917,25 @@ const ServiceDetail = () => {
                   </motion.button>
                 )}
               </div>
+
+              {/* Mobile Quick Add Service Button */}
+              {currentService.subServices && currentService.subServices.length > 0 && (
+                <div className="mt-4 sm:hidden">
+                  <motion.button
+                    onClick={() => {
+                      if (currentService.subServices[0]) {
+                        handleAddSubService(currentService.subServices[0]._id)
+                      }
+                    }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                  >
+                    <FaPlus className="text-sm" />
+                    <span>Quick Add Main Service</span>
+                  </motion.button>
+                </div>
+              )}
             </motion.div>
           </div>
 
@@ -888,9 +946,9 @@ const ServiceDetail = () => {
         {/* Main Content Layout: Service Info | Add-ons | Cart */}
         <section className="pt-6 pb-5 sm:pt-8 sm:pb-8 lg:pb-12 bg-gradient-to-b from-gray-50 via-white to-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
+            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
               {/* First Column: Service Description & Add-On Services */}
-              <div className="lg:col-span-8 space-y-4 sm:space-y-6">
+              <div className="lg:col-span-8 space-y-4 sm:space-y-6 order-1">
                 {/* Service Description Card */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -1035,7 +1093,7 @@ const ServiceDetail = () => {
                                       e.stopPropagation()
                                       handleAddAddOn(index)
                                     }}
-                                    className="flex-1 bg-gradient-to-r from-primary to-primary-dark text-white px-4 sm:px-5 py-2.5 sm:py-3.5 rounded-lg sm:rounded-xl font-bold hover:from-primary-dark hover:to-primary transition-all text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] sm:min-h-[48px] shadow-md hover:shadow-lg"
+                                    className="flex-1 bg-gradient-to-r from-primary to-primary-dark text-white px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold hover:from-primary-dark hover:to-primary transition-all text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] sm:min-h-[48px] shadow-md hover:shadow-lg"
                                     aria-label={`Add ${addon.name} to cart`}
                                   >
                                     <FaPlus className="text-xs sm:text-sm" />
@@ -1043,7 +1101,7 @@ const ServiceDetail = () => {
                                   </button>
                                 </div>
                               ) : (
-                                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 justify-center sm:justify-start" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation()
@@ -1103,7 +1161,7 @@ const ServiceDetail = () => {
               </div>
 
               {/* Second Column: Cart with Price Breakdown */}
-              <div className="lg:col-span-4">
+              <div className="lg:col-span-4 order-2">
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   whileInView={{ opacity: 1, x: 0 }}
@@ -1159,7 +1217,9 @@ const ServiceDetail = () => {
                     </div>
                   ) : (
                     <>
-                      <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                      {/* Comprehensive Cart Items Display */}
+                      <div className="space-y-3 mb-6 max-h-[300px] sm:max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+
                         {/* Subservices in Cart */}
                         {currentService.subServices && currentService.subServices
                           .filter(sub => selectedSubServices[sub._id] > 0)
@@ -1248,10 +1308,12 @@ const ServiceDetail = () => {
 
                         {/* Add-On Sub-Services in Cart */}
                         {currentService.addOns && currentService.addOns.map((addon, addonIndex) => {
-                          const subServicesInCart = addon.subServices?.filter((_, subServiceIndex) => {
+                          if (!addon.subServices || addon.subServices.length === 0) return null
+                          
+                          const subServicesInCart = addon.subServices.filter((_, subServiceIndex) => {
                             const key = `${addonIndex}-${subServiceIndex}`
                             return selectedAddOnSubServices[key] > 0
-                          }) || []
+                          })
 
                           if (subServicesInCart.length === 0) return null
 
@@ -1260,7 +1322,7 @@ const ServiceDetail = () => {
                               <div className="text-xs font-semibold text-primary/70 uppercase tracking-wide mb-1 px-2">
                                 {addon.name} - Sub Services
                               </div>
-                              {subServicesInCart.map((subService, subServiceIndex) => {
+                              {addon.subServices.map((subService, subServiceIndex) => {
                                 const key = `${addonIndex}-${subServiceIndex}`
                                 const quantity = selectedAddOnSubServices[key] || 0
                                 if (quantity === 0) return null
@@ -1768,31 +1830,31 @@ const ServiceDetail = () => {
           </div>
         </section>
 
-        {/* Sub-Services Horizontal Slider Section */}
+        {/* Sub-Services Horizontal Slider Section - Mobile First */}
         {currentService.subServices && currentService.subServices.length > 0 && (
-          <section className="py-8 sm:py-12 bg-gradient-to-b from-gray-50 to-white">
+          <section className="py-6 sm:py-8 lg:py-12 bg-gradient-to-b from-gray-50 to-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
-                className="mb-6"
+                className="mb-4 sm:mb-6"
               >
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl flex items-center justify-center">
-                    <FaAward className="w-5 h-5 text-primary" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl flex items-center justify-center">
+                    <FaAward className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   </div>
                   <div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Available Service Packages</h2>
-                    <p className="text-sm text-gray-600">Choose from our curated service packages</p>
+                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Available Service Packages</h2>
+                    <p className="text-xs sm:text-sm text-gray-600">Choose from our curated service packages</p>
                   </div>
                 </div>
               </motion.div>
 
               {/* Horizontal Scrollable Cards */}
-              <div className="relative">
-                <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div className="relative overflow-hidden">
+                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide custom-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   {currentService.subServices.map((subService, index) => {
                     const quantity = selectedSubServices[subService._id] || 0
                     const isSelected = quantity > 0
@@ -1822,7 +1884,7 @@ const ServiceDetail = () => {
                           delay: index * 0.15,
                           ease: "easeOut"
                         }}
-                        className="flex-shrink-0 w-80 sm:w-96 snap-start"
+                        className="flex-shrink-0 w-72 sm:w-80 md:w-96 lg:w-[400px] snap-start"
                       >
                         <div className={`bg-white rounded-2xl border-2 ${isSelected ? 'border-primary shadow-xl' : 'border-gray-200 hover:border-primary/50'
                           } shadow-lg hover:shadow-xl transition-all h-full flex flex-col`}>
@@ -1960,7 +2022,7 @@ const ServiceDetail = () => {
           (currentService.excluded && currentService.excluded.length > 0)) && (
             <section className="py-12 sm:py-16 bg-white">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                   {/* What's Included */}
                   {currentService.included && currentService.included.length > 0 && (
                     <motion.div
@@ -2051,9 +2113,9 @@ const ServiceDetail = () => {
         {currentService.subServices && currentService.subServices.length > 0 && (
           <section data-packages-section className="py-8 sm:py-12 bg-gradient-to-b from-white via-gray-50/30 to-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="grid lg:grid-cols-12 gap-6">
+              <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6">
                 {/* Packages Column */}
-                <div className="lg:col-span-8">
+                <div className="lg:col-span-8 order-1">
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -2111,7 +2173,7 @@ const ServiceDetail = () => {
 
                             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 sm:p-5">
                               {/* Package Details - Left Side */}
-                              <div className="flex-1 min-w-0 order-1">
+                              <div className="flex-1 min-w-0 order-2 sm:order-1">
                                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">{subService.name}</h3>
 
                                 {subService.description && (
@@ -2166,7 +2228,7 @@ const ServiceDetail = () => {
 
                               {/* Package Image - Right Side */}
                               {iconUrl && (
-                                <div className="flex-shrink-0 w-full sm:w-40 h-32 sm:h-40 lg:h-48 order-2 sm:order-2">
+                                <div className="flex-shrink-0 w-full sm:w-32 md:w-40 h-32 sm:h-32 md:h-40 lg:h-48 order-1 sm:order-2">
                                   <img
                                     src={iconUrl}
                                     alt={subService.name}
@@ -2179,16 +2241,16 @@ const ServiceDetail = () => {
                               )}
 
                               {/* Quantity Selector - Bottom on Mobile, Right on Desktop */}
-                              <div className="flex-shrink-0 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-2 order-3 sm:order-3">
+                              <div className="flex-shrink-0 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-2 order-3 sm:order-3 w-full sm:w-auto">
                                 {!isSelected ? (
                                   <button
                                     onClick={() => handleAddSubService(subService._id)}
-                                    className="flex-1 sm:flex-none bg-primary text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:bg-primary-dark transition-all text-xs sm:text-sm whitespace-nowrap"
+                                    className="w-full sm:w-auto bg-primary text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:bg-primary-dark transition-all text-xs sm:text-sm whitespace-nowrap min-h-[44px]"
                                   >
                                     Add to Cart
                                   </button>
                                 ) : (
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 justify-center sm:justify-start w-full sm:w-auto">
                                     <button
                                       onClick={() => handleRemoveSubService(subService._id)}
                                       className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-200 transition"
@@ -2214,7 +2276,7 @@ const ServiceDetail = () => {
                 </div>
 
                 {/* Sidebar: Quick Info & Nexo Promise */}
-                <div className="lg:col-span-4">
+                <div className="lg:col-span-4 order-2">
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     whileInView={{ opacity: 1, x: 0 }}
@@ -2312,7 +2374,7 @@ const ServiceDetail = () => {
                     </div>
                   )}
                 </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {currentService.reviews.slice(0, 6).map((review, index) => (
                     <motion.div
                       key={review._id || index}
@@ -2503,7 +2565,7 @@ const ServiceDetail = () => {
                     Discover more services we offer
                   </p>
                 </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {popularServices.map((popularService, index) => {
                     const PopularIcon = popularService.icon || FaTools
                     return (
@@ -2576,7 +2638,7 @@ const ServiceDetail = () => {
                 <h2 className="text-2xl sm:text-3xl font-bold mb-2">Why Book on WhatsApp</h2>
                 <p className="text-base text-white/90">Experience the easiest way to book services</p>
               </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -2667,7 +2729,7 @@ const ServiceDetail = () => {
           className="modal-overlay addon-modal" style={{ zIndex: 9100 }}
           onClick={() => setSelectedAddOnModal(null)}
         >
-          <div className="relative max-w-3xl w-full">
+          <div className="relative max-w-3xl w-full mx-4 sm:mx-6 lg:mx-8">
             {/* Close Button - Outside Modal, Near Top */}
             <button
               onClick={(e) => {
@@ -2686,10 +2748,10 @@ const ServiceDetail = () => {
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+              className="bg-white rounded-2xl shadow-2xl w-full max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col"
             >
               {/* Enhanced Modal Header with Icon, Name, Description, Add to Cart */}
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-20">
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5 z-20">
                 <div className="flex-1">
                   {/* Icon - Top Line */}
                   <div className="flex justify-center mb-3">
@@ -2740,7 +2802,7 @@ const ServiceDetail = () => {
               </div>
 
               {/* Simple Effective Modal Content */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-4 sm:space-y-6">
 
                 {/* Sub-Services */}
                 {selectedAddOnModal.addon.subServices && selectedAddOnModal.addon.subServices.length > 0 && (
@@ -2750,7 +2812,7 @@ const ServiceDetail = () => {
                       <h3 className="text-base font-semibold text-gray-900">Sub-Services</h3>
                       <span className="text-xs text-gray-500 ml-auto">({selectedAddOnModal.addon.subServices.length})</span>
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-3 max-h-[280px] overflow-y-auto custom-scrollbar">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[280px] overflow-y-auto custom-scrollbar">
                       {selectedAddOnModal.addon.subServices.map((subService, idx) => {
                         const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
                         const key = `${selectedAddOnModal.index}-${idx}`
@@ -2882,7 +2944,7 @@ const ServiceDetail = () => {
                 {/* Included and Excluded Items */}
                 {(selectedAddOnModal.addon.included && selectedAddOnModal.addon.included.length > 0) ||
                   (selectedAddOnModal.addon.excluded && selectedAddOnModal.addon.excluded.length > 0) ? (
-                  <div className="grid md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {/* Included Items */}
                     {selectedAddOnModal.addon.included && selectedAddOnModal.addon.included.length > 0 && (
                       <div className="bg-white rounded-lg p-3 border border-gray-200">
@@ -2947,10 +3009,10 @@ const ServiceDetail = () => {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 sm:mx-6 lg:mx-8 max-h-[90vh] overflow-hidden flex flex-col"
           >
             {/* Modal Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-primary via-primary-dark to-primary px-6 py-5 flex items-center justify-between z-20">
+            <div className="sticky top-0 bg-gradient-to-r from-primary via-primary-dark to-primary px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between z-20">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
                   <FaShoppingCart className="text-white text-xl" />
@@ -2969,7 +3031,7 @@ const ServiceDetail = () => {
             </div>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
               {getTotalItemCount() === 0 ? (
                 <div className="text-center py-16">
                   <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -3165,7 +3227,7 @@ const ServiceDetail = () => {
 
             {/* Modal Footer */}
             {getTotalItemCount() > 0 && (
-              <div className="border-t-2 border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6">
+              <div className="border-t-2 border-gray-200 bg-gradient-to-br from-gray-50 to-white p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-lg font-bold text-gray-900">Grand Total</span>
                   <div className="text-right">
@@ -3175,10 +3237,10 @@ const ServiceDetail = () => {
                     <p className="text-xs text-gray-500 mt-1">{getTotalItemCount()} items</p>
                   </div>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={() => setShowCartModal(false)}
-                    className="flex-1 px-6 py-3.5 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all"
+                    className="flex-1 px-6 py-3.5 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all order-2 sm:order-1"
                   >
                     Continue Shopping
                   </button>
@@ -3188,15 +3250,16 @@ const ServiceDetail = () => {
                         setShowCartModal(false)
                         handleBookNow()
                       }}
-                      className="flex-1 bg-gradient-to-r from-primary to-primary-dark text-white px-6 py-3.5 rounded-xl font-bold hover:shadow-xl transition-all flex items-center justify-center gap-2 shadow-lg"
+                      className="flex-1 bg-gradient-to-r from-primary to-primary-dark text-white px-6 py-3.5 rounded-xl font-bold hover:shadow-xl transition-all flex items-center justify-center gap-2 shadow-lg order-1 sm:order-2"
                     >
                       <FaShoppingCart className="w-5 h-5" />
                       <span>Book Now</span>
                     </button>
                   ) : (
-                    <div className="flex-1 bg-gray-400 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg cursor-not-allowed">
+                    <div className="flex-1 bg-gray-400 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg cursor-not-allowed order-1 sm:order-2">
                       <FaTimesCircle className="w-5 h-5" />
-                      <span>Not Available in {selectedCity?.name || 'Your City'}</span>
+                      <span className="hidden sm:inline">Not Available in {selectedCity?.name || 'Your City'}</span>
+                      <span className="sm:hidden">Not Available</span>
                     </div>
                   )}
                 </div>
@@ -3204,6 +3267,58 @@ const ServiceDetail = () => {
             )}
           </motion.div>
         </motion.div>
+      )}
+
+      {/* Mobile Cart Summary - Fixed at bottom */}
+      {getTotalItemCount() > 0 && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 shadow-2xl z-50">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <FaShoppingCart className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-gray-900">
+                  {getTotalItemCount()} items in cart
+                </span>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-primary">
+                  ₹{Math.round(calculateCartTotal()).toLocaleString('en-IN')}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCartModal(true)}
+                className="flex-1 bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition-all text-sm flex items-center justify-center gap-2"
+              >
+                <FaShoppingCart className="w-4 h-4" />
+                View Cart
+              </button>
+              {isServiceAvailableInCity() ? (
+                <button
+                  onClick={handleBookNow}
+                  className="flex-1 bg-gradient-to-r from-primary to-primary-dark text-white px-4 py-2.5 rounded-lg font-semibold hover:shadow-lg transition-all text-sm flex items-center justify-center gap-2"
+                >
+                  <FaCheckCircle className="w-4 h-4" />
+                  Book Now
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="flex-1 bg-gray-400 text-white px-4 py-2.5 rounded-lg font-semibold cursor-not-allowed text-sm flex items-center justify-center gap-2"
+                >
+                  <FaTimesCircle className="w-4 h-4" />
+                  Not Available
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add bottom padding when mobile cart is visible */}
+      {getTotalItemCount() > 0 && (
+        <div className="lg:hidden h-20"></div>
       )}
 
 

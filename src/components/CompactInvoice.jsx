@@ -36,7 +36,7 @@ const CompactInvoice = ({ invoiceData, onPrint }) => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-800">Nexo</h1>
-              <p className="text-xs text-gray-600">Professional Home Services</p>
+              <p className="text-xs text-gray-600">ParNets Software India PVT LTD</p>
             </div>
           </div>
           
@@ -59,13 +59,12 @@ const CompactInvoice = ({ invoiceData, onPrint }) => {
         {/* Company Info - Single Line */}
         <div className="mb-2 text-xs text-gray-600 border-b pb-1">
           <div className="flex flex-wrap gap-3">
-            <span>{companyDetails?.name || 'Professional Home Services Pvt Ltd'}</span>
-            <span>CIN: {companyDetails?.cin || 'U74999KA2023PTC123456'}</span>
-            <span>GSTIN: {companyDetails?.gstin || '29ABCDE1234F1Z5'}</span>
+            <span>{companyDetails?.name || 'ParNets Software India PVT LTD'}</span>
+            <span>GSTIN: {companyDetails?.gstin || '29AANCP7155K1ZN'}</span>
           </div>
           <div className="flex flex-wrap gap-3 mt-0.5">
-            <span>{companyDetails?.address || '#123, Tech Park, Whitefield, Bengaluru - 560066'}</span>
-            <span>Ph: {companyDetails?.phone || '+91-80-4567-8900'}</span>
+            <span>{companyDetails?.address || 'GROUND FLOOR, 104/1, Singapura Main Road, Grace Mens Wear, Singapura, Bengaluru, Bengaluru Urban, Karnataka, 560097'}</span>
+            <span>Ph: {companyDetails?.phone || '+91-9740016068'}</span>
             <span>{companyDetails?.email || 'support@nexo.works'}</span>
           </div>
         </div>
@@ -171,7 +170,7 @@ const CompactInvoice = ({ invoiceData, onPrint }) => {
           <div className="text-xs text-gray-600 space-y-0.5">
             <p>
               For queries: <span className="text-blue-600">{companyDetails?.email || 'support@nexo.works'}</span> | 
-              <span className="text-blue-600"> {companyDetails?.phone || '+91-80-4567-8900'}</span> | 
+              <span className="text-blue-600"> {companyDetails?.phone || '+91-9740016068'}</span> | 
               <span className="text-blue-600"> {companyDetails?.website || 'www.nexo.works'}</span>
             </p>
             <p className="text-xs text-gray-500">

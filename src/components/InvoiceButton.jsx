@@ -16,11 +16,8 @@ const InvoiceButton = ({
   const isInvoiceAvailable = () => {
     if (!booking) return false;
     
-    // Invoice available for confirmed, completed, or paid bookings
-    const validStatuses = ['confirmed', 'completed', 'paid', 'delivered'];
-    const bookingStatus = booking.status?.toLowerCase();
-    
-    return validStatuses.includes(bookingStatus);
+    // Invoice available for ALL bookings - no status restriction
+    return true;
   };
 
   const handleViewInvoice = () => {
@@ -133,7 +130,34 @@ export const CompactInvoiceButton = ({ booking, className = '' }) => {
   );
 };
 
-// Success variant for completed bookings
+// Status-adaptive variant that changes style based on booking status
+export const AdaptiveInvoiceButton = ({ booking, className = '' }) => {
+  if (!booking) return null;
+  
+  const status = booking.status?.toLowerCase();
+  
+  // Choose variant based on status
+  let variant = 'outline';
+  if (['completed', 'delivered'].includes(status)) {
+    variant = 'success';
+  } else if (['confirmed', 'paid'].includes(status)) {
+    variant = 'primary';
+  } else if (['pending'].includes(status)) {
+    variant = 'secondary';
+  }
+  
+  return (
+    <InvoiceButton 
+      booking={booking}
+      variant={variant}
+      size="md"
+      showText={true}
+      className={className}
+    />
+  );
+};
+
+// Success variant for completed bookings (kept for backward compatibility)
 export const SuccessInvoiceButton = ({ booking, className = '' }) => {
   return (
     <InvoiceButton 

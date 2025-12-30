@@ -94,11 +94,30 @@
 @media (max-width: 768px) {
   .modal-overlay {
     padding: 0.5rem;
+    align-items: flex-end;
   }
   
   .modal-content {
     max-height: 95vh;
     border-radius: 0.75rem;
+    width: 100%;
+  }
+  
+  /* Improve touch scrolling on mobile */
+  .modal-content {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 0.25rem;
+  }
+  
+  .modal-content {
+    max-height: 98vh;
+    border-radius: 0.5rem;
   }
 }
 

@@ -6,7 +6,7 @@ import {
   FiFileText, FiPrinter, FiDownload 
 } from 'react-icons/fi';
 import axios from 'axios';
-import InvoiceButton, { SuccessInvoiceButton } from '../../components/InvoiceButton';
+import InvoiceButton, { AdaptiveInvoiceButton } from '../../components/InvoiceButton';
 
 const MyBookings = () => {
   const navigate = useNavigate();
@@ -827,8 +827,8 @@ const isCancellationAllowed = (bookingData) => {
                       View Details
                     </button>
                     
-                    {/* Invoice Button - New Component */}
-                    <SuccessInvoiceButton 
+                    {/* Invoice Button - Available for ALL bookings */}
+                    <AdaptiveInvoiceButton 
                       booking={booking}
                       className="flex-1 min-w-[140px]"
                     />
@@ -967,7 +967,7 @@ const isCancellationAllowed = (bookingData) => {
                   <div className="invoice-header">
                     <div className="company-info">
                       <h1>NEXO</h1>
-                      <p>Professional Home Services</p>
+                      <p>ParNets Software India PVT LTD</p>
                       <p>Email: support@nexo.works</p>
                       <p>Phone: +91 1800-XXX-XXXX</p>
                       <p>Website: www.nexo.works</p>

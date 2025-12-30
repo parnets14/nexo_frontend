@@ -24,7 +24,7 @@ import PaymentGateway from '../components/PaymentGateway';
 import { useUserAuth } from '../context/UserAuthContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin);
 
 const CorporateAMC = () => {
   const [amcPlans, setAmcPlans] = useState([]);
