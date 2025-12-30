@@ -14,7 +14,7 @@ const MaterialStore = () => {
   useEffect(() => {
     const fetchMaterialCategories = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'http://localhost:9088'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
         const response = await fetch(`${apiUrl}/api/public/material-categories`)
         const data = await response.json()
         

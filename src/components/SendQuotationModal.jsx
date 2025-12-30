@@ -34,12 +34,25 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
   // Calculate totals when items change
   React.useEffect(() => {
     const calculatedSubtotal = items.reduce((sum, item) => {
-      const itemTotal = (item.quantity || 0) * (item.unitPrice || 0)
+      const quantity = Number(item.quantity) || 0
+      const unitPrice = Number(item.unitPrice) || 0
+      const itemTotal = quantity * unitPrice
+      
+      // Update the item's total if it's different
+      if (item.total !== itemTotal) {
+        const updatedItems = [...items]
+        const itemIndex = items.indexOf(item)
+        if (itemIndex !== -1) {
+          updatedItems[itemIndex] = { ...item, total: itemTotal }
+          setItems(updatedItems)
+        }
+      }
+      
       return sum + itemTotal
     }, 0)
     
     setSubtotal(calculatedSubtotal)
-    const calculatedTotal = calculatedSubtotal + (tax || 0) - (discount || 0)
+    const calculatedTotal = calculatedSubtotal + (Number(tax) || 0) - (Number(discount) || 0)
     setTotalAmount(calculatedTotal)
   }, [items, tax, discount])
 
@@ -68,13 +81,14 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
       if (selectedCategory && selectedCategory.items) {
         // Transform the items to match the expected format
         const transformedItems = selectedCategory.items.map((item, index) => ({
-          _id: `${categoryId}-${index}`, // Create a unique ID
+          _id: `temp-${categoryId}-${index}`, // Create a temporary unique ID (not for MongoDB)
           name: typeof item === 'string' ? item : item.name,
           description: typeof item === 'object' ? item.description || '' : '',
           sellingPrice: typeof item === 'object' ? item.priceMax || item.priceMin || 0 : 0,
           priceMin: typeof item === 'object' ? item.priceMin || 0 : 0,
           priceMax: typeof item === 'object' ? item.priceMax || 0 : 0,
-          category: selectedCategory.name
+          category: selectedCategory.name,
+          isFromCatalog: true // Flag to indicate this is from material catalog
         }))
         setAvailableItems(transformedItems)
       } else {
@@ -95,26 +109,30 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
   const addMaterialItem = (material) => {
     // Check if item already exists in the quotation
     const existingItemIndex = items.findIndex(item => 
-      item.materialId === material._id || 
-      (item.name === material.name && item.category === material.category)
+      (material.isFromCatalog && item.name === material.name && item.category === material.category) ||
+      (!material.isFromCatalog && item.materialId === material._id)
     )
     
     if (existingItemIndex !== -1) {
       // If item exists, increase quantity
       const updatedItems = [...items]
-      updatedItems[existingItemIndex].quantity += 1
-      updatedItems[existingItemIndex].total = updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].unitPrice
+      const currentQuantity = Number(updatedItems[existingItemIndex].quantity) || 0
+      const unitPrice = Number(updatedItems[existingItemIndex].unitPrice) || 0
+      updatedItems[existingItemIndex].quantity = currentQuantity + 1
+      updatedItems[existingItemIndex].total = updatedItems[existingItemIndex].quantity * unitPrice
       setItems(updatedItems)
     } else {
       // If item doesn't exist, add new item
+      const unitPrice = Number(material.sellingPrice || material.priceMax || material.priceMin) || 0
       const newItem = {
-        name: material.name,
-        description: material.description || '',
+        name: String(material.name || '').trim(),
+        description: String(material.description || '').trim(),
         quantity: 1,
-        unitPrice: material.sellingPrice || material.priceMax || material.priceMin || 0,
-        total: material.sellingPrice || material.priceMax || material.priceMin || 0,
-        materialId: material._id,
-        category: material.category
+        unitPrice: unitPrice,
+        total: unitPrice,
+        // Only set materialId if it's a real MongoDB ObjectId, not a temporary catalog ID
+        materialId: material.isFromCatalog ? null : material._id,
+        category: String(material.category || '').trim()
       }
       setItems([...items, newItem])
     }
@@ -122,23 +140,25 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
 
   const updateMaterialItemQuantity = (material, change) => {
     const existingItemIndex = items.findIndex(item => 
-      item.materialId === material._id || 
-      (item.name === material.name && item.category === material.category)
+      (material.isFromCatalog && item.name === material.name && item.category === material.category) ||
+      (!material.isFromCatalog && item.materialId === material._id)
     )
     
     if (existingItemIndex !== -1) {
       const updatedItems = [...items]
-      const newQuantity = Math.max(1, updatedItems[existingItemIndex].quantity + change)
+      const currentQuantity = Number(updatedItems[existingItemIndex].quantity) || 0
+      const unitPrice = Number(updatedItems[existingItemIndex].unitPrice) || 0
+      const newQuantity = Math.max(1, currentQuantity + change)
       updatedItems[existingItemIndex].quantity = newQuantity
-      updatedItems[existingItemIndex].total = newQuantity * updatedItems[existingItemIndex].unitPrice
+      updatedItems[existingItemIndex].total = newQuantity * unitPrice
       setItems(updatedItems)
     }
   }
 
   const getItemQuantityInQuotation = (material) => {
     const existingItem = items.find(item => 
-      item.materialId === material._id || 
-      (item.name === material.name && item.category === material.category)
+      (material.isFromCatalog && item.name === material.name && item.category === material.category) ||
+      (!material.isFromCatalog && item.materialId === material._id)
     )
     return existingItem ? existingItem.quantity : 0
   }
@@ -151,11 +171,19 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
 
   const updateItem = (index, field, value) => {
     const updatedItems = [...items]
+    
+    // Convert numeric fields to numbers
+    if (field === 'quantity' || field === 'unitPrice') {
+      value = Number(value) || 0
+    }
+    
     updatedItems[index][field] = value
     
     // Calculate item total
     if (field === 'quantity' || field === 'unitPrice') {
-      updatedItems[index].total = (updatedItems[index].quantity || 0) * (updatedItems[index].unitPrice || 0)
+      const quantity = Number(updatedItems[index].quantity) || 0
+      const unitPrice = Number(updatedItems[index].unitPrice) || 0
+      updatedItems[index].total = quantity * unitPrice
     }
     
     setItems(updatedItems)
@@ -166,8 +194,18 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
     setError(null)
 
     // Validation
-    if (items.some(item => !item.name || item.unitPrice <= 0)) {
-      setError('Please fill all item fields and ensure prices are greater than 0')
+    if (items.some(item => !item.name || !String(item.name).trim())) {
+      setError('Please fill all item names')
+      return
+    }
+
+    if (items.some(item => !item.quantity || Number(item.quantity) <= 0)) {
+      setError('Please ensure all items have valid quantities greater than 0')
+      return
+    }
+
+    if (items.some(item => !item.unitPrice || Number(item.unitPrice) <= 0)) {
+      setError('Please ensure all items have valid unit prices greater than 0')
       return
     }
 
@@ -176,7 +214,7 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
       return
     }
 
-    if (totalAmount <= 0) {
+    if (Number(totalAmount) <= 0) {
       setError('Total amount must be greater than 0')
       return
     }
@@ -189,24 +227,32 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
 
     setLoading(true)
     try {
-      await onCreate(booking._id || booking.bookingId, {
-        items: items.map(item => ({
-          name: item.name,
-          description: item.description || '',
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total,
-          materialId: item.materialId || null,
-          category: item.category || ''
-        })),
-        subtotal,
-        tax,
-        discount,
-        totalAmount,
-        description,
+      const quotationData = {
+        items: items.map(item => {
+          const processedItem = {
+            name: String(item.name || '').trim(),
+            description: String(item.description || '').trim(),
+            quantity: Number(item.quantity) || 1,
+            unitPrice: Number(item.unitPrice) || 0,
+            total: Number(item.total) || 0,
+            // Only include materialId if it's a valid MongoDB ObjectId format (24 hex characters)
+            materialId: (item.materialId && /^[0-9a-fA-F]{24}$/.test(item.materialId)) ? item.materialId : null,
+            category: String(item.category || '').trim()
+          };
+          console.log('Processing item for quotation:', item.name, 'originalMaterialId:', item.materialId, 'processedMaterialId:', processedItem.materialId);
+          return processedItem;
+        }),
+        subtotal: Number(subtotal) || 0,
+        tax: Number(tax) || 0,
+        discount: Number(discount) || 0,
+        totalAmount: Number(totalAmount) || 0,
+        description: String(description || '').trim(),
         validTill: validTillDate.toISOString(),
-        notes
-      })
+        notes: String(notes || '').trim()
+      };
+      
+      console.log('Sending quotation data:', quotationData);
+      await onCreate(booking._id || booking.bookingId, quotationData);
       onClose()
     } catch (err) {
       setError(err.message || 'Failed to create quotation')

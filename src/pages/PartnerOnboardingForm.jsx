@@ -729,7 +729,7 @@ const PartnerOnboardingForm = () => {
           setError(null)
           
           // Verify payment status with backend
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:9088'
+          const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo.works'
           console.log('🔍 Verifying payment with:', `${apiUrl}/api/payu/payment-status/${txnid}`)
           
           const response = await fetch(`${apiUrl}/api/payu/payment-status/${txnid}`, {
@@ -2092,7 +2092,7 @@ const PartnerOnboardingForm = () => {
       const totalAmount = formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)
       
       // Call backend to initiate PayU payment
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:9088'
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo.works'
       console.log('Calling PayU API:', `${apiUrl}/api/payu/initiate-payment`)
       const response = await fetch(`${apiUrl}/api/payu/initiate-payment`, {
         method: 'POST',

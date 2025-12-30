@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const buildUrl = (path) => {
   if (path.startsWith('/api/')) {
@@ -25,7 +25,28 @@ const handleResponse = async (response) => {
   const data = isJson ? await response.json() : await response.text()
 
   if (!response.ok) {
-    const error = new Error(data?.message || data?.error || 'Request failed')
+    console.error('API Error Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      data: data
+    })
+    
+    let errorMessage = 'Request failed'
+    
+    if (data?.message) {
+      errorMessage = data.message
+    } else if (data?.error) {
+      errorMessage = data.error
+    } else if (typeof data === 'string') {
+      errorMessage = data
+    }
+    
+    // Add validation error details if available
+    if (data?.errors && Array.isArray(data.errors)) {
+      errorMessage += ': ' + data.errors.join(', ')
+    }
+    
+    const error = new Error(errorMessage)
     error.status = response.status
     error.data = data
     throw error
@@ -665,6 +686,31 @@ export const partnerApi = {
   async getQuotationById(token, quotationId) {
     const response = await fetch(buildUrl(`/quotations/${quotationId}`), {
       headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async deleteQuotation(token, quotationId) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async approveQuotation(token, quotationId) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}/approve`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async rejectQuotation(token, quotationId, rejectionReason) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}/reject`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ rejectionReason })
     })
     return handleResponse(response)
   },

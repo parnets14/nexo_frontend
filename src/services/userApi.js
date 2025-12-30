@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const buildUrl = (path) => {
   if (path.startsWith('/api/')) {
@@ -342,6 +342,38 @@ export const userApi = {
   async getGreeting(token) {
     const response = await fetch(buildUrl('/dashboard/greeting'), {
       headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Quotations
+  async getQuotationsByBooking(token, bookingId) {
+    const response = await fetch(buildUrl(`/bookings/${bookingId}/quotations`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getQuotationById(token, quotationId) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async acceptQuotation(token, quotationId) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}/accept`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async rejectQuotation(token, quotationId, rejectionReason) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}/reject`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ rejectionReason })
     })
     return handleResponse(response)
   }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { FiX, FiCheckCircle, FiXCircle, FiClock, FiUser, FiShield, FiCalendar, FiDollarSign } from 'react-icons/fi'
+import { FiX, FiCheckCircle, FiXCircle, FiClock, FiUser, FiShield, FiCalendar, FiDollarSign, FiBriefcase } from 'react-icons/fi'
 
 const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userType, token }) => {
   const [rejectionReason, setRejectionReason] = useState('')
@@ -88,6 +88,7 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
 
   const canCustomerRespond = userType === 'customer' && quotation.customerStatus === 'pending'
   const canAdminRespond = userType === 'admin' && quotation.adminStatus === 'pending'
+  const canPartnerRespond = userType === 'partner' && quotation.partnerStatus === 'pending'
   const isExpired = quotation.validTill ? new Date(quotation.validTill) < new Date() : false
 
   // Debug log
@@ -131,7 +132,7 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
           )}
 
           {/* Status Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-slate-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FiUser className="w-4 h-4 text-slate-600" />
@@ -144,6 +145,23 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
               {quotation.customerResponseAt && (
                 <p className="text-xs text-slate-500 mt-1">
                   {new Date(quotation.customerResponseAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            <div className="bg-slate-50 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <FiBriefcase className="w-4 h-4 text-slate-600" />
+                <span className="text-xs text-slate-600">Partner Status</span>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 w-fit ${getStatusColor(quotation.partnerStatus)}`}>
+                {getStatusIcon(quotation.partnerStatus)}
+                {quotation.partnerStatus === 'not_required' ? 'Not Required' : 
+                 quotation.partnerStatus?.charAt(0).toUpperCase() + quotation.partnerStatus?.slice(1) || 'Pending'}
+              </span>
+              {quotation.partnerResponseAt && (
+                <p className="text-xs text-slate-500 mt-1">
+                  {new Date(quotation.partnerResponseAt).toLocaleString()}
                 </p>
               )}
             </div>
@@ -288,6 +306,13 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
             </div>
           )}
 
+          {quotation.partnerRejectionReason && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <h3 className="text-sm font-semibold text-red-700 mb-1">Partner Rejection Reason</h3>
+              <p className="text-sm text-red-600">{quotation.partnerRejectionReason}</p>
+            </div>
+          )}
+
           {quotation.adminRejectionReason && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <h3 className="text-sm font-semibold text-red-700 mb-1">Admin Rejection Reason</h3>
@@ -296,13 +321,13 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
           )}
 
           {/* Action Buttons */}
-          {(canCustomerRespond || canAdminRespond) && !isExpired && (
+          {(canCustomerRespond || canAdminRespond || canPartnerRespond) && !isExpired && (
             <div className="pt-4 border-t border-slate-200">
               {showRejectForm ? (
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      Rejection Reason {userType === 'admin' && <span className="text-red-500">*</span>}
+                      Rejection Reason {(userType === 'admin' || userType === 'partner') && <span className="text-red-500">*</span>}
                     </label>
                     <textarea
                       value={rejectionReason}
@@ -337,32 +362,65 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
                   </div>
                 </div>
               ) : (
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleAccept}
-                    className="flex-1 px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
-                    disabled={loading}
-                  >
-                    <FiCheckCircle className="w-5 h-5" />
-                    {loading ? 'Processing...' : 'Accept Quotation'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowRejectForm(true)}
-                    className="flex-1 px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
-                    disabled={loading}
-                  >
-                    <FiXCircle className="w-5 h-5" />
-                    Reject Quotation
-                  </button>
+                <div className="space-y-3">
+                  {canPartnerRespond && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-blue-700 mb-2">Partner Approval Required</h3>
+                      <p className="text-sm text-blue-600 mb-3">
+                        As a franchise partner, you need to approve this quotation before it can be reviewed by admin.
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={handleAccept}
+                          className="flex-1 px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                          disabled={loading}
+                        >
+                          <FiCheckCircle className="w-5 h-5" />
+                          {loading ? 'Approving...' : 'Approve Quotation'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowRejectForm(true)}
+                          className="flex-1 px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                          disabled={loading}
+                        >
+                          <FiXCircle className="w-5 h-5" />
+                          Reject Quotation
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {(canCustomerRespond || canAdminRespond) && (
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={handleAccept}
+                        className="flex-1 px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                        disabled={loading}
+                      >
+                        <FiCheckCircle className="w-5 h-5" />
+                        {loading ? 'Processing...' : 'Accept Quotation'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowRejectForm(true)}
+                        className="flex-1 px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                        disabled={loading}
+                      >
+                        <FiXCircle className="w-5 h-5" />
+                        Reject Quotation
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
           {/* Close Button if no actions available */}
-          {!canCustomerRespond && !canAdminRespond && (
+          {!canCustomerRespond && !canAdminRespond && !canPartnerRespond && (
             <div className="pt-4 border-t border-slate-200">
               <button
                 type="button"

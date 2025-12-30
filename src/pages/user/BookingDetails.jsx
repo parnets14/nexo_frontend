@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiCalendar, FiMapPin, FiUser, FiPhone, FiDollarSign, FiClock } from 'react-icons/fi';
+import { FiArrowLeft, FiCalendar, FiMapPin, FiUser, FiPhone, FiDollarSign, FiClock, FiEye } from 'react-icons/fi';
 import axios from 'axios';
 import InvoiceButton from '../../components/InvoiceButton';
+import QuotationDetailsModal from '../../components/QuotationDetailsModal';
+import { userApi } from '../../services/userApi';
 
 // Helper function to check if cancellation is allowed (before 2 hours of scheduled time)
 const isCancellationAllowed = (bookingData) => {
@@ -173,10 +175,59 @@ const BookingDetails = () => {
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [quotations, setQuotations] = useState([]);
+  const [quotationsLoading, setQuotationsLoading] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
 
   useEffect(() => {
     fetchBookingDetails();
+    fetchQuotations();
   }, [bookingId]);
+
+  const fetchQuotations = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      if (!token) return;
+
+      setQuotationsLoading(true);
+      const response = await userApi.getQuotationsByBooking(token, bookingId);
+      if (response.success && response.data) {
+        setQuotations(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching quotations:', error);
+    } finally {
+      setQuotationsLoading(false);
+    }
+  };
+
+  const handleAcceptQuotation = async (quotationId) => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await userApi.acceptQuotation(token, quotationId);
+      if (response.success) {
+        await fetchQuotations(); // Refresh quotations
+        alert('Quotation accepted successfully!');
+      }
+    } catch (error) {
+      console.error('Error accepting quotation:', error);
+      throw error;
+    }
+  };
+
+  const handleRejectQuotation = async (quotationId, rejectionReason) => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await userApi.rejectQuotation(token, quotationId, rejectionReason);
+      if (response.success) {
+        await fetchQuotations(); // Refresh quotations
+        alert('Quotation rejected successfully!');
+      }
+    } catch (error) {
+      console.error('Error rejecting quotation:', error);
+      throw error;
+    }
+  };
 
   const fetchBookingDetails = async () => {
     try {
@@ -443,6 +494,72 @@ const BookingDetails = () => {
         </div>
       )}
 
+      {/* Quotations Section */}
+      {quotations.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">
+              <FiDollarSign className="inline mr-2" />
+              Quotations ({quotations.length})
+            </h3>
+            {quotationsLoading && (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            )}
+          </div>
+          <div className="space-y-3">
+            {quotations.map((quotation) => (
+              <div
+                key={quotation._id}
+                className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="font-semibold text-gray-800">
+                      #{quotation.quotationNumber} - ₹{quotation.totalAmount?.toFixed(2) || '0.00'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Valid till: {quotation.validTill ? new Date(quotation.validTill).toLocaleDateString() : 'N/A'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedQuotation(quotation)}
+                    className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                    title="View Details"
+                  >
+                    <FiEye className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                    quotation.customerStatus === 'accepted' ? 'bg-green-100 text-green-800' : 
+                    quotation.customerStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    Your Status: {quotation.customerStatus}
+                  </span>
+                  {quotation.partnerStatus !== 'not_required' && (
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                      quotation.partnerStatus === 'accepted' ? 'bg-green-100 text-green-800' : 
+                      quotation.partnerStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      Partner Status: {quotation.partnerStatus}
+                    </span>
+                  )}
+                  <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                    quotation.adminStatus === 'accepted' ? 'bg-green-100 text-green-800' : 
+                    quotation.adminStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    Admin Status: {quotation.adminStatus}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Invoice Section */}
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Invoice & Documents</h3>
@@ -502,6 +619,18 @@ const BookingDetails = () => {
         >
           Write a Review
         </button>
+      )}
+
+      {/* Quotation Details Modal */}
+      {selectedQuotation && (
+        <QuotationDetailsModal
+          quotation={selectedQuotation}
+          onClose={() => setSelectedQuotation(null)}
+          onAccept={handleAcceptQuotation}
+          onReject={handleRejectQuotation}
+          userType="customer"
+          token={localStorage.getItem('userToken')}
+        />
       )}
     </div>
   );

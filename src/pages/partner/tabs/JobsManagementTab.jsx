@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { usePartnerAuth } from '../../../context/PartnerAuthContext.jsx'
 import { partnerApi } from '../../../services/partnerApi.js'
-import { FiBriefcase, FiClock, FiCheckCircle, FiXCircle, FiRefreshCw, FiFilter, FiUser, FiFileText, FiDownload, FiPause, FiDollarSign, FiEye, FiPlay } from 'react-icons/fi'
+import { FiBriefcase, FiClock, FiCheckCircle, FiXCircle, FiRefreshCw, FiFilter, FiUser, FiFileText, FiDownload, FiPause, FiDollarSign, FiEye, FiPlay, FiTrash2 } from 'react-icons/fi'
 import Invoice from '../../../components/Invoice.jsx'
 import CompleteJobModal from '../../../components/CompleteJobModal.jsx'
 import PauseJobModal from '../../../components/PauseJobModal.jsx'
@@ -265,8 +265,46 @@ const JobsManagementTab = () => {
     }
   }
 
+  const handleDeleteQuotation = async (quotationId, bookingId) => {
+    if (!window.confirm('Are you sure you want to delete this quotation? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await partnerApi.deleteQuotation(token, quotationId)
+      if (response.success) {
+        // Refresh quotations for this booking
+        const quotesResponse = await partnerApi.getQuotationsByBooking(token, bookingId)
+        if (quotesResponse.success && quotesResponse.data) {
+          setQuotations(prev => ({
+            ...prev,
+            [bookingId]: quotesResponse.data
+          }))
+        }
+        alert('Quotation deleted successfully!')
+      } else {
+        throw new Error(response.message || 'Failed to delete quotation')
+      }
+    } catch (err) {
+      console.error('Failed to delete quotation:', err)
+      
+      let errorMessage = 'Failed to delete quotation'
+      
+      if (err.message.includes('Cannot delete quotation')) {
+        errorMessage = 'Cannot delete quotation that has been accepted or rejected.'
+      } else if (err.message.includes('not authorized')) {
+        errorMessage = 'You are not authorized to delete this quotation.'
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      alert(errorMessage)
+    }
+  }
+
   const handleCreateQuotation = async (bookingId, quotationData) => {
     try {
+      console.log('Creating quotation with data:', quotationData)
       const response = await partnerApi.createQuotation(token, bookingId, quotationData)
       if (response.success) {
         // Refresh quotations for this booking
@@ -284,7 +322,81 @@ const JobsManagementTab = () => {
       }
     } catch (err) {
       console.error('Failed to create quotation:', err)
-      throw err
+      
+      // Show more specific error messages
+      let errorMessage = 'Failed to create quotation'
+      
+      if (err.message.includes('Validation error')) {
+        errorMessage = 'Please check all fields are filled correctly. Ensure all items have valid names, quantities, and prices.'
+      } else if (err.message.includes('Invalid booking')) {
+        errorMessage = 'Invalid booking. Please refresh and try again.'
+      } else if (err.message.includes('authorization')) {
+        errorMessage = 'You are not authorized to create quotation for this booking.'
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      throw new Error(errorMessage)
+    }
+  }
+
+  const handleApproveQuotation = async (quotationId) => {
+    try {
+      const response = await partnerApi.approveQuotation(token, quotationId)
+      if (response.success) {
+        // Find the booking ID for this quotation to refresh
+        const bookingId = Object.keys(quotations).find(bId => 
+          quotations[bId].some(q => q._id === quotationId)
+        )
+        
+        if (bookingId) {
+          // Refresh quotations for this booking
+          const quotesResponse = await partnerApi.getQuotationsByBooking(token, bookingId)
+          if (quotesResponse.success && quotesResponse.data) {
+            setQuotations(prev => ({
+              ...prev,
+              [bookingId]: quotesResponse.data
+            }))
+          }
+        }
+        
+        alert('Quotation approved successfully! Waiting for admin approval.')
+      } else {
+        throw new Error(response.message || 'Failed to approve quotation')
+      }
+    } catch (err) {
+      console.error('Failed to approve quotation:', err)
+      throw new Error(err.message || 'Failed to approve quotation')
+    }
+  }
+
+  const handleRejectQuotation = async (quotationId, rejectionReason) => {
+    try {
+      const response = await partnerApi.rejectQuotation(token, quotationId, rejectionReason)
+      if (response.success) {
+        // Find the booking ID for this quotation to refresh
+        const bookingId = Object.keys(quotations).find(bId => 
+          quotations[bId].some(q => q._id === quotationId)
+        )
+        
+        if (bookingId) {
+          // Refresh quotations for this booking
+          const quotesResponse = await partnerApi.getQuotationsByBooking(token, bookingId)
+          if (quotesResponse.success && quotesResponse.data) {
+            setQuotations(prev => ({
+              ...prev,
+              [bookingId]: quotesResponse.data
+            }))
+          }
+        }
+        
+        alert('Quotation rejected successfully.')
+      } else {
+        throw new Error(response.message || 'Failed to reject quotation')
+      }
+    } catch (err) {
+      console.error('Failed to reject quotation:', err)
+      throw new Error(err.message || 'Failed to reject quotation')
     }
   }
 
@@ -558,23 +670,51 @@ const JobsManagementTab = () => {
                       {quotations[booking._id || booking.bookingId].map((quotation) => (
                         <div
                           key={quotation._id}
-                          className="bg-white rounded-lg p-2 flex items-center justify-between cursor-pointer hover:bg-blue-100 transition"
-                          onClick={() => setSelectedQuotation(quotation)}
+                          className="bg-white rounded-lg p-2 flex items-center justify-between hover:bg-blue-100 transition"
                         >
-                          <div className="flex-1">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => setSelectedQuotation(quotation)}
+                          >
                             <p className="text-xs font-semibold text-slate-800">
                               #{quotation.quotationNumber} - ₹{quotation.totalAmount?.toFixed(2) || '0.00'}
                             </p>
-                            <div className="flex gap-2 mt-1">
+                            <div className="flex flex-wrap gap-1 mt-1">
                               <span className={`px-2 py-0.5 rounded text-xs font-semibold ${quotation.customerStatus === 'accepted' ? 'bg-green-100 text-green-800' : quotation.customerStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                 Customer: {quotation.customerStatus}
                               </span>
+                              {quotation.partnerStatus !== 'not_required' && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${quotation.partnerStatus === 'accepted' ? 'bg-green-100 text-green-800' : quotation.partnerStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                                  Partner: {quotation.partnerStatus}
+                                </span>
+                              )}
                               <span className={`px-2 py-0.5 rounded text-xs font-semibold ${quotation.adminStatus === 'accepted' ? 'bg-green-100 text-green-800' : quotation.adminStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                 Admin: {quotation.adminStatus}
                               </span>
                             </div>
                           </div>
-                          <FiEye className="w-4 h-4 text-blue-600 ml-2" />
+                          <div className="flex items-center gap-2 ml-2">
+                            <button
+                              onClick={() => setSelectedQuotation(quotation)}
+                              className="p-1 text-blue-600 hover:bg-blue-100 rounded transition"
+                              title="View Details"
+                            >
+                              <FiEye className="w-4 h-4" />
+                            </button>
+                            {/* Show delete button only if both customer and admin status are pending */}
+                            {quotation.customerStatus === 'pending' && quotation.adminStatus === 'pending' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteQuotation(quotation._id, booking._id || booking.bookingId)
+                                }}
+                                className="p-1 text-red-600 hover:bg-red-100 rounded transition"
+                                title="Delete Quotation"
+                              >
+                                <FiTrash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -630,6 +770,8 @@ const JobsManagementTab = () => {
         <QuotationDetailsModal
           quotation={selectedQuotation}
           onClose={() => setSelectedQuotation(null)}
+          onAccept={handleApproveQuotation}
+          onReject={handleRejectQuotation}
           userType="partner"
           token={token}
         />

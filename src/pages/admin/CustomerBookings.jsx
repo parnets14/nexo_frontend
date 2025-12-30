@@ -22,6 +22,7 @@ import {
 import { adminApi } from '../../services/adminApi'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
 import { CompactInvoiceButton } from '../../components/InvoiceButton'
+import QuotationDetailsModal from '../../components/QuotationDetailsModal'
 
 const CustomerBookings = () => {
   const { token } = useAdminAuth()
@@ -47,6 +48,9 @@ const CustomerBookings = () => {
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assigningPartner, setAssigningPartner] = useState(null)
+  const [quotations, setQuotations] = useState({}) // Store quotations by booking ID
+  const [quotationsLoading, setQuotationsLoading] = useState(false)
+  const [selectedQuotation, setSelectedQuotation] = useState(null)
   const [partnerFilters, setPartnerFilters] = useState({
     search: '',
     sortBy: 'name', // name, leads, mgPlan, leadUsage
@@ -59,6 +63,81 @@ const CustomerBookings = () => {
       fetchBookings(pagination.currentPage)
     }
   }, [token, filters.dateRange, filters.status, filters.search, pagination.currentPage, pagination.itemsPerPage])
+
+  useEffect(() => {
+    // Fetch quotations for all bookings
+    if (bookings.length > 0 && token) {
+      fetchQuotationsForBookings()
+    }
+  }, [bookings, token])
+
+  const fetchQuotationsForBookings = async () => {
+    setQuotationsLoading(true)
+    try {
+      const quotationPromises = bookings.map(async (booking) => {
+        try {
+          const bookingId = booking._id || booking.bookingId
+          if (!bookingId) return null
+
+          const response = await adminApi.getQuotationsByBooking ? 
+            await adminApi.getQuotationsByBooking(token, bookingId) :
+            await fetch(`${import.meta.env.VITE_API_URL || 'https://nexo.works'}/api/admin/bookings/${bookingId}/quotations`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }).then(res => res.json())
+          
+          if (response && response.success && response.data) {
+            return { bookingId, quotations: response.data }
+          }
+          return null
+        } catch (err) {
+          console.error(`Failed to fetch quotations for booking ${booking._id}:`, err)
+          return null
+        }
+      })
+
+      const results = await Promise.allSettled(quotationPromises)
+      const newQuotations = {}
+      
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          const { bookingId, quotations } = result.value
+          newQuotations[bookingId] = quotations
+        }
+      })
+
+      setQuotations(newQuotations)
+    } catch (err) {
+      console.error('Error fetching quotations:', err)
+    } finally {
+      setQuotationsLoading(false)
+    }
+  }
+
+  const handleApproveQuotation = async (quotationId) => {
+    try {
+      const response = await adminApi.approveQuotation(token, quotationId)
+      if (response.success) {
+        await fetchQuotationsForBookings() // Refresh quotations
+        alert('Quotation approved successfully!')
+      }
+    } catch (error) {
+      console.error('Error approving quotation:', error)
+      throw error
+    }
+  }
+
+  const handleRejectQuotation = async (quotationId, rejectionReason) => {
+    try {
+      const response = await adminApi.rejectQuotation(token, quotationId, rejectionReason)
+      if (response.success) {
+        await fetchQuotationsForBookings() // Refresh quotations
+        alert('Quotation rejected successfully!')
+      }
+    } catch (error) {
+      console.error('Error rejecting quotation:', error)
+      throw error
+    }
+  }
 
   const fetchBookings = async (page = pagination.currentPage) => {
     try {
@@ -466,7 +545,7 @@ const CustomerBookings = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -524,6 +603,25 @@ const CustomerBookings = () => {
             </div>
           </div>
         </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Quotations</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {Object.values(quotations).reduce((sum, bookingQuotations) => sum + bookingQuotations.length, 0)}
+              </p>
+              <p className="text-xs text-gray-500">
+                {Object.values(quotations).reduce((sum, bookingQuotations) => 
+                  sum + bookingQuotations.filter(q => q.adminStatus === 'pending').length, 0
+                )} pending review
+              </p>
+            </div>
+            <div className="p-3 bg-indigo-50 rounded-lg">
+              <FiEye className="text-xl text-indigo-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Bookings Table */}
@@ -553,6 +651,9 @@ const CustomerBookings = () => {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Assigned Partner
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Quotations
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -644,6 +745,67 @@ const CustomerBookings = () => {
                         </div>
                       ) : (
                         <span className="text-sm text-gray-400">Not assigned</span>
+                      )}
+                    </td>
+
+                    {/* Quotations Column */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {quotationsLoading ? (
+                        <div className="flex items-center gap-2">
+                          <FiRefreshCw className="animate-spin text-sm text-gray-400" />
+                          <span className="text-sm text-gray-400">Loading...</span>
+                        </div>
+                      ) : quotations[booking._id] && quotations[booking._id].length > 0 ? (
+                        <div className="space-y-1">
+                          {quotations[booking._id].slice(0, 2).map((quotation) => (
+                            <div
+                              key={quotation._id}
+                              className="flex items-center justify-between p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+                              onClick={() => setSelectedQuotation(quotation)}
+                            >
+                              <div className="flex-1">
+                                <p className="text-xs font-semibold text-gray-800">
+                                  #{quotation.quotationNumber}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  ₹{quotation.totalAmount?.toFixed(2) || '0.00'}
+                                </p>
+                              </div>
+                              <div className="flex gap-1">
+                                <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
+                                  quotation.customerStatus === 'accepted' ? 'bg-green-100 text-green-800' : 
+                                  quotation.customerStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
+                                  'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  C: {quotation.customerStatus?.charAt(0).toUpperCase()}
+                                </span>
+                                {quotation.partnerStatus !== 'not_required' && (
+                                  <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
+                                    quotation.partnerStatus === 'accepted' ? 'bg-green-100 text-green-800' : 
+                                    quotation.partnerStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
+                                    'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    P: {quotation.partnerStatus?.charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                                <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
+                                  quotation.adminStatus === 'accepted' ? 'bg-green-100 text-green-800' : 
+                                  quotation.adminStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
+                                  'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  A: {quotation.adminStatus?.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                          {quotations[booking._id].length > 2 && (
+                            <div className="text-xs text-gray-500 text-center">
+                              +{quotations[booking._id].length - 2} more
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">No quotations</span>
                       )}
                     </td>
                     
@@ -1175,6 +1337,18 @@ const CustomerBookings = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Quotation Details Modal */}
+      {selectedQuotation && (
+        <QuotationDetailsModal
+          quotation={selectedQuotation}
+          onClose={() => setSelectedQuotation(null)}
+          onAccept={handleApproveQuotation}
+          onReject={handleRejectQuotation}
+          userType="admin"
+          token={token}
+        />
       )}
     </div>
   )
