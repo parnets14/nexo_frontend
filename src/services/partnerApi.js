@@ -699,19 +699,23 @@ export const partnerApi = {
   },
 
   async approveQuotation(token, quotationId) {
+    console.log('[PartnerAPI] Approving quotation:', quotationId)
     const response = await fetch(buildUrl(`/quotations/${quotationId}/approve`), {
       method: 'POST',
       headers: getDefaultHeaders(token)
     })
+    console.log('[PartnerAPI] Approve response status:', response.status)
     return handleResponse(response)
   },
 
   async rejectQuotation(token, quotationId, rejectionReason) {
+    console.log('[PartnerAPI] Rejecting quotation:', quotationId, 'reason:', rejectionReason)
     const response = await fetch(buildUrl(`/quotations/${quotationId}/reject`), {
       method: 'POST',
       headers: getDefaultHeaders(token),
       body: JSON.stringify({ rejectionReason })
     })
+    console.log('[PartnerAPI] Reject response status:', response.status)
     return handleResponse(response)
   },
 

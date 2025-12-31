@@ -87,7 +87,6 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
   }
 
   const canCustomerRespond = userType === 'customer' && quotation.customerStatus === 'pending'
-  const canAdminRespond = userType === 'admin' && quotation.adminStatus === 'pending'
   const canPartnerRespond = userType === 'partner' && quotation.partnerStatus === 'pending'
   const isExpired = quotation.validTill ? new Date(quotation.validTill) < new Date() : false
 
@@ -132,7 +131,7 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
           )}
 
           {/* Status Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-slate-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FiUser className="w-4 h-4 text-slate-600" />
@@ -149,38 +148,24 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
               )}
             </div>
 
-            <div className="bg-slate-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <FiBriefcase className="w-4 h-4 text-slate-600" />
-                <span className="text-xs text-slate-600">Partner Status</span>
+            {quotation.partnerStatus !== 'not_required' && (
+              <div className="bg-slate-50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FiBriefcase className="w-4 h-4 text-slate-600" />
+                  <span className="text-xs text-slate-600">Partner Status</span>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 w-fit ${getStatusColor(quotation.partnerStatus)}`}>
+                  {getStatusIcon(quotation.partnerStatus)}
+                  {quotation.partnerStatus === 'not_required' ? 'Not Required' : 
+                   quotation.partnerStatus?.charAt(0).toUpperCase() + quotation.partnerStatus?.slice(1) || 'Pending'}
+                </span>
+                {quotation.partnerResponseAt && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    {new Date(quotation.partnerResponseAt).toLocaleString()}
+                  </p>
+                )}
               </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 w-fit ${getStatusColor(quotation.partnerStatus)}`}>
-                {getStatusIcon(quotation.partnerStatus)}
-                {quotation.partnerStatus === 'not_required' ? 'Not Required' : 
-                 quotation.partnerStatus?.charAt(0).toUpperCase() + quotation.partnerStatus?.slice(1) || 'Pending'}
-              </span>
-              {quotation.partnerResponseAt && (
-                <p className="text-xs text-slate-500 mt-1">
-                  {new Date(quotation.partnerResponseAt).toLocaleString()}
-                </p>
-              )}
-            </div>
-
-            <div className="bg-slate-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <FiShield className="w-4 h-4 text-slate-600" />
-                <span className="text-xs text-slate-600">Admin Status</span>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 w-fit ${getStatusColor(quotation.adminStatus)}`}>
-                {getStatusIcon(quotation.adminStatus)}
-                {quotation.adminStatus?.charAt(0).toUpperCase() + quotation.adminStatus?.slice(1) || 'Pending'}
-              </span>
-              {quotation.adminResponseAt && (
-                <p className="text-xs text-slate-500 mt-1">
-                  {new Date(quotation.adminResponseAt).toLocaleString()}
-                </p>
-              )}
-            </div>
+            )}
 
             <div className="bg-slate-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -321,13 +306,13 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
           )}
 
           {/* Action Buttons */}
-          {(canCustomerRespond || canAdminRespond || canPartnerRespond) && !isExpired && (
+          {(canCustomerRespond || canPartnerRespond) && !isExpired && (
             <div className="pt-4 border-t border-slate-200">
               {showRejectForm ? (
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      Rejection Reason {(userType === 'admin' || userType === 'partner') && <span className="text-red-500">*</span>}
+                      Rejection Reason {userType === 'partner' && <span className="text-red-500">*</span>}
                     </label>
                     <textarea
                       value={rejectionReason}
@@ -367,7 +352,7 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <h3 className="text-sm font-semibold text-blue-700 mb-2">Partner Approval Required</h3>
                       <p className="text-sm text-blue-600 mb-3">
-                        As a franchise partner, you need to approve this quotation before it can be reviewed by admin.
+                        As a franchise partner, you need to approve this quotation before the customer can accept it.
                       </p>
                       <div className="flex gap-3">
                         <button
@@ -392,7 +377,7 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
                     </div>
                   )}
                   
-                  {(canCustomerRespond || canAdminRespond) && (
+                  {canCustomerRespond && (
                     <div className="flex gap-3">
                       <button
                         type="button"
@@ -420,7 +405,7 @@ const QuotationDetailsModal = ({ quotation, onClose, onAccept, onReject, userTyp
           )}
 
           {/* Close Button if no actions available */}
-          {!canCustomerRespond && !canAdminRespond && !canPartnerRespond && (
+          {!canCustomerRespond && !canPartnerRespond && (
             <div className="pt-4 border-t border-slate-200">
               <button
                 type="button"

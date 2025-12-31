@@ -364,8 +364,8 @@ const Footer = () => {
           className="border-t border-white/20 mt-8 pt-8 text-center"
         >
           <p className="text-sm text-white/60">
-            &copy; {new Date().getFullYear()} Nexo. All rights reserved. | Connect. Work. Grow 
-            {/* | Crafted by- <a href='https://parnetsgroup.com' target='_blank' rel='noopener noreferrer' className='hover:text-white transition-colors'><span style={{ color: '#2a017d' }}>Par</span><span style={{ color: '#f65c0d' }}>Nets</span> Software India PVT LTD</a>. */}
+            &copy; {new Date().getFullYear()} <a href='https://parnetsgroup.com' target='_blank' rel='noopener noreferrer' className='hover:text-white transition-colors'><span style={{ color: '#2a017d' }}>Par</span><span style={{ color: '#f65c0d' }}>Nets</span> Software India PVT LTD</a>. All rights reserved. | Connect. Work. Grow 
+            
           </p>
         </motion.div>
       </div>

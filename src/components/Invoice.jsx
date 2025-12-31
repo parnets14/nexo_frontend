@@ -2,7 +2,70 @@ import React from 'react';
 import { format } from 'date-fns';
 import PrintOptions from './PrintOptions';
 
-const Invoice = ({ invoiceData, onPrint }) => {
+const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
+  // Handle both prop patterns for backward compatibility
+  let actualInvoiceData = invoiceData || data;
+  
+  // If no invoice data is provided, show error or return null
+  if (!actualInvoiceData) {
+    console.error('Invoice component: No invoice data provided');
+    return (
+      <div className="text-center p-8">
+        <h2 className="text-xl font-bold text-slate-900 mb-4">Error</h2>
+        <p className="text-slate-600 mb-4">Invoice data is missing or invalid.</p>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition"
+          >
+            Close
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Transform booking data to invoice data if needed
+  if (type === 'booking' && actualInvoiceData) {
+    const booking = actualInvoiceData;
+    actualInvoiceData = {
+      invoiceNumber: booking.bookingId || `INV-${booking._id?.slice(-8)}` || 'INV-000001',
+      date: booking.createdAt || new Date().toISOString(),
+      status: booking.status === 'completed' ? 'COMPLETED' : 'CONFIRMED',
+      customer: {
+        name: booking.user?.name || booking.customerName || 'Customer',
+        email: booking.user?.email || booking.customerEmail || '',
+        phone: booking.user?.phone || booking.customerPhone || '',
+        address: booking.address || 'Address not provided'
+      },
+      services: booking.services ? booking.services.map(service => ({
+        name: service.name || service.serviceName || 'Service',
+        description: service.description || '',
+        quantity: 1,
+        rate: service.price || service.amount || 0
+      })) : [{
+        name: booking.serviceName || 'Service',
+        description: booking.description || '',
+        quantity: 1,
+        rate: booking.totalAmount || booking.amount || 0
+      }],
+      paymentDetails: {
+        method: booking.paymentMethod || 'Cash',
+        status: booking.paymentStatus || 'Pending',
+        amount: booking.totalAmount || booking.amount || 0
+      },
+      companyDetails: {
+        name: 'ParNets Software India PVT LTD',
+        gstin: '29AANCP7155K1ZN',
+        address: 'GROUND FLOOR, 104/1, Singapura Main Road, Grace Mens Wear, Singapura',
+        city: 'Bengaluru, Bengaluru Urban, Karnataka, 560097',
+        phone: '+91-9740016068',
+        email: 'support@nexo.works',
+        website: 'www.nexo.works'
+      }
+    };
+  }
+
   const {
     invoiceNumber,
     date,
@@ -11,9 +74,11 @@ const Invoice = ({ invoiceData, onPrint }) => {
     services,
     paymentDetails,
     companyDetails
-  } = invoiceData;
+  } = actualInvoiceData;
 
-  const subtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
+  const subtotal = services && services.length > 0 
+    ? services.reduce((sum, service) => sum + ((service.quantity || 1) * (service.rate || 0)), 0) 
+    : 0;
   const totalAmount = subtotal; // Add tax calculations if needed
 
   const handlePrint = () => {
@@ -24,7 +89,7 @@ const Invoice = ({ invoiceData, onPrint }) => {
   return (
     <div className="max-w-4xl mx-auto bg-white">
       {/* Print Options - Hidden during print */}
-      <PrintOptions onPrint={onPrint} invoiceData={invoiceData} />
+      <PrintOptions onPrint={onPrint} invoiceData={actualInvoiceData} />
 
       {/* Invoice Container */}
       <div className="border border-gray-300 p-6 print:border-0 print:p-0 invoice-container no-page-break">
@@ -51,7 +116,7 @@ const Invoice = ({ invoiceData, onPrint }) => {
             <h2 className="text-3xl font-light text-gray-600 mb-2">INVOICE</h2>
             <div className="text-sm space-y-0.5">
               <p className="font-semibold">#{invoiceNumber}</p>
-              <p>Date: {format(new Date(date), 'dd MMMM yyyy')}</p>
+              <p>Date: {date ? format(new Date(date), 'dd MMMM yyyy') : format(new Date(), 'dd MMMM yyyy')}</p>
               <span className={`inline-block px-3 py-1 rounded text-xs font-medium ${
                 status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' : 
                 status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
@@ -81,14 +146,14 @@ const Invoice = ({ invoiceData, onPrint }) => {
           <div>
             <h3 className="font-semibold text-gray-800 mb-3">BILL TO</h3>
             <div className="space-y-1.5 text-sm">
-              <p className="font-semibold text-lg">{customer?.name}</p>
-              <p>Phone: {customer?.phone}</p>
-              <p>Email: {customer?.email}</p>
+              <p className="font-semibold text-lg">{customer?.name || 'Customer Name'}</p>
+              <p>Phone: {customer?.phone || 'N/A'}</p>
+              <p>Email: {customer?.email || 'N/A'}</p>
               <div className="mt-2">
                 <p className="font-medium">Address:</p>
-                <p>{customer?.address}</p>
-                <p>Landmark: {customer?.landmark}</p>
-                <p>Pincode: {customer?.pincode}</p>
+                <p>{customer?.address || 'Address not provided'}</p>
+                {customer?.landmark && <p>Landmark: {customer.landmark}</p>}
+                {customer?.pincode && <p>Pincode: {customer.pincode}</p>}
               </div>
             </div>
           </div>
@@ -99,28 +164,32 @@ const Invoice = ({ invoiceData, onPrint }) => {
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between">
                 <span>Booking ID:</span>
-                <span className="font-medium">#{paymentDetails?.bookingId}</span>
+                <span className="font-medium">#{paymentDetails?.bookingId || invoiceNumber}</span>
               </div>
               <div className="flex justify-between">
                 <span>Service Date:</span>
-                <span>{format(new Date(paymentDetails?.serviceDate), 'dd MMMM yyyy')}</span>
+                <span>{paymentDetails?.serviceDate ? format(new Date(paymentDetails.serviceDate), 'dd MMMM yyyy') : format(new Date(date), 'dd MMMM yyyy')}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Service Time:</span>
-                <span>{paymentDetails?.serviceTime}</span>
-              </div>
+              {paymentDetails?.serviceTime && (
+                <div className="flex justify-between">
+                  <span>Service Time:</span>
+                  <span>{paymentDetails.serviceTime}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Payment Mode:</span>
-                <span className="font-medium">{paymentDetails?.paymentMode || 'ONLINE'}</span>
+                <span className="font-medium">{paymentDetails?.paymentMode || paymentDetails?.method || 'ONLINE'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Payment Status:</span>
-                <span className="font-medium text-green-600">{paymentDetails?.paymentStatus || 'COMPLETED'}</span>
+                <span className="font-medium text-green-600">{paymentDetails?.paymentStatus || paymentDetails?.status || 'COMPLETED'}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Transaction ID:</span>
-                <span className="font-mono text-xs">{paymentDetails?.transactionId}</span>
-              </div>
+              {paymentDetails?.transactionId && (
+                <div className="flex justify-between">
+                  <span>Transaction ID:</span>
+                  <span className="font-mono text-xs">{paymentDetails.transactionId}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -147,22 +216,31 @@ const Invoice = ({ invoiceData, onPrint }) => {
                 </tr>
               </thead>
               <tbody>
-                {services?.map((service, index) => (
+                {services && services.length > 0 ? services.map((service, index) => (
                   <tr key={index}>
                     <td className="border border-gray-200 px-3 py-2 text-sm">
-                      {service.description}
+                      <div>
+                        <p className="font-medium">{service.name || 'Service'}</p>
+                        {service.description && <p className="text-gray-600 text-xs mt-1">{service.description}</p>}
+                      </div>
                     </td>
                     <td className="border border-gray-200 px-3 py-2 text-center text-sm">
-                      {service.quantity}
+                      {service.quantity || 1}
                     </td>
                     <td className="border border-gray-200 px-3 py-2 text-center text-sm">
-                      ₹{service.rate}
+                      ₹{service.rate || 0}
                     </td>
                     <td className="border border-gray-200 px-3 py-2 text-right text-sm">
-                      ₹{service.quantity * service.rate}
+                      ₹{(service.quantity || 1) * (service.rate || 0)}
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan="4" className="border border-gray-200 px-3 py-4 text-center text-sm text-gray-500">
+                      No services found
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

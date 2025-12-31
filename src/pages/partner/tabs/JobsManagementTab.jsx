@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { usePartnerAuth } from '../../../context/PartnerAuthContext.jsx'
 import { partnerApi } from '../../../services/partnerApi.js'
-import { FiBriefcase, FiClock, FiCheckCircle, FiXCircle, FiRefreshCw, FiFilter, FiUser, FiFileText, FiDownload, FiPause, FiDollarSign, FiEye, FiPlay, FiTrash2 } from 'react-icons/fi'
+import { FiBriefcase, FiClock, FiCheckCircle, FiXCircle, FiRefreshCw, FiFilter, FiUser, FiFileText, FiDownload, FiPause, FiDollarSign, FiEye, FiPlay, FiTrash2, FiX } from 'react-icons/fi'
 import Invoice from '../../../components/Invoice.jsx'
 import CompleteJobModal from '../../../components/CompleteJobModal.jsx'
 import PauseJobModal from '../../../components/PauseJobModal.jsx'
@@ -342,12 +342,16 @@ const JobsManagementTab = () => {
 
   const handleApproveQuotation = async (quotationId) => {
     try {
+      console.log('[JobsManagement] Approving quotation:', quotationId)
       const response = await partnerApi.approveQuotation(token, quotationId)
+      console.log('[JobsManagement] Approve response:', response)
       if (response.success) {
         // Find the booking ID for this quotation to refresh
         const bookingId = Object.keys(quotations).find(bId => 
           quotations[bId].some(q => q._id === quotationId)
         )
+        
+        console.log('[JobsManagement] Found booking ID:', bookingId)
         
         if (bookingId) {
           // Refresh quotations for this booking
@@ -360,7 +364,7 @@ const JobsManagementTab = () => {
           }
         }
         
-        alert('Quotation approved successfully! Waiting for admin approval.')
+        alert('Quotation approved successfully!')
       } else {
         throw new Error(response.message || 'Failed to approve quotation')
       }
@@ -372,7 +376,9 @@ const JobsManagementTab = () => {
 
   const handleRejectQuotation = async (quotationId, rejectionReason) => {
     try {
+      console.log('[JobsManagement] Rejecting quotation:', quotationId, 'reason:', rejectionReason)
       const response = await partnerApi.rejectQuotation(token, quotationId, rejectionReason)
+      console.log('[JobsManagement] Reject response:', response)
       if (response.success) {
         // Find the booking ID for this quotation to refresh
         const bookingId = Object.keys(quotations).find(bId => 
@@ -688,9 +694,11 @@ const JobsManagementTab = () => {
                                   Partner: {quotation.partnerStatus}
                                 </span>
                               )}
-                              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${quotation.adminStatus === 'accepted' ? 'bg-green-100 text-green-800' : quotation.adminStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                Admin: {quotation.adminStatus}
-                              </span>
+                              {quotation.adminStatus !== 'not_required' && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${quotation.adminStatus === 'accepted' ? 'bg-green-100 text-green-800' : quotation.adminStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                  Admin: {quotation.adminStatus}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 ml-2">
@@ -701,8 +709,8 @@ const JobsManagementTab = () => {
                             >
                               <FiEye className="w-4 h-4" />
                             </button>
-                            {/* Show delete button only if both customer and admin status are pending */}
-                            {quotation.customerStatus === 'pending' && quotation.adminStatus === 'pending' && (
+                            {/* Show delete button only if customer status is pending */}
+                            {quotation.customerStatus === 'pending' && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -728,11 +736,26 @@ const JobsManagementTab = () => {
 
       {/* Invoice Modal */}
       {selectedInvoice && (
-        <Invoice
-          data={selectedInvoice.data}
-          type={selectedInvoice.type}
-          onClose={() => setSelectedInvoice(null)}
-        />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-xl font-bold text-slate-900">Invoice</h2>
+              <button
+                onClick={() => setSelectedInvoice(null)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <FiX className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+            <div className="p-6">
+              <Invoice
+                data={selectedInvoice.data}
+                type={selectedInvoice.type}
+                onClose={() => setSelectedInvoice(null)}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Complete Job Modal */}

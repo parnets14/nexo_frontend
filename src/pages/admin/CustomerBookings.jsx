@@ -788,13 +788,6 @@ const CustomerBookings = () => {
                                     P: {quotation.partnerStatus?.charAt(0).toUpperCase()}
                                   </span>
                                 )}
-                                <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
-                                  quotation.adminStatus === 'accepted' ? 'bg-green-100 text-green-800' : 
-                                  quotation.adminStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
-                                  'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  A: {quotation.adminStatus?.charAt(0).toUpperCase()}
-                                </span>
                               </div>
                             </div>
                           ))}

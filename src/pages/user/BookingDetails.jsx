@@ -546,13 +546,6 @@ const BookingDetails = () => {
                       Partner Status: {quotation.partnerStatus}
                     </span>
                   )}
-                  <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                    quotation.adminStatus === 'accepted' ? 'bg-green-100 text-green-800' : 
-                    quotation.adminStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    Admin Status: {quotation.adminStatus}
-                  </span>
                 </div>
               </div>
             ))}
