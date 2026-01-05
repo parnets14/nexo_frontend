@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { FiX, FiUpload, FiImage, FiFileText } from 'react-icons/fi'
+import { getServiceName, getBookingId } from '../utils/bookingUtils'
 
 const CompleteJobModal = ({ booking, onClose, onComplete, token }) => {
   const [photos, setPhotos] = useState([])
@@ -67,7 +68,7 @@ const CompleteJobModal = ({ booking, onClose, onComplete, token }) => {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-xl font-bold text-slate-900">Complete Job</h2>
+          <h2 className="text-xl font-bold text-slate-900">Mark Work as Done</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-100 rounded-lg transition"
@@ -87,11 +88,17 @@ const CompleteJobModal = ({ booking, onClose, onComplete, token }) => {
           {/* Booking Info */}
           <div className="bg-slate-50 rounded-lg p-4">
             <p className="text-sm text-slate-600 mb-1">
-              <strong>Booking ID:</strong> {booking.bookingId || booking._id?.toString().slice(-8) || 'N/A'}
+              <strong>Booking ID:</strong> {getBookingId(booking)}
             </p>
-            <p className="text-sm text-slate-600">
-              <strong>Service:</strong> {booking.service?.name || booking.subService?.name || 'N/A'}
+            <p className="text-sm text-slate-600 mb-3">
+              <strong>Service:</strong> {getServiceName(booking)}
             </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-800 font-semibold mb-1">📋 Important Note:</p>
+              <p className="text-xs text-blue-700">
+                This will mark the work as completed. The job will require payment settlement before final completion.
+              </p>
+            </div>
           </div>
 
           {/* Photo Upload */}
@@ -205,7 +212,7 @@ const CompleteJobModal = ({ booking, onClose, onComplete, token }) => {
               className="flex-1 px-4 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || (photos.length === 0 && videos.length === 0)}
             >
-              {loading ? 'Completing...' : 'Complete Job'}
+              {loading ? 'Marking as Done...' : 'Mark Work Done'}
             </button>
           </div>
         </form>

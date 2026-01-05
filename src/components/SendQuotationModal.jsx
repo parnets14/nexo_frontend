@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { FiX, FiPlus, FiTrash2, FiCalendar, FiPackage, FiSearch, FiShoppingCart, FiMinus } from 'react-icons/fi'
 
-const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
-  const [items, setItems] = useState([{ name: '', description: '', quantity: 1, unitPrice: 0, total: 0 }])
+const SendQuotationModal = ({ booking, onClose, onCreate, token, preSelectedItems = [] }) => {
+  const [items, setItems] = useState(
+    preSelectedItems.length > 0 
+      ? preSelectedItems.map(item => ({
+          name: item.name,
+          description: item.description || '',
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.total,
+          materialId: item.materialId,
+          category: item.category || ''
+        }))
+      : [{ name: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
+  )
   const [subtotal, setSubtotal] = useState(0)
   const [tax, setTax] = useState(0)
   const [discount, setDiscount] = useState(0)
@@ -12,6 +24,7 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [successMsg, setSuccessMsg] = useState('')
 
   // Material selection state
   const [showMaterialSelector, setShowMaterialSelector] = useState(false)
@@ -252,8 +265,22 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
       };
       
       console.log('Sending quotation data:', quotationData);
-      await onCreate(booking._id || booking.bookingId, quotationData);
-      onClose()
+      const response = await onCreate(booking._id || booking.bookingId, quotationData);
+      
+      // Check if spare parts orders were created
+      if (response && response.sparePartsOrders && response.sparePartsOrders.ordersCreated > 0) {
+        console.log(`✅ Created ${response.sparePartsOrders.ordersCreated} spare parts orders`);
+        console.log(`✅ Updated ${response.sparePartsOrders.inventoryUpdates} inventory items`);
+        
+        // Show success message with spare parts info
+        setSuccessMsg(`Quotation sent successfully! Also created ${response.sparePartsOrders.ordersCreated} spare parts orders and updated ${response.sparePartsOrders.inventoryUpdates} inventory items.`);
+      } else {
+        setSuccessMsg('Quotation sent successfully!');
+      }
+      
+      setTimeout(() => {
+        onClose();
+      }, 2000); // Give user time to see the success message
     } catch (err) {
       setError(err.message || 'Failed to create quotation')
     } finally {
@@ -294,13 +321,25 @@ const SendQuotationModal = ({ booking, onClose, onCreate, token }) => {
             </div>
           )}
 
+          {successMsg && (
+            <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg text-sm">
+              {successMsg}
+            </div>
+          )}
+
           {/* Booking Info */}
           <div className="bg-slate-50 rounded-lg p-4">
             <p className="text-sm text-slate-600 mb-1">
               <strong>Booking ID:</strong> {booking.bookingId || booking._id?.toString().slice(-8) || 'N/A'}
             </p>
             <p className="text-sm text-slate-600">
-              <strong>Service:</strong> {booking.service?.name || booking.subService?.name || 'N/A'}
+              <strong>Service:</strong> {
+                booking.service?.name || 
+                booking.subService?.name || 
+                booking.popularService?.name || 
+                booking.serviceName || 
+                'Service Booking'
+              }
             </p>
           </div>
 

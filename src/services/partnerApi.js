@@ -758,6 +758,32 @@ export const partnerApi = {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
+  },
+
+  // Get quotation materials for partner
+  async getQuotationMaterials(token) {
+    const response = await fetch(buildUrl('/quotation-materials'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Get available bookings for quotations
+  async getAvailableBookings(token) {
+    const response = await fetch(buildUrl('/available-bookings'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Complete job payment
+  async completeJobPayment(token, jobId, paymentData) {
+    const response = await fetch(buildUrl(`/jobs/${jobId}/complete-payment`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(paymentData)
+    })
+    return handleResponse(response)
   }
 }
 

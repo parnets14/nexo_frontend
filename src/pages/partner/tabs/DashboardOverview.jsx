@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePartnerAuth } from '../../../context/PartnerAuthContext.jsx'
 import { partnerApi } from '../../../services/partnerApi.js'
-import { FiDollarSign, FiBriefcase, FiTrendingUp, FiPackage, FiUsers, FiCreditCard, FiClock, FiAlertCircle, FiActivity, FiZap, FiAward, FiCheckCircle, FiArrowRight } from 'react-icons/fi'
+import { FiDollarSign, FiBriefcase, FiTrendingUp, FiPackage, FiUsers, FiCreditCard, FiClock, FiAlertCircle, FiActivity, FiZap, FiAward, FiCheckCircle, FiArrowRight, FiStar } from 'react-icons/fi'
 import {
   LineChart,
   Line,
@@ -32,7 +32,9 @@ const DashboardOverview = () => {
     completedJobs: 0,
     pendingJobs: 0,
     totalEarnings: 0,
-    teamMembers: 0
+    teamMembers: 0,
+    averageRating: 0,
+    totalReviews: 0
   })
   const [loading, setLoading] = useState(true)
   const [chartData, setChartData] = useState({
@@ -93,13 +95,32 @@ const DashboardOverview = () => {
           .filter(b => b?.status === 'completed')
           .reduce((sum, b) => sum + (b?.amount || b?.totalAmount || 0), 0)
 
+        // Calculate average rating from completed jobs with reviews
+        const reviewedBookings = allBookings.filter(b => 
+          b?.status === 'completed' && 
+          b?.review && 
+          typeof b.review.rating === 'number' && 
+          b.review.rating > 0
+        )
+        
+        let averageRating = 0
+        let totalReviews = 0
+        
+        if (reviewedBookings.length > 0) {
+          const totalRating = reviewedBookings.reduce((sum, b) => sum + (b.review.rating || 0), 0)
+          averageRating = parseFloat((totalRating / reviewedBookings.length).toFixed(1))
+          totalReviews = reviewedBookings.length
+        }
+
         setStats({
           walletBalance,
           totalJobs,
           completedJobs,
           pendingJobs,
           totalEarnings,
-          teamMembers: teamMembersCount
+          teamMembers: teamMembersCount,
+          averageRating,
+          totalReviews
         })
 
         // Prepare chart data
@@ -385,7 +406,7 @@ const DashboardOverview = () => {
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/5 rounded-full -ml-16 -mb-16"></div>
         
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <div>
+          <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1 sm:mb-2 flex items-center gap-2">
               <span>Dashboard Overview</span>
               <span className="text-lg sm:text-xl">📊</span>
@@ -413,6 +434,16 @@ const DashboardOverview = () => {
                   <span className="font-semibold text-slate-800">₹{stats.totalEarnings.toLocaleString('en-IN')}</span> earned
                 </span>
               </div>
+              {stats.averageRating > 0 && (
+                <div className="flex items-center gap-2 text-xs sm:text-sm">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  <span className="text-slate-600 flex items-center gap-1">
+                    <span className="font-semibold text-slate-800">{stats.averageRating}</span>
+                    <FiStar className="w-3 h-3 text-yellow-500 fill-current" />
+                    <span>rating</span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <div className="text-xs sm:text-sm text-slate-500 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-sm border border-slate-200">
@@ -676,7 +707,7 @@ const DashboardOverview = () => {
               </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Average Response Time */}
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
                 <div className="flex items-center justify-between mb-2">
@@ -684,10 +715,40 @@ const DashboardOverview = () => {
                   <FiClock className="text-blue-600 text-sm" />
                 </div>
                 <p className="text-2xl font-bold text-blue-900">
-                  {avgResponseTime || '0h'}
+                  {avgResponseTime || '--'}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
                   {avgResponseTime ? 'Based on accepted jobs' : 'No accepted jobs yet'}
+                </p>
+              </div>
+
+              {/* Average Rating */}
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-4 border border-yellow-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-yellow-700">Average Rating</span>
+                  <FiStar className="text-yellow-600 text-sm" />
+                </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-2xl font-bold text-yellow-900">
+                    {stats.averageRating > 0 ? stats.averageRating : '--'}
+                  </p>
+                  {stats.averageRating > 0 && (
+                    <div className="flex items-center">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <FiStar
+                          key={star}
+                          className={`w-3 h-3 ${
+                            star <= Math.round(stats.averageRating)
+                              ? 'text-yellow-500 fill-current'
+                              : 'text-yellow-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-yellow-600 mt-1">
+                  {stats.totalReviews > 0 ? `${stats.totalReviews} review${stats.totalReviews > 1 ? 's' : ''}` : 'No reviews yet'}
                 </p>
               </div>
 
@@ -756,8 +817,8 @@ const DashboardOverview = () => {
                     accepted: 'bg-blue-100 text-blue-700 border-blue-200',
                     in_progress: 'bg-purple-100 text-purple-700 border-purple-200',
                     rejected: 'bg-red-100 text-red-700 border-red-200'
-                  }
-                  const statusColor = statusColors[booking.status] || statusColors.pending
+                  };
+                  const statusColor = statusColors[booking.status] || statusColors.pending;
                   
                   return (
                     <div key={index} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
@@ -765,7 +826,7 @@ const DashboardOverview = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-sm font-semibold text-slate-800 truncate">
-                            {booking.serviceName || booking.serviceCategory || 'Service'}
+                            {booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || booking.serviceCategory || 'Service'}
                           </p>
                           <span className={`text-xs px-2 py-0.5 rounded-full border ${statusColor} font-medium`}>
                             {booking.status || 'pending'}

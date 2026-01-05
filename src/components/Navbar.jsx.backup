@@ -496,4 +496,5 @@ const Navbar = () => {
   )
 }
 
+// Export the component
 export default Navbar

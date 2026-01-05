@@ -268,6 +268,47 @@ export const userApi = {
     return handleResponse(response)
   },
 
+  // Quotation APIs
+  async getBookingQuotations(token, bookingId) {
+    const response = await fetch(buildUrl(`/bookings/${bookingId}/quotations`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getQuotationDetails(token, quotationId) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async acceptQuotation(token, quotationId, paymentData = null) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}/accept`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ paymentData })
+    })
+    return handleResponse(response)
+  },
+
+  async rejectQuotation(token, quotationId, reason = '') {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}/reject`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ reason })
+    })
+    return handleResponse(response)
+  },
+
+  async initiateQuotationPayment(token, quotationId) {
+    const response = await fetch(buildUrl(`/quotations/${quotationId}/initiate-payment`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
   // Dashboard APIs - Enhanced with time-based insights
   async getDashboard(token) {
     const response = await fetch(buildUrl('/dashboard'), {
@@ -374,6 +415,14 @@ export const userApi = {
       method: 'POST',
       headers: getDefaultHeaders(token),
       body: JSON.stringify({ rejectionReason })
+    })
+    return handleResponse(response)
+  },
+
+  // Emergency Services
+  async getEmergencyServices() {
+    const response = await fetch(buildUrl('/services/emergency'), {
+      headers: getDefaultHeaders()
     })
     return handleResponse(response)
   }

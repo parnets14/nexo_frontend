@@ -11,7 +11,7 @@ import {
   FiX,
   FiHome,
   FiUser,
-  FiShoppingCart
+  FiHeadphones
 } from 'react-icons/fi'
 import { usePartnerAuth } from '../../context/PartnerAuthContext.jsx'
 import Logo from '../../components/Logo.jsx'
@@ -64,7 +64,7 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
             <NotificationBell />
             {partner?.profilePicture ? (
               <img
-                src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo.works/${partner.profilePicture}`}
+                src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo.works/uploads/profiles/${partner.profilePicture}`}
                 alt={partnerName}
                 className="w-10 h-10 rounded-full object-cover border-2 border-primary/20"
               />
@@ -90,7 +90,7 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
             <div className="flex items-center gap-3">
               {partner?.profilePicture ? (
                 <img
-                  src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo.works/${partner.profilePicture}`}
+                  src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo.works/uploads/profiles/${partner.profilePicture}`}
                   alt={partnerName}
                   className="w-12 h-12 rounded-full object-cover border-2 border-primary/20"
                 />
@@ -114,10 +114,10 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
             <NavLink to="/partner/dashboard/wallet" icon={FiDollarSign} label="Wallet" />
             {showTeamTab && <NavLink to="/partner/dashboard/team" icon={FiUsers} label="Team" />}
             <NavLink to="/partner/dashboard/jobs" icon={FiBriefcase} label="Jobs" />
-            <NavLink to="/partner/dashboard/job-items" icon={FiShoppingCart} label="Job Items" />
             <NavLink to="/partner/dashboard/subscription" icon={FiCreditCard} label="MG Plan" />
             <NavLink to="/partner/dashboard/spare-parts" icon={FiPackage} label="Spare Parts" />
             <NavLink to="/partner/dashboard/transactions" icon={FiDollarSign} label="Transactions" />
+            <NavLink to="/partner/dashboard/support" icon={FiHeadphones} label="Support" />
           </nav>
 
           {/* Logout Button - Sticky Bottom */}
@@ -153,7 +153,7 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
                 <div className="flex items-center gap-3 bg-gradient-to-br from-primary/5 to-primary/10 p-3 rounded-lg">
                   {partner?.profilePicture ? (
                     <img
-                      src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo.works/${partner.profilePicture}`}
+                      src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo.works/uploads/profiles/${partner.profilePicture}`}
                       alt={partnerName}
                       className="w-10 h-10 rounded-full object-cover border-2 border-primary/20"
                     />
@@ -176,10 +176,10 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
                 <MobileNavLink to="/partner/dashboard/wallet" icon={FiDollarSign} label="Wallet" onClick={() => setMobileMenuOpen(false)} />
                 {showTeamTab && <MobileNavLink to="/partner/dashboard/team" icon={FiUsers} label="Team" onClick={() => setMobileMenuOpen(false)} />}
                 <MobileNavLink to="/partner/dashboard/jobs" icon={FiBriefcase} label="Jobs" onClick={() => setMobileMenuOpen(false)} />
-                <MobileNavLink to="/partner/dashboard/job-items" icon={FiShoppingCart} label="Job Items" onClick={() => setMobileMenuOpen(false)} />
                 <MobileNavLink to="/partner/dashboard/subscription" icon={FiCreditCard} label="MG Plan" onClick={() => setMobileMenuOpen(false)} />
                 <MobileNavLink to="/partner/dashboard/spare-parts" icon={FiPackage} label="Spare Parts" onClick={() => setMobileMenuOpen(false)} />
                 <MobileNavLink to="/partner/dashboard/transactions" icon={FiDollarSign} label="Transactions" onClick={() => setMobileMenuOpen(false)} />
+                <MobileNavLink to="/partner/dashboard/support" icon={FiHeadphones} label="Support" onClick={() => setMobileMenuOpen(false)} />
               </nav>
 
               {/* Mobile Logout Button - Sticky Bottom */}

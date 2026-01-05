@@ -15,11 +15,16 @@ const PaymentResult = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   
-  const status = searchParams.get('status');
+  // Get URL parameters first
   const txnid = searchParams.get('txnid');
   const payid = searchParams.get('payid');
   const reason = searchParams.get('reason');
-  const type = searchParams.get('type'); // 'subscription' or undefined for regular payments
+  const type = searchParams.get('type'); // 'subscription', 'quotation', or undefined for regular payments
+  const quotationId = searchParams.get('quotationId');
+  const error = searchParams.get('error');
+  
+  // Calculate status after all parameters are defined
+  const status = searchParams.get('status') || (error ? 'failure' : (type ? 'success' : null));
 
   useEffect(() => {
     // Simulate loading for better UX
@@ -37,13 +42,16 @@ const PaymentResult = () => {
   const handleViewBookings = () => {
     if (type === 'subscription') {
       navigate('/user/dashboard/subscriptions');
+    } else if (type === 'quotation') {
+      // For quotations, redirect to bookings page which shows quotations
+      navigate('/user/dashboard/bookings');
     } else {
       navigate('/user/dashboard/bookings');
     }
   };
 
   const handleContactSupport = () => {
-    const message = `Hi! I need help with my payment. Transaction ID: ${txnid || 'N/A'}. Status: ${status}. ${reason ? `Reason: ${reason}` : ''}`;
+    const message = `Hi! I need help with my payment. ${type === 'quotation' ? `Quotation ID: ${quotationId || 'N/A'}. ` : ''}Transaction ID: ${txnid || 'N/A'}. Status: ${status}. ${reason || error ? `Reason: ${reason || error}` : ''}`;
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/919590926068?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
@@ -87,6 +95,8 @@ const PaymentResult = () => {
             <p className="text-gray-600 mb-6">
               {type === 'subscription' 
                 ? 'Your subscription has been activated successfully. You will receive a confirmation shortly.'
+                : type === 'quotation'
+                ? 'Your quotation payment has been processed successfully. Your service will be scheduled shortly.'
                 : 'Your payment has been processed successfully. You will receive a confirmation shortly.'
               }
             </p>
@@ -112,7 +122,7 @@ const PaymentResult = () => {
                 className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-primary-dark transition-all flex items-center justify-center gap-2"
               >
                 <FaReceipt />
-                {type === 'subscription' ? 'View My Subscriptions' : 'View My Bookings'}
+                {type === 'subscription' ? 'View My Subscriptions' : type === 'quotation' ? 'View My Bookings' : 'View My Bookings'}
               </motion.button>
               
               <motion.button
@@ -143,10 +153,10 @@ const PaymentResult = () => {
               Unfortunately, your payment could not be processed.
             </p>
             
-            {reason && (
+            {(reason || error) && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
                 <p className="text-sm text-red-600 font-medium">Reason:</p>
-                <p className="text-sm text-red-700 mt-1">{reason}</p>
+                <p className="text-sm text-red-700 mt-1">{reason || error}</p>
               </div>
             )}
             

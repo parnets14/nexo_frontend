@@ -13,6 +13,7 @@ const FeeManagement = () => {
       registrationFee: '',
       securityDeposit: '',
       toolkitPrice: '',
+      sparePartsCommission: '',
       registrationFeeRefundable: false,
       securityDepositRefundable: false,
       toolkitPriceRefundable: false
@@ -21,6 +22,7 @@ const FeeManagement = () => {
       registrationFee: '',
       securityDeposit: '',
       toolkitPrice: '',
+      sparePartsCommission: '',
       registrationFeeRefundable: false,
       securityDepositRefundable: false,
       toolkitPriceRefundable: false
@@ -43,6 +45,7 @@ const FeeManagement = () => {
           registrationFee: feesData.data.individual?.registrationFee || feesData.data.registrationFee || '',
           securityDeposit: feesData.data.individual?.securityDeposit || feesData.data.securityDeposit || '',
           toolkitPrice: feesData.data.individual?.toolkitPrice || feesData.data.toolkitPrice || '',
+          sparePartsCommission: feesData.data.individual?.sparePartsCommission || feesData.data.sparePartsCommission || '',
           registrationFeeRefundable: feesData.data.individual?.registrationFeeRefundable || feesData.data.registrationFeeRefundable || false,
           securityDepositRefundable: feesData.data.individual?.securityDepositRefundable || feesData.data.securityDepositRefundable || false,
           toolkitPriceRefundable: feesData.data.individual?.toolkitPriceRefundable || feesData.data.toolkitPriceRefundable || false
@@ -51,6 +54,7 @@ const FeeManagement = () => {
           registrationFee: feesData.data.franchise?.registrationFee || feesData.data.registrationFee || '',
           securityDeposit: feesData.data.franchise?.securityDeposit || feesData.data.securityDeposit || '',
           toolkitPrice: feesData.data.franchise?.toolkitPrice || feesData.data.toolkitPrice || '',
+          sparePartsCommission: feesData.data.franchise?.sparePartsCommission || feesData.data.sparePartsCommission || '',
           registrationFeeRefundable: feesData.data.franchise?.registrationFeeRefundable || feesData.data.registrationFeeRefundable || false,
           securityDepositRefundable: feesData.data.franchise?.securityDepositRefundable || feesData.data.securityDepositRefundable || false,
           toolkitPriceRefundable: feesData.data.franchise?.toolkitPriceRefundable || feesData.data.toolkitPriceRefundable || false
@@ -72,6 +76,7 @@ const FeeManagement = () => {
         registrationFee: Number(currentData.registrationFee),
         securityDeposit: Number(currentData.securityDeposit),
         toolkitPrice: Number(currentData.toolkitPrice),
+        sparePartsCommission: Number(currentData.sparePartsCommission),
         registrationFeeRefundable: currentData.registrationFeeRefundable,
         securityDepositRefundable: currentData.securityDepositRefundable,
         toolkitPriceRefundable: currentData.toolkitPriceRefundable
@@ -97,6 +102,7 @@ const FeeManagement = () => {
           registrationFee: feesData.data.individual?.registrationFee || feesData.data.registrationFee || '',
           securityDeposit: feesData.data.individual?.securityDeposit || feesData.data.securityDeposit || '',
           toolkitPrice: feesData.data.individual?.toolkitPrice || feesData.data.toolkitPrice || '',
+          sparePartsCommission: feesData.data.individual?.sparePartsCommission || feesData.data.sparePartsCommission || '',
           registrationFeeRefundable: feesData.data.individual?.registrationFeeRefundable || feesData.data.registrationFeeRefundable || false,
           securityDepositRefundable: feesData.data.individual?.securityDepositRefundable || feesData.data.securityDepositRefundable || false,
           toolkitPriceRefundable: feesData.data.individual?.toolkitPriceRefundable || feesData.data.toolkitPriceRefundable || false
@@ -105,6 +111,7 @@ const FeeManagement = () => {
           registrationFee: feesData.data.franchise?.registrationFee || feesData.data.registrationFee || '',
           securityDeposit: feesData.data.franchise?.securityDeposit || feesData.data.securityDeposit || '',
           toolkitPrice: feesData.data.franchise?.toolkitPrice || feesData.data.toolkitPrice || '',
+          sparePartsCommission: feesData.data.franchise?.sparePartsCommission || feesData.data.sparePartsCommission || '',
           registrationFeeRefundable: feesData.data.franchise?.registrationFeeRefundable || feesData.data.registrationFeeRefundable || false,
           securityDepositRefundable: feesData.data.franchise?.securityDepositRefundable || feesData.data.securityDepositRefundable || false,
           toolkitPriceRefundable: feesData.data.franchise?.toolkitPriceRefundable || feesData.data.toolkitPriceRefundable || false
@@ -299,6 +306,37 @@ const FeeManagement = () => {
                   </div>
                 </div>
 
+                {/* Spare Parts Commission */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Spare Parts Commission (%) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={currentFormData.sparePartsCommission}
+                      onChange={(e) => setFormData(prev => ({ ...prev, [selectedPartnerType]: { ...prev[selectedPartnerType], sparePartsCommission: e.target.value } }))}
+                      className="w-full pl-4 pr-12 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                      placeholder="10"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      required
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 font-semibold">%</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Commission percentage that {selectedPartnerType === 'individual' ? 'individual' : 'franchise'} partners earn on spare parts sales
+                  </p>
+                  <div className="flex items-start gap-2 mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <FiInfo className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-blue-700">
+                      <p className="font-semibold mb-1">Commission Calculation:</p>
+                      <p>Partners earn {currentFormData.sparePartsCommission || 0}% commission on the total value of spare parts sold through quotations and material orders.</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3 pt-4 border-t border-slate-200">
                   <button
                     type="button"
@@ -366,6 +404,16 @@ const FeeManagement = () => {
                   </p>
                 </div>
 
+                <div className="bg-white/80 rounded-xl p-4">
+                  <p className="text-xs text-slate-500 mb-1">Spare Parts Commission</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {(Number(currentFormData.sparePartsCommission) || 0).toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    On spare parts sales
+                  </p>
+                </div>
+
                 <div className={`border-t pt-4 mt-4 ${selectedPartnerType === 'individual' ? 'border-primary/20' : 'border-purple-500/20'}`}>
                   <div className="bg-white/80 rounded-xl p-4">
                     <p className="text-xs text-slate-500 mb-1">Total Onboarding Fee</p>
@@ -408,6 +456,7 @@ const FeeManagement = () => {
                     <div className="text-xs text-blue-700">
                       <p className="font-semibold mb-1">Note:</p>
                       <p>Toolkit is optional. Total onboarding fee = Registration Fee + Security Deposit</p>
+                      <p className="mt-1">Spare parts commission applies to all material sales through quotations and orders.</p>
                       {(currentFormData.registrationFeeRefundable || currentFormData.securityDepositRefundable || currentFormData.toolkitPriceRefundable) && (
                         <p className="mt-2 text-emerald-700 font-semibold">
                           ✓ Refundable fees will be displayed to {selectedPartnerType === 'individual' ? 'individual' : 'franchise'} partners during onboarding

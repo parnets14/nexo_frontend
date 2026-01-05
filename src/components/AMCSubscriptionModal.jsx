@@ -212,7 +212,7 @@ const AMCSubscriptionModal = ({
 
   return (
     <AnimatePresence>
-      <div className="modal-overlay amc-modal" style={{ zIndex: 9300 }}>
+      <div className="modal-overlay amc-modal" style={{ zIndex: 10300 }}>
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -472,7 +472,7 @@ const AMCSubscriptionModal = ({
 
         {/* Payment Gateway Modal */}
         {showPayment && paymentPlan && (
-          <div className="modal-overlay payment-modal" style={{ zIndex: 9400 }}>
+          <div className="modal-overlay payment-modal" style={{ zIndex: 10400 }}>
             <div className="max-w-md w-full">
               <PaymentGateway
                 amount={paymentPlan.price}

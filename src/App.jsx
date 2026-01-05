@@ -10,7 +10,7 @@ import PaymentFailure from './pages/PaymentFailure'
 import PartnerOnboarding from './pages/PartnerOnboarding'
 import LeadMarketplace from './pages/LeadMarketplace'
 import MaterialStore from './pages/MaterialStore'
-import EmergencyBooking from './pages/EmergencyBooking'
+import EmergencyServices from './pages/EmergencyServices'
 import CorporateAMC from './pages/CorporateAMC'
 import BrandPartnerships from './pages/BrandPartnerships'
 import AdminMarketingPage from './pages/AdminDashboard'
@@ -49,6 +49,7 @@ import PopularServicesManagement from './pages/admin/PopularServicesManagement.j
 import SubscriptionPlanManagement from './pages/admin/SubscriptionPlanManagement.jsx'
 import FeaturedReviewsManagement from './pages/admin/FeaturedReviewsManagement.jsx'
 import AMCPlanManagement from './pages/admin/AMCPlanManagement.jsx'
+import SupportManagement from './pages/admin/SupportManagement.jsx'
 import WhatsAppSettings from './pages/admin/WhatsAppSettings.jsx'
 import PartnerLogin from './pages/PartnerLogin.jsx'
 import PartnerDashboard from './pages/partner/PartnerDashboard.jsx'
@@ -84,6 +85,8 @@ function App() {
           <Route path="/service/:serviceName/checkout" element={<ServiceCheckout />} />
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/failure" element={<PaymentFailure />} />
+          <Route path="/payment-success" element={<PaymentResult />} />
+          <Route path="/payment-failure" element={<PaymentResult />} />
           <Route path="/payment" element={<PaymentResult />} />
           <Route path="/payment-result" element={<PaymentResult />} />
           <Route path="/test-payment" element={<TestPayment />} />
@@ -92,7 +95,7 @@ function App() {
           <Route path="/partner" element={<PartnerOnboarding />} />
           <Route path="/leads" element={<LeadMarketplace />} />
           <Route path="/materials" element={<MaterialStore />} />
-          <Route path="/emergency" element={<EmergencyBooking />} />
+          <Route path="/emergency" element={<EmergencyServices />} />
           <Route path="/amc" element={<CorporateAMC />} />
           <Route path="/brand-partnerships" element={<BrandPartnerships />} />
           {/* <Route path="/admin-dashboard" element={<AdminMarketingPage />} /> */}
@@ -140,6 +143,7 @@ function App() {
 
             <Route path="/admin/amc-plans" element={<AMCPlanManagement />} />
             <Route path="/admin/featured-reviews" element={<FeaturedReviewsManagement />} />
+            <Route path="/admin/support" element={<SupportManagement />} />
             <Route path="/admin/whatsapp-settings" element={<WhatsAppSettings />} />
           </Route>
         </Route>

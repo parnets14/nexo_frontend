@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   FaWhatsapp,
@@ -104,6 +104,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
 const ServiceDetail = () => {
   const { serviceName } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const isEmergency = searchParams.get('emergency') === 'true'
   const whatsappNumber = "919590926068"
   const handleWhatsAppClick = useWhatsAppClick()
   const { isAuthenticated, loading: authLoading, user } = useUserAuth()
@@ -435,7 +437,18 @@ const ServiceDetail = () => {
 
   // Calculate total cart value (includes all items)
   const calculateCartTotal = () => {
-    return calculateSubServiceTotal() + calculateAddOnTotal() + calculateAddOnSubServicesTotal()
+    let total = calculateSubServiceTotal() + calculateAddOnTotal() + calculateAddOnSubServicesTotal()
+    
+    // Add emergency service charge if applicable
+    if (isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0) {
+      // Count total items to apply emergency charge per item
+      const totalItems = getTotalItemCount()
+      if (totalItems > 0) {
+        total += service.emergencyService.extraAmount * totalItems
+      }
+    }
+    
+    return total
   }
 
   // Get total item count
@@ -816,6 +829,12 @@ const ServiceDetail = () => {
               </motion.div>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-3 sm:mb-4 leading-tight">
                 {currentService.name}
+                {isEmergency && (
+                  <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-600 text-white">
+                    <FaBolt className="w-3 h-3 mr-1" />
+                    EMERGENCY
+                  </span>
+                )}
               </h1>
 
               {/* Compact Trust Badges */}
@@ -1066,6 +1085,15 @@ const ServiceDetail = () => {
                                       </span>
                                     )}
                                   </div>
+                                  {/* Emergency Service Charge Display */}
+                                  {isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 && (
+                                    <div className="flex items-center gap-1 mb-2">
+                                      <FaBolt className="text-red-500 text-xs" />
+                                      <span className="text-xs font-semibold text-red-600">
+                                        +₹{service.emergencyService.extraAmount} Emergency Charge
+                                      </span>
+                                    </div>
+                                  )}
 
                                   {isSelected && (
                                     <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-gradient-to-r from-primary to-primary-dark px-2 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-md">
@@ -1485,9 +1513,19 @@ const ServiceDetail = () => {
                                       <span>+₹{Math.round(gstAmount).toLocaleString('en-IN')}</span>
                                     </div>
                                   )}
+                                  {/* Emergency Service Charge */}
+                                  {isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 && (
+                                    <div className="flex justify-between text-red-600">
+                                      <span className="flex items-center gap-1">
+                                        <FaBolt className="text-xs" />
+                                        Emergency Charge
+                                      </span>
+                                      <span>+₹{Math.round(service.emergencyService.extraAmount * quantity).toLocaleString('en-IN')}</span>
+                                    </div>
+                                  )}
                                   <div className="flex justify-between font-semibold text-gray-900 pt-1">
                                     <span>Total</span>
-                                    <span>₹{Math.round(subtotal + gstAmount).toLocaleString('en-IN')}</span>
+                                    <span>₹{Math.round(subtotal + gstAmount + (isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 ? service.emergencyService.extraAmount * quantity : 0)).toLocaleString('en-IN')}</span>
                                   </div>
                                 </div>
                               )
@@ -1526,9 +1564,19 @@ const ServiceDetail = () => {
                                       <span>+₹{Math.round(breakdown.gstAmount * quantity).toLocaleString('en-IN')}</span>
                                     </div>
                                   )}
+                                  {/* Emergency Service Charge */}
+                                  {isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 && (
+                                    <div className="flex justify-between text-red-600">
+                                      <span className="flex items-center gap-1">
+                                        <FaBolt className="text-xs" />
+                                        Emergency Charge
+                                      </span>
+                                      <span>+₹{Math.round(service.emergencyService.extraAmount * quantity).toLocaleString('en-IN')}</span>
+                                    </div>
+                                  )}
                                   <div className="flex justify-between font-semibold text-gray-900 pt-1">
                                     <span>Total</span>
-                                    <span>₹{Math.round(breakdown.finalPrice * quantity).toLocaleString('en-IN')}</span>
+                                    <span>₹{Math.round(breakdown.finalPrice * quantity + (isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 ? service.emergencyService.extraAmount * quantity : 0)).toLocaleString('en-IN')}</span>
                                   </div>
                                 </div>
                               )
@@ -1560,9 +1608,19 @@ const ServiceDetail = () => {
                                     <span>Price</span>
                                     <span>₹{Math.round(subtotal).toLocaleString('en-IN')}</span>
                                   </div>
+                                  {/* Emergency Service Charge */}
+                                  {isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 && (
+                                    <div className="flex justify-between text-red-600">
+                                      <span className="flex items-center gap-1">
+                                        <FaBolt className="text-xs" />
+                                        Emergency Charge
+                                      </span>
+                                      <span>+₹{Math.round(service.emergencyService.extraAmount * quantity).toLocaleString('en-IN')}</span>
+                                    </div>
+                                  )}
                                   <div className="flex justify-between font-semibold text-gray-900 pt-1">
                                     <span>Total</span>
-                                    <span>₹{Math.round(subtotal).toLocaleString('en-IN')}</span>
+                                    <span>₹{Math.round(subtotal + (isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 ? service.emergencyService.extraAmount * quantity : 0)).toLocaleString('en-IN')}</span>
                                   </div>
                                 </div>
                               )
@@ -1934,6 +1992,15 @@ const ServiceDetail = () => {
                                   <span className="text-sm text-gray-500 line-through">₹{Math.round(originalPrice).toLocaleString('en-IN')}</span>
                                 )}
                               </div>
+                              {/* Emergency Service Charge Display */}
+                              {isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 && (
+                                <div className="flex items-center gap-1 mb-1">
+                                  <FaBolt className="text-red-500 text-xs" />
+                                  <span className="text-xs font-semibold text-red-600">
+                                    +₹{service.emergencyService.extraAmount} Emergency Charge
+                                  </span>
+                                </div>
+                              )}
                               {unitCount > 1 && (
                                 <p className="text-xs text-emerald-600 font-semibold">₹{Math.round(perUnitPrice)} per {unitMatch?.[2] || 'unit'}</p>
                               )}
@@ -2195,6 +2262,15 @@ const ServiceDetail = () => {
                                       <span className="text-sm sm:text-base text-gray-500 line-through">₹{Math.round(originalPrice).toLocaleString('en-IN')}</span>
                                     )}
                                   </div>
+                                  {/* Emergency Service Charge Display */}
+                                  {isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 && (
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <FaBolt className="text-red-500 text-xs" />
+                                      <span className="text-xs font-semibold text-red-600">
+                                        +₹{service.emergencyService.extraAmount} Emergency Charge
+                                      </span>
+                                    </div>
+                                  )}
                                   {unitCount > 1 && (
                                     <p className="text-xs sm:text-sm text-emerald-600 font-semibold">₹{Math.round(perUnitPrice)} per {unitMatch?.[2] || 'unit'}</p>
                                   )}
@@ -2487,10 +2563,21 @@ const ServiceDetail = () => {
                               </div>
                             )}
 
+                            {/* Emergency Service Charge */}
+                            {isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 && (
+                              <div className="flex items-center justify-between text-sm text-red-600">
+                                <span className="flex items-center gap-1">
+                                  <FaBolt className="text-xs" />
+                                  Emergency Charge
+                                </span>
+                                <span>+₹{Math.round(service.emergencyService.extraAmount * quantity)}</span>
+                              </div>
+                            )}
+
                             {/* Total for this item */}
                             <div className="flex items-center justify-between text-base font-bold pt-2 border-t-2 border-gray-200">
                               <span className="text-gray-900">Total</span>
-                              <span className="text-primary">₹{Math.round(subtotal + gstAmount)}</span>
+                              <span className="text-primary">₹{Math.round(subtotal + gstAmount + (isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 ? service.emergencyService.extraAmount * quantity : 0))}</span>
                             </div>
                           </div>
                         )
@@ -2519,7 +2606,11 @@ const ServiceDetail = () => {
                                   const finalPrice = sub.finalPrice || sub.basePrice || sub.price || 0
                                   const subtotal = finalPrice * quantity
                                   const gst = sub.gst || 0
-                                  total += subtotal + (subtotal * gst / 100)
+                                  const gstAmount = subtotal * gst / 100
+                                  const emergencyCharge = isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 
+                                    ? service.emergencyService.extraAmount * quantity 
+                                    : 0
+                                  total += subtotal + gstAmount + emergencyCharge
                                 })
                               return Math.round(total).toLocaleString('en-IN')
                             })()}
@@ -2726,7 +2817,7 @@ const ServiceDetail = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="modal-overlay addon-modal" style={{ zIndex: 9100 }}
+          className="modal-overlay addon-modal" style={{ zIndex: 10100 }}
           onClick={() => setSelectedAddOnModal(null)}
         >
           <div className="relative max-w-3xl w-full mx-4 sm:mx-6 lg:mx-8">
@@ -2932,9 +3023,19 @@ const ServiceDetail = () => {
                             <span className="font-semibold text-gray-900">+₹{Math.round(breakdown.gstAmount).toLocaleString('en-IN')}</span>
                           </div>
                         )}
+                        {/* Emergency Service Charge */}
+                        {isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 && (
+                          <div className="flex justify-between bg-red-50 rounded px-2 py-1">
+                            <span className="text-red-700 font-medium flex items-center gap-1">
+                              <FaBolt className="text-xs" />
+                              Emergency Charge:
+                            </span>
+                            <span className="font-semibold text-red-700">+₹{Math.round(service.emergencyService.extraAmount).toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between pt-2 mt-2 border-t border-gray-200">
                           <span className="font-bold text-gray-900">Total:</span>
-                          <span className="text-xl font-black text-primary">₹{Math.round(breakdown.finalPrice).toLocaleString('en-IN')}</span>
+                          <span className="text-xl font-black text-primary">₹{Math.round(breakdown.finalPrice + (isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 ? service.emergencyService.extraAmount : 0)).toLocaleString('en-IN')}</span>
                         </div>
                       </div>
                     </div>
@@ -3001,7 +3102,7 @@ const ServiceDetail = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="modal-overlay cart-modal" style={{ zIndex: 9200 }}
+          className="modal-overlay cart-modal" style={{ zIndex: 10200 }}
           onClick={() => setShowCartModal(false)}
         >
           <motion.div
@@ -3228,6 +3329,24 @@ const ServiceDetail = () => {
             {/* Modal Footer */}
             {getTotalItemCount() > 0 && (
               <div className="border-t-2 border-gray-200 bg-gradient-to-br from-gray-50 to-white p-4 sm:p-6">
+                {/* Emergency Service Breakdown */}
+                {isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <FaBolt className="w-4 h-4 text-red-600 mr-2" />
+                        <span className="text-sm font-semibold text-red-700">Emergency Service Charge</span>
+                      </div>
+                      <span className="text-sm font-bold text-red-600">
+                        +₹{(service.emergencyService.extraAmount * getTotalItemCount()).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-red-600 mt-1">
+                      ₹{service.emergencyService.extraAmount} × {getTotalItemCount()} items
+                    </p>
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-lg font-bold text-gray-900">Grand Total</span>
                   <div className="text-right">

@@ -66,7 +66,13 @@ const PauseJobModal = ({ booking, onClose, onPause, token }) => {
               <strong>Booking ID:</strong> {booking.bookingId || booking._id?.toString().slice(-8) || 'N/A'}
             </p>
             <p className="text-sm text-slate-600">
-              <strong>Service:</strong> {booking.service?.name || booking.subService?.name || 'N/A'}
+              <strong>Service:</strong> {
+                booking.service?.name || 
+                booking.subService?.name || 
+                booking.popularService?.name || 
+                booking.serviceName || 
+                'Service Booking'
+              }
             </p>
           </div>
 

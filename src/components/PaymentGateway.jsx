@@ -42,25 +42,46 @@ const PaymentGateway = ({
         throw new Error('User not authenticated');
       }
 
+      // Check if this is a quotation payment
+      const isQuotationPayment = orderData?.quotationId;
       // Check if this is a subscription payment
       const isSubscription = orderData?.planId || orderData?.planName;
-      const apiEndpoint = isSubscription 
-        ? `${API_BASE_URL}/api/user/subscription/initiate-payment`
-        : `${API_BASE_URL}/api/user-payment/initiate-payment`;
+      
+      let apiEndpoint, paymentPayload;
+      
+      console.log('🔍 Payment Type Detection:');
+      console.log('   isQuotationPayment:', isQuotationPayment);
+      console.log('   isSubscription:', isSubscription);
+      console.log('   orderData:', orderData);
+      
+      if (isQuotationPayment) {
+        apiEndpoint = `${API_BASE_URL}/api/user/quotations/${orderData.quotationId}/initiate-payment`;
+        paymentPayload = {};
+        console.log('💳 Quotation Payment - Endpoint:', apiEndpoint);
+      } else if (isSubscription) {
+        apiEndpoint = `${API_BASE_URL}/api/user/subscription/initiate-payment`;
+        paymentPayload = {
+          planId: orderData.planId,
+          productinfo: orderData?.productinfo || 'Subscription Payment'
+        };
+        console.log('📅 Subscription Payment - Endpoint:', apiEndpoint);
+      } else {
+        apiEndpoint = `${API_BASE_URL}/api/user-payment/initiate-payment`;
+        paymentPayload = {
+          amount: amount,
+          phone: user.phone || '',
+          name: user.name || '',
+          email: user.email || '',
+          productinfo: orderData?.productinfo || 'Service Payment',
+          userId: user._id || user.userId
+        };
+        console.log('🛒 Regular Payment - Endpoint:', apiEndpoint);
+      }
 
-      const paymentPayload = isSubscription 
-        ? {
-            planId: orderData.planId,
-            productinfo: orderData?.productinfo || 'Subscription Payment'
-          }
-        : {
-            amount: amount,
-            phone: user.phone || '',
-            name: user.name || '',
-            email: user.email || '',
-            productinfo: orderData?.productinfo || 'Service Payment',
-            userId: user._id || user.userId
-          };
+      console.log('📤 API Request:');
+      console.log('   Endpoint:', apiEndpoint);
+      console.log('   Payload:', paymentPayload);
+      console.log('   Headers:', { 'Authorization': `Bearer ${token.substring(0, 20)}...` });
 
       const response = await axios.post(
         apiEndpoint,
@@ -73,9 +94,15 @@ const PaymentGateway = ({
         }
       );
 
+      console.log('📥 API Response:');
+      console.log('   Status:', response.status);
+      console.log('   Data:', response.data);
+
       return response.data;
     } catch (error) {
-      console.error('Initiate payment error:', error);
+      console.error('❌ Initiate payment error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
       throw error;
     }
   };
@@ -90,14 +117,35 @@ const PaymentGateway = ({
     setError(null);
 
     try {
+      console.log('🔄 Initiating payment...');
+      console.log('💰 Amount:', amount);
+      console.log('📦 Order Data:', orderData);
+      console.log('👤 User:', { id: user._id || user.userId, name: user.name, email: user.email, phone: user.phone });
+
       // Initiate payment with PayU
       const paymentResponse = await initiatePayment();
+      
+      console.log('📡 Payment Response:', paymentResponse);
       
       if (!paymentResponse.success) {
         throw new Error(paymentResponse.message || 'Failed to initiate payment');
       }
 
       const { data } = paymentResponse;
+      
+      console.log('🎯 Payment Data:', data);
+
+      // Validate required PayU parameters
+      if (!data.action) {
+        throw new Error('PayU gateway URL not provided by server');
+      }
+      
+      if (!data.key || !data.txnid || !data.hash) {
+        throw new Error('Missing required PayU parameters');
+      }
+
+      console.log('🚀 Creating PayU form...');
+      console.log('🌐 PayU Action URL:', data.action);
 
       // Create and submit PayU form
       const form = document.createElement('form');
@@ -119,25 +167,39 @@ const PaymentGateway = ({
         hash: data.hash
       };
 
+      console.log('📋 PayU Parameters:', payuParams);
+
       Object.keys(payuParams).forEach(key => {
         const input = document.createElement('input');
         input.type = 'hidden';
         input.name = key;
-        input.value = payuParams[key];
+        input.value = payuParams[key] || '';
         form.appendChild(input);
       });
 
       document.body.appendChild(form);
       setPaymentInitiated(true);
       
+      console.log('✅ Submitting form to PayU...');
+      
       // Submit form to PayU
       form.submit();
       
       // Clean up
-      document.body.removeChild(form);
+      setTimeout(() => {
+        if (document.body.contains(form)) {
+          document.body.removeChild(form);
+        }
+      }, 1000);
       
     } catch (error) {
-      console.error('Payment initiation error:', error);
+      console.error('❌ Payment initiation error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
       setError(error.response?.data?.message || error.message || 'Payment failed');
       setLoading(false);
       onFailure && onFailure(error);
@@ -273,6 +335,33 @@ const PaymentGateway = ({
             </>
           )}
         </motion.button>
+
+        {/* Debug Info - Remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-4 p-3 bg-gray-100 rounded-lg text-xs">
+            <p><strong>Debug Info:</strong></p>
+            <p>Amount: ₹{amount}</p>
+            <p>Order Data: {JSON.stringify(orderData, null, 2)}</p>
+            <p>User: {user?.name} ({user?.email})</p>
+            <p>API Base: {API_BASE_URL}</p>
+            <button
+              onClick={async () => {
+                try {
+                  console.log('🧪 Testing API endpoint...');
+                  const response = await initiatePayment();
+                  console.log('✅ API Test Success:', response);
+                  alert('API Test Success! Check console for details.');
+                } catch (error) {
+                  console.error('❌ API Test Failed:', error);
+                  alert('API Test Failed! Check console for details.');
+                }
+              }}
+              className="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-xs"
+            >
+              Test API
+            </button>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="mt-4 text-center">

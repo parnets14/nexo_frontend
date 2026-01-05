@@ -14,9 +14,50 @@ const WalletTab = () => {
   const [topUpDescription, setTopUpDescription] = useState('')
   const [topUpLoading, setTopUpLoading] = useState(false)
   const [quickAmounts] = useState([500, 1000, 2000, 5000, 10000])
+  const [lastRefresh, setLastRefresh] = useState(null)
 
   useEffect(() => {
     fetchWallet()
+  }, [token])
+
+  // Add a focus event listener to refresh wallet when tab becomes visible
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('Wallet tab focused, refreshing data...')
+      fetchWallet()
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page became visible, refreshing wallet data...')
+        fetchWallet()
+      }
+    }
+
+    const handleWalletUpdate = (event) => {
+      console.log('Wallet update event received:', event.detail)
+      // Show a brief notification that wallet is being refreshed
+      const notification = document.createElement('div')
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm'
+      notification.textContent = 'Refreshing wallet data...'
+      document.body.appendChild(notification)
+      
+      setTimeout(() => {
+        document.body.removeChild(notification)
+      }, 2000)
+      
+      fetchWallet()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('walletUpdated', handleWalletUpdate)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('walletUpdated', handleWalletUpdate)
+    }
   }, [token])
 
   const fetchWallet = async () => {
@@ -25,9 +66,18 @@ const WalletTab = () => {
     setLoading(true)
     setError(null)
     try {
+      console.log('🔄 Fetching wallet data...')
       const response = await partnerApi.getWallet(token)
-      setWallet(response?.data || response)
+      console.log('💰 Wallet response:', response)
+      
+      const walletData = response?.data || response
+      console.log('💳 Wallet data:', walletData)
+      console.log('📊 Transactions count:', walletData?.transactions?.length || 0)
+      
+      setWallet(walletData)
+      setLastRefresh(new Date())
     } catch (err) {
+      console.error('❌ Wallet fetch error:', err)
       setError(err.message || 'Failed to fetch wallet')
     } finally {
       setLoading(false)
@@ -89,7 +139,11 @@ const WalletTab = () => {
   }
 
   const balance = wallet?.balance || 0
-  const transactions = wallet?.transactions || []
+  const transactions = (wallet?.transactions || []).sort((a, b) => {
+    const dateA = new Date(a.createdAt || a.timestamp || 0)
+    const dateB = new Date(b.createdAt || b.timestamp || 0)
+    return dateB - dateA // Sort newest first
+  })
   const mgPlan = wallet?.mgPlan || null
 
   return (
@@ -98,6 +152,11 @@ const WalletTab = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">Wallet</h1>
           <p className="text-sm sm:text-base text-slate-600">Manage your wallet balance and transactions</p>
+          {lastRefresh && (
+            <p className="text-xs text-slate-500 mt-1">
+              Last updated: {lastRefresh.toLocaleTimeString()}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
           <button
@@ -108,10 +167,53 @@ const WalletTab = () => {
           </button>
           <button
             onClick={fetchWallet}
-            className="p-2.5 sm:p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200"
+            disabled={loading}
+            className="p-2.5 sm:p-3 bg-white rounded-lg shadow-md hover:shadow-lg transition border border-slate-200 disabled:opacity-50"
+            title="Refresh wallet data"
           >
-            <FiRefreshCw className="text-lg sm:text-xl text-slate-600" />
+            <FiRefreshCw className={`text-lg sm:text-xl text-slate-600 ${loading ? 'animate-spin' : ''}`} />
           </button>
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={async () => {
+                try {
+                  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+                    (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
+                  
+                  const response = await fetch(`${API_BASE_URL}/api/partner/wallet/topup`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      amount: 10,
+                      type: 'debit',
+                      description: 'Test debit transaction',
+                      reference: `TEST-DEBIT-${Date.now()}`
+                    })
+                  });
+                  
+                  const data = await response.json();
+                  console.log('Test debit response:', data);
+                  
+                  if (data.success) {
+                    alert('Test debit successful! Check wallet transactions.');
+                    fetchWallet();
+                  } else {
+                    alert('Test debit failed: ' + (data.message || 'Unknown error'));
+                  }
+                } catch (err) {
+                  console.error('Test debit error:', err);
+                  alert('Test debit error: ' + err.message);
+                }
+              }}
+              className="px-3 py-2 bg-red-500 text-white rounded-lg text-xs hover:bg-red-600 transition"
+              title="Test debit transaction (Dev only)"
+            >
+              Test Debit ₹10
+            </button>
+          )}
         </div>
       </div>
 
@@ -187,9 +289,18 @@ const WalletTab = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {transactions.slice(0, 10).map((txn, index) => (
+            {console.log('📊 Displaying transactions:', transactions.length, 'total transactions')}
+            {transactions.slice(0, 10).map((txn, index) => {
+              console.log(`Transaction ${index}:`, {
+                type: txn.type,
+                amount: txn.amount,
+                description: txn.description,
+                createdAt: txn.createdAt,
+                balance: txn.balance
+              })
+              return (
               <div
-                key={index}
+                key={txn._id || txn.transactionId || index}
                 className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition"
               >
                 <div className="flex items-center gap-3 sm:gap-4 flex-1">
@@ -228,7 +339,8 @@ const WalletTab = () => {
                   </p>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

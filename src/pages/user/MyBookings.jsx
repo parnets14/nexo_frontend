@@ -7,6 +7,9 @@ import {
 } from 'react-icons/fi';
 import axios from 'axios';
 import InvoiceButton, { AdaptiveInvoiceButton } from '../../components/InvoiceButton';
+import QuotationCard from '../../components/QuotationCard';
+import QuotationDetailsModal from '../../components/QuotationDetailsModal';
+import { userApi } from '../../services/userApi';
 
 const MyBookings = () => {
   const navigate = useNavigate();
@@ -27,6 +30,12 @@ const MyBookings = () => {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceBooking, setInvoiceBooking] = useState(null);
   const invoiceRef = useRef(null);
+  
+  // Quotation states
+  const [bookingQuotations, setBookingQuotations] = useState({});
+  const [showQuotationModal, setShowQuotationModal] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [selectedBookingForQuotation, setSelectedBookingForQuotation] = useState(null);
 
   // Helper function to check if cancellation is allowed (before 2 hours of scheduled time)
 const isCancellationAllowed = (bookingData) => {
@@ -168,6 +177,85 @@ const isCancellationAllowed = (bookingData) => {
     filterBookings();
   }, [filter, bookings]);
 
+  // Fetch quotations for bookings
+  const fetchBookingQuotations = async (bookingId) => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await userApi.getBookingQuotations(token, bookingId);
+      
+      if (response.success) {
+        setBookingQuotations(prev => ({
+          ...prev,
+          [bookingId]: response.data.quotations || []
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching quotations:', error);
+    }
+  };
+
+  // Handle quotation acceptance
+  const handleAcceptQuotation = async (quotationId, paymentData = null) => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await userApi.acceptQuotation(token, quotationId, paymentData);
+      
+      if (response.success) {
+        setSuccessMessage('Quotation accepted successfully!');
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+        
+        // Refresh bookings and quotations
+        fetchBookings();
+        if (selectedBookingForQuotation) {
+          fetchBookingQuotations(selectedBookingForQuotation.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error accepting quotation:', error);
+      alert(error.response?.data?.message || 'Failed to accept quotation');
+    }
+  };
+
+  // Handle quotation rejection
+  const handleRejectQuotation = async (quotationId, reason = '') => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await userApi.rejectQuotation(token, quotationId, reason);
+      
+      if (response.success) {
+        setSuccessMessage('Quotation rejected successfully');
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+        
+        // Refresh quotations
+        if (selectedBookingForQuotation) {
+          fetchBookingQuotations(selectedBookingForQuotation.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error rejecting quotation:', error);
+      alert(error.response?.data?.message || 'Failed to reject quotation');
+    }
+  };
+
+  // Handle view quotation details
+  const handleViewQuotationDetails = (quotation) => {
+    setSelectedQuotation(quotation);
+    setShowQuotationModal(true);
+  };
+
+  // Handle view quotations for booking
+  const handleViewQuotations = async (booking) => {
+    if (!booking.id || booking.id === 'N/A') {
+      console.error('Invalid booking ID for quotations:', booking.id);
+      alert('Unable to load quotations. Please refresh the page and try again.');
+      return;
+    }
+    setSelectedBookingForQuotation(booking);
+    await fetchBookingQuotations(booking.id);
+  };
+
   const fetchBookings = async () => {
     try {
       const token = localStorage.getItem('userToken');
@@ -239,11 +327,6 @@ const isCancellationAllowed = (bookingData) => {
       const finalBookings = Array.isArray(bookingsData) ? bookingsData : [];
       console.log('📋 Final bookings count:', finalBookings.length);
       
-      // Log first booking for structure inspection if needed
-      // if (finalBookings.length > 0) {
-      //   console.log('📋 First booking structure:', finalBookings[0]);
-      // }
-      
       setBookings(finalBookings);
       
     } catch (error) {
@@ -263,7 +346,8 @@ const isCancellationAllowed = (bookingData) => {
     if (filter === 'all') {
       setFilteredBookings(bookingsArray);
     } else {
-      setFilteredBookings(bookingsArray.filter(b => b.status === filter));
+      const filtered = bookingsArray.filter(b => b.status === filter);
+      setFilteredBookings(filtered);
     }
   };
 
@@ -271,9 +355,14 @@ const isCancellationAllowed = (bookingData) => {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
       confirmed: 'bg-blue-100 text-blue-800 border-blue-200',
-      'in-progress': 'bg-purple-100 text-purple-800 border-purple-200',
+      in_progress: 'bg-purple-100 text-purple-800 border-purple-200',
+      work_completed: 'bg-indigo-100 text-indigo-800 border-indigo-200',
       completed: 'bg-green-100 text-green-800 border-green-200',
-      cancelled: 'bg-red-100 text-red-800 border-red-200'
+      cancelled: 'bg-red-100 text-red-800 border-red-200',
+      accepted: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      rejected: 'bg-red-100 text-red-800 border-red-200',
+      paused: 'bg-orange-100 text-orange-800 border-orange-200',
+      temp: 'bg-gray-100 text-gray-800 border-gray-200'
     };
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
@@ -282,9 +371,14 @@ const isCancellationAllowed = (bookingData) => {
     const icons = {
       pending: <FiClock className="inline" size={14} />,
       confirmed: <FiCheckCircle className="inline" size={14} />,
-      'in-progress': <FiRefreshCw className="inline animate-spin" size={14} />,
+      in_progress: <FiRefreshCw className="inline animate-spin" size={14} />,
+      work_completed: <FiCheckCircle className="inline" size={14} />,
       completed: <FiCheckCircle className="inline" size={14} />,
-      cancelled: <FiX className="inline" size={14} />
+      cancelled: <FiX className="inline" size={14} />,
+      accepted: <FiCheckCircle className="inline" size={14} />,
+      rejected: <FiX className="inline" size={14} />,
+      paused: <FiClock className="inline" size={14} />,
+      temp: <FiAlertCircle className="inline" size={14} />
     };
     return icons[status] || <FiAlertCircle className="inline" size={14} />;
   };
@@ -681,7 +775,7 @@ const isCancellationAllowed = (bookingData) => {
           <h3 className="font-semibold text-gray-800">Filter Bookings</h3>
         </div>
         <div className="flex flex-wrap gap-3">
-          {['all', 'pending', 'confirmed', 'in-progress', 'completed', 'cancelled'].map((status) => (
+          {['all', 'pending', 'confirmed', 'in_progress', 'work_completed', 'completed', 'cancelled'].map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
@@ -691,7 +785,9 @@ const isCancellationAllowed = (bookingData) => {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {status.replace('-', ' ')}
+              {status === 'in_progress' ? 'In Progress' : 
+               status === 'work_completed' ? 'Work Completed' : 
+               status.replace('_', ' ').replace('-', ' ')}
               {status !== 'all' && (
                 <span className="ml-2 text-xs opacity-75">
                   ({Array.isArray(bookings) ? bookings.filter(b => b.status === status).length : 0})
@@ -712,7 +808,9 @@ const isCancellationAllowed = (bookingData) => {
           <p className="text-gray-600 mb-8 max-w-md mx-auto">
             {filter === 'all' 
               ? "You haven't made any bookings yet. Start by booking a service!" 
-              : `No ${filter.replace('-', ' ')} bookings at the moment.`}
+              : `No ${filter === 'in_progress' ? 'in progress' : 
+                      filter === 'work_completed' ? 'work completed' : 
+                      filter.replace('_', ' ').replace('-', ' ')} bookings at the moment.`}
           </p>
           <button
             onClick={() => navigate('/')}
@@ -743,7 +841,7 @@ const isCancellationAllowed = (bookingData) => {
                           <h3 className="text-lg font-bold text-gray-800 mb-1">
                             {bookingData.serviceName}
                           </h3>
-                          <p className="text-sm text-gray-500">Booking ID: #{bookingData.id.slice(-8)}</p>
+                          <p className="text-sm text-gray-500">Booking ID: #{bookingData.id?.slice(-8)}</p>
                         </div>
                       </div>
                       
@@ -779,7 +877,9 @@ const isCancellationAllowed = (bookingData) => {
                     
                     <span className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 flex items-center gap-2 ${getStatusColor(bookingData.status)}`}>
                       {getStatusIcon(bookingData.status)}
-                      {bookingData.status.replace('-', ' ')}
+                      {bookingData.status === 'in_progress' ? 'In Progress' : 
+                       bookingData.status === 'work_completed' ? 'Work Completed' : 
+                       bookingData.status.replace('_', ' ').replace('-', ' ')}
                     </span>
                   </div>
 
@@ -819,13 +919,32 @@ const isCancellationAllowed = (bookingData) => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/user/dashboard/bookings/${bookingData.id}`);
+                        if (bookingData.id && bookingData.id !== 'N/A') {
+                          navigate(`/user/dashboard/bookings/${bookingData.id}`);
+                        } else {
+                          console.error('Invalid booking ID:', bookingData.id);
+                          alert('Unable to view booking details. Please refresh the page and try again.');
+                        }
                       }}
                       className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-all font-medium"
                     >
                       <FiEye size={18} />
                       View Details
                     </button>
+                    
+                    {/* Quotation Button - Show for confirmed/in-progress bookings */}
+                    {['confirmed', 'in_progress', 'work_completed'].includes(bookingData.status) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewQuotations(bookingData);
+                        }}
+                        className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all font-medium border-2 border-blue-200"
+                      >
+                        <FiFileText size={18} />
+                        View Quotations
+                      </button>
+                    )}
                     
                     {/* Invoice Button - Available for ALL bookings */}
                     <AdaptiveInvoiceButton 
@@ -1197,7 +1316,7 @@ const isCancellationAllowed = (bookingData) => {
                   {getBookingData(reviewingBooking).serviceName}
                 </h4>
                 <p className="text-sm text-gray-600">
-                  Booking ID: #{getBookingData(reviewingBooking).id.slice(-8)}
+                  Booking ID: #{getBookingData(reviewingBooking).id?.slice(-8)}
                 </p>
               </div>
 
@@ -1266,6 +1385,73 @@ const isCancellationAllowed = (bookingData) => {
           </div>
         </div>
       )}
+
+      {/* Quotations Modal */}
+      {selectedBookingForQuotation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Quotations for {selectedBookingForQuotation.serviceName}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Booking ID: #{selectedBookingForQuotation.id?.slice(-8)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedBookingForQuotation(null);
+                    setBookingQuotations({});
+                  }}
+                  className="text-gray-500 hover:text-gray-700 p-2"
+                >
+                  <FiX size={24} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              {bookingQuotations[selectedBookingForQuotation.id]?.length > 0 ? (
+                <div className="space-y-4">
+                  {bookingQuotations[selectedBookingForQuotation.id].map((quotation) => (
+                    <QuotationCard
+                      key={quotation._id}
+                      quotation={quotation}
+                      booking={selectedBookingForQuotation}
+                      onAccept={handleAcceptQuotation}
+                      onReject={handleRejectQuotation}
+                      onViewDetails={handleViewQuotationDetails}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FiFileText className="text-gray-400" size={24} />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Quotations Yet</h3>
+                  <p className="text-gray-500">
+                    The service partner will provide quotations for any additional materials or services needed.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quotation Details Modal */}
+      <QuotationDetailsModal
+        quotation={selectedQuotation}
+        booking={selectedBookingForQuotation}
+        isOpen={showQuotationModal}
+        onClose={() => {
+          setShowQuotationModal(false);
+          setSelectedQuotation(null);
+        }}
+      />
     </div>
   );
 };

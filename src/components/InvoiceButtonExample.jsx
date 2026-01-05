@@ -43,7 +43,7 @@ export const BookingCardWithInvoice = ({ booking }) => {
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-800">{booking.serviceName}</h3>
-          <p className="text-sm text-gray-600">Booking ID: #{booking.id}</p>
+          <p className="text-sm text-gray-600">Booking ID: #{booking._id || booking.id}</p>
         </div>
         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
           booking.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -71,7 +71,7 @@ export const BookingCardWithInvoice = ({ booking }) => {
           </button>
           {/* Add the invoice button here */}
           <InvoiceButton 
-            bookingId={booking.id} 
+            bookingId={booking._id || booking.id} 
             variant="outline" 
             size="md"
           />
@@ -79,7 +79,7 @@ export const BookingCardWithInvoice = ({ booking }) => {
         
         {booking.status === 'completed' && (
           <InvoiceButton 
-            bookingId={booking.id} 
+            bookingId={booking._id || booking.id} 
             variant="primary" 
             size="sm"
           />

@@ -4,11 +4,11 @@ import {
   FiClock, FiHeadphones, FiHelpCircle, FiChevronDown,
   FiEye, FiCornerUpLeft, FiThumbsUp, FiThumbsDown
 } from 'react-icons/fi';
-import { supportApi } from '../../services/supportApi';
-import { useUserAuth } from '../../context/UserAuthContext';
+import { supportApi } from '../../../services/supportApi';
+import { usePartnerAuth } from '../../../context/PartnerAuthContext';
 
-const Support = () => {
-  const { isAuthenticated } = useUserAuth();
+const SupportTab = () => {
+  const { partner, token } = usePartnerAuth();
   const [activeTab, setActiveTab] = useState('contact');
   const [formData, setFormData] = useState({
     subject: '',
@@ -26,16 +26,14 @@ const Support = () => {
   const [replyMessage, setReplyMessage] = useState('');
   const [supportSettings, setSupportSettings] = useState(null);
 
-  // Get token from localStorage when needed
-  const getToken = () => localStorage.getItem('userToken');
-
   useEffect(() => {
     fetchFAQs();
     fetchSupportSettings();
-    if (isAuthenticated) {
-      fetchUserTickets();
+    
+    if (partner && token) {
+      fetchPartnerTickets();
     }
-  }, [isAuthenticated]);
+  }, [partner, token]);
 
   const fetchSupportSettings = async () => {
     try {
@@ -62,10 +60,13 @@ const Support = () => {
     }
   };
 
-  const fetchUserTickets = async () => {
+  const fetchPartnerTickets = async () => {
     try {
-      const token = getToken();
-      const response = await supportApi.getUserTickets(token);
+      if (!token) {
+        console.log('No auth token available for fetching tickets');
+        return;
+      }
+      const response = await supportApi.getPartnerTickets(token);
       setTickets(response.data || []);
     } catch (error) {
       console.error('Error fetching tickets:', error);
@@ -74,19 +75,18 @@ const Support = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isAuthenticated) {
+    if (!partner || !token) {
       alert('Please login to submit a support ticket');
       return;
     }
 
     setSending(true);
     try {
-      const token = getToken();
-      await supportApi.createTicket(token, formData);
+      await supportApi.createPartnerTicket(token, formData);
       setShowSuccess(true);
       setFormData({ subject: '', message: '', category: 'general', priority: 'medium' });
       setTimeout(() => setShowSuccess(false), 5000);
-      fetchUserTickets(); // Refresh tickets
+      fetchPartnerTickets(); // Refresh tickets
     } catch (error) {
       console.error('Error creating ticket:', error);
       alert('Failed to create ticket. Please try again.');
@@ -99,13 +99,16 @@ const Support = () => {
     if (!replyMessage.trim()) return;
 
     try {
-      const token = getToken();
-      await supportApi.addTicketReply(token, ticketId, { message: replyMessage });
+      if (!token) {
+        alert('Authentication required to send reply');
+        return;
+      }
+      await supportApi.addPartnerTicketReply(token, ticketId, { message: replyMessage });
       setReplyMessage('');
       // Refresh ticket details
-      const response = await supportApi.getTicketDetails(token, ticketId);
+      const response = await supportApi.getPartnerTicketDetails(token, ticketId);
       setSelectedTicket(response.data);
-      fetchUserTickets(); // Refresh tickets list
+      fetchPartnerTickets(); // Refresh tickets list
     } catch (error) {
       console.error('Error sending reply:', error);
       alert('Failed to send reply');
@@ -167,10 +170,10 @@ const Support = () => {
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
               <FiHeadphones size={20} className="sm:w-6 sm:h-6" />
             </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight">Support & Help Center</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight">Partner Support Center</h1>
           </div>
           <p className="text-blue-100 text-base sm:text-lg max-w-2xl leading-relaxed">
-            We're here to help! Get in touch with our support team or find answers to common questions.
+            Get help with your partner account, job management, payments, and more. Our support team is here to assist you.
           </p>
         </div>
       </div>
@@ -275,10 +278,12 @@ const Support = () => {
                         required
                       >
                         <option value="general">General Inquiry</option>
-                        <option value="booking">Booking Issue</option>
-                        <option value="payment">Payment Problem</option>
+                        <option value="job_management">Job Management</option>
+                        <option value="payment">Payment Issue</option>
                         <option value="technical">Technical Issue</option>
                         <option value="account">Account Problem</option>
+                        <option value="wallet">Wallet Issue</option>
+                        <option value="subscription">Subscription/Plan</option>
                         <option value="complaint">Complaint</option>
                       </select>
                     </div>
@@ -331,7 +336,7 @@ const Support = () => {
 
                   <button
                     type="submit"
-                    disabled={sending || !isAuthenticated}
+                    disabled={sending || !partner || !token}
                     className="w-full flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-primary to-primary-light text-white rounded-lg sm:rounded-xl hover:from-primary-dark hover:to-primary disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] text-sm sm:text-base"
                   >
                     {sending ? (
@@ -340,7 +345,7 @@ const Support = () => {
                         <span className="hidden sm:inline">Creating Ticket...</span>
                         <span className="sm:hidden">Creating...</span>
                       </>
-                    ) : !isAuthenticated ? (
+                    ) : !partner || !token ? (
                       <>
                         <span className="hidden sm:inline">Please Login to Create Ticket</span>
                         <span className="sm:hidden">Please Login</span>
@@ -361,7 +366,7 @@ const Support = () => {
           {/* My Tickets Tab */}
           {activeTab === 'tickets' && (
             <div className="space-y-4 sm:space-y-6">
-              {!isAuthenticated ? (
+              {!partner || !token ? (
                 <div className="text-center py-8">
                   <FiMessageCircle className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-gray-400" />
                   <p className="text-gray-600 text-sm sm:text-base">Please login to view your support tickets</p>
@@ -371,7 +376,7 @@ const Support = () => {
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                     <h2 className="text-lg sm:text-xl font-bold text-gray-800">My Support Tickets</h2>
                     <button
-                      onClick={fetchUserTickets}
+                      onClick={fetchPartnerTickets}
                       className="px-3 sm:px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm sm:text-base self-start sm:self-auto"
                     >
                       <span className="hidden sm:inline">Refresh</span>
@@ -398,8 +403,11 @@ const Support = () => {
                           className="bg-gray-50 rounded-lg p-3 sm:p-4 hover:bg-gray-100 transition cursor-pointer"
                           onClick={async () => {
                             try {
-                              const token = getToken();
-                              const response = await supportApi.getTicketDetails(token, ticket._id);
+                              if (!token) {
+                                alert('Authentication required to view ticket details');
+                                return;
+                              }
+                              const response = await supportApi.getPartnerTicketDetails(token, ticket._id);
                               setSelectedTicket(response.data);
                               setShowTicketModal(true);
                             } catch (error) {
@@ -454,7 +462,7 @@ const Support = () => {
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-lg sm:text-xl font-bold text-gray-800">Frequently Asked Questions</h2>
-                  <p className="text-gray-600 text-xs sm:text-sm mt-0.5">Quick answers to common questions</p>
+                  <p className="text-gray-600 text-xs sm:text-sm mt-0.5">Quick answers to common partner questions</p>
                 </div>
               </div>
               
@@ -562,7 +570,7 @@ const Support = () => {
                           </span>
                           <span className="text-xs text-gray-500 text-right">
                             <span className="hidden sm:inline">{new Date(reply.createdAt).toLocaleString()}</span>
-                            <span className="sm:hidden">{new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="sm:hidden">{new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                           </span>
                         </div>
                         <p className="text-xs sm:text-sm leading-relaxed break-words">{reply.message}</p>
@@ -610,7 +618,7 @@ const Support = () => {
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-base sm:text-lg mb-2">Need Immediate Help?</h3>
             <p className="text-blue-100 mb-3 sm:mb-4 text-sm sm:text-base leading-relaxed">
-              For urgent issues, please call our support hotline. We're available 24/7 to assist you with any emergency service needs.
+              For urgent partner issues, please call our support hotline. We're available 24/7 to assist you with job management, payments, and technical problems.
             </p>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <a
@@ -636,4 +644,4 @@ const Support = () => {
   );
 };
 
-export default Support;
+export default SupportTab;

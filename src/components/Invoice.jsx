@@ -28,6 +28,52 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
   // Transform booking data to invoice data if needed
   if (type === 'booking' && actualInvoiceData) {
     const booking = actualInvoiceData;
+    
+    // Check if there's quotation data passed along with booking
+    const quotation = booking.quotation || booking.acceptedQuotation;
+    
+    // Build services array - include both booking service and quotation items
+    let services = [];
+    
+    // Add main booking service
+    if (booking.subService || booking.service || booking.popularService || booking.serviceName) {
+      services.push({
+        name: booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || 'Service',
+        description: booking.subService?.description || booking.description || 'Main service booking',
+        quantity: 1,
+        rate: booking.amount || 0,
+        type: 'service'
+      });
+    }
+    
+    // Add quotation items if quotation exists and is accepted
+    if (quotation && quotation.customerStatus === 'accepted' && quotation.items) {
+      quotation.items.forEach(item => {
+        services.push({
+          name: item.name,
+          description: item.description || 'Quotation item',
+          quantity: item.quantity || 1,
+          rate: item.unitPrice || 0,
+          type: 'quotation_item',
+          category: item.category
+        });
+      });
+    }
+    
+    // Calculate totals
+    const bookingAmount = booking.amount || 0;
+    const quotationAmount = quotation?.totalAmount || 0;
+    const totalAmount = booking.totalAmount || (bookingAmount + quotationAmount);
+    
+    console.log('Invoice Data Debug:', {
+      bookingAmount,
+      quotationAmount,
+      totalAmount,
+      bookingTotalAmount: booking.totalAmount,
+      quotationExists: !!quotation,
+      quotationStatus: quotation?.customerStatus
+    });
+    
     actualInvoiceData = {
       invoiceNumber: booking.bookingId || `INV-${booking._id?.slice(-8)}` || 'INV-000001',
       date: booking.createdAt || new Date().toISOString(),
@@ -36,23 +82,30 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
         name: booking.user?.name || booking.customerName || 'Customer',
         email: booking.user?.email || booking.customerEmail || '',
         phone: booking.user?.phone || booking.customerPhone || '',
-        address: booking.address || 'Address not provided'
+        address: booking.address || booking.location?.address || 'Address not provided',
+        landmark: booking.location?.landmark,
+        pincode: booking.location?.pincode
       },
-      services: booking.services ? booking.services.map(service => ({
-        name: service.name || service.serviceName || 'Service',
-        description: service.description || '',
-        quantity: 1,
-        rate: service.price || service.amount || 0
-      })) : [{
-        name: booking.serviceName || 'Service',
-        description: booking.description || '',
-        quantity: 1,
-        rate: booking.totalAmount || booking.amount || 0
-      }],
+      services: services,
+      quotationDetails: quotation ? {
+        quotationNumber: quotation.quotationNumber,
+        quotationDate: quotation.createdAt,
+        quotationAmount: quotation.totalAmount,
+        itemCount: quotation.items?.length || 0,
+        status: quotation.customerStatus
+      } : null,
       paymentDetails: {
-        method: booking.paymentMethod || 'Cash',
+        method: booking.paymentMethod || booking.paymentMode || 'Cash',
         status: booking.paymentStatus || 'Pending',
-        amount: booking.totalAmount || booking.amount || 0
+        amount: totalAmount,
+        bookingAmount: Number(bookingAmount),
+        quotationAmount: Number(quotationAmount),
+        totalAmount: Number(totalAmount),
+        paidAmount: Number(booking.payamount || 0),
+        bookingId: booking.bookingId || booking._id,
+        serviceDate: booking.scheduledDate,
+        serviceTime: booking.scheduledTime,
+        transactionId: booking.paymentDetails?.finalPayment?.transactionId
       },
       companyDetails: {
         name: 'ParNets Software India PVT LTD',
@@ -79,15 +132,27 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
   const subtotal = services && services.length > 0 
     ? services.reduce((sum, service) => sum + ((service.quantity || 1) * (service.rate || 0)), 0) 
     : 0;
-  const totalAmount = subtotal; // Add tax calculations if needed
+  
+  // Use the correct total amount - prefer paymentDetails.totalAmount if available, otherwise calculate from subtotal
+  const totalAmount = paymentDetails?.totalAmount || paymentDetails?.amount || subtotal;
 
   const handlePrint = () => {
+    // Add print-ready class to body
+    document.body.classList.add('printing');
+    
+    // Trigger print
     window.print();
+    
+    // Remove print-ready class after print dialog closes
+    setTimeout(() => {
+      document.body.classList.remove('printing');
+    }, 1000);
+    
     if (onPrint) onPrint();
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white">
+    <div className="max-w-4xl mx-auto bg-white print-invoice-wrapper">
       {/* Print Options - Hidden during print */}
       <PrintOptions onPrint={onPrint} invoiceData={actualInvoiceData} />
 
@@ -97,7 +162,17 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
         <div className="flex justify-between items-start mb-6">
           <div>
             <div className="flex items-center mb-3">
-              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl mr-3">
+              <img 
+                src="/logo.png" 
+                alt="Nexo Logo" 
+                className="w-12 h-12 mr-3 object-contain"
+                onError={(e) => {
+                  // Fallback to text logo if image fails to load
+                  e.target.style.display = 'none';
+                  e.target.nextElementSibling.style.display = 'flex';
+                }}
+              />
+              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl mr-3" style={{display: 'none'}}>
                 N
               </div>
               <div>
@@ -166,6 +241,12 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
                 <span>Booking ID:</span>
                 <span className="font-medium">#{paymentDetails?.bookingId || invoiceNumber}</span>
               </div>
+              {actualInvoiceData.quotationDetails && (
+                <div className="flex justify-between">
+                  <span>Quotation ID:</span>
+                  <span className="font-medium">#{actualInvoiceData.quotationDetails.quotationNumber}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Service Date:</span>
                 <span>{paymentDetails?.serviceDate ? format(new Date(paymentDetails.serviceDate), 'dd MMMM yyyy') : format(new Date(date), 'dd MMMM yyyy')}</span>
@@ -197,6 +278,37 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
         {/* Services Table */}
         <div className="mb-6">
           <h3 className="font-semibold text-gray-800 mb-3">Services & Items</h3>
+          
+          {/* Quotation Summary if exists */}
+          {actualInvoiceData.quotationDetails && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-blue-800">Quotation Summary</h4>
+                <span className="text-xs text-blue-600">#{actualInvoiceData.quotationDetails.quotationNumber}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-blue-700">Quotation Date:</span>
+                  <span className="ml-2">{actualInvoiceData.quotationDetails.quotationDate ? format(new Date(actualInvoiceData.quotationDetails.quotationDate), 'dd MMM yyyy') : 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Items Count:</span>
+                  <span className="ml-2">{actualInvoiceData.quotationDetails.itemCount}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Quotation Amount:</span>
+                  <span className="ml-2 font-semibold">₹{Number(actualInvoiceData.quotationDetails.quotationAmount || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Status:</span>
+                  <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full capitalize">
+                    {actualInvoiceData.quotationDetails.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
@@ -217,21 +329,34 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
               </thead>
               <tbody>
                 {services && services.length > 0 ? services.map((service, index) => (
-                  <tr key={index}>
+                  <tr key={index} className={service.type === 'quotation_item' ? 'bg-blue-50' : ''}>
                     <td className="border border-gray-200 px-3 py-2 text-sm">
                       <div>
-                        <p className="font-medium">{service.name || 'Service'}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{service.name || 'Service'}</p>
+                          {service.type === 'quotation_item' && (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                              Quotation Item
+                            </span>
+                          )}
+                          {service.type === 'service' && (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                              Main Service
+                            </span>
+                          )}
+                        </div>
                         {service.description && <p className="text-gray-600 text-xs mt-1">{service.description}</p>}
+                        {service.category && <p className="text-gray-500 text-xs mt-0.5">Category: {service.category}</p>}
                       </div>
                     </td>
                     <td className="border border-gray-200 px-3 py-2 text-center text-sm">
                       {service.quantity || 1}
                     </td>
                     <td className="border border-gray-200 px-3 py-2 text-center text-sm">
-                      ₹{service.rate || 0}
+                      ₹{Number(service.rate || 0).toLocaleString('en-IN')}
                     </td>
                     <td className="border border-gray-200 px-3 py-2 text-right text-sm">
-                      ₹{(service.quantity || 1) * (service.rate || 0)}
+                      ₹{Number((service.quantity || 1) * (service.rate || 0)).toLocaleString('en-IN')}
                     </td>
                   </tr>
                 )) : (
@@ -248,15 +373,50 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
 
         {/* Total Section */}
         <div className="flex justify-end mb-6">
-          <div className="w-64">
-            <div className="flex justify-between py-1.5 text-sm">
-              <span>Subtotal:</span>
-              <span>₹{subtotal}</span>
-            </div>
+          <div className="w-80">
+            {/* Show breakdown if quotation exists */}
+            {actualInvoiceData.quotationDetails && paymentDetails?.bookingAmount !== undefined && paymentDetails?.quotationAmount !== undefined ? (
+              <>
+                <div className="flex justify-between py-1.5 text-sm border-b border-gray-200">
+                  <span>Service Amount:</span>
+                  <span>₹{Number(paymentDetails.bookingAmount || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between py-1.5 text-sm border-b border-gray-200">
+                  <span>Quotation Amount:</span>
+                  <span>₹{Number(paymentDetails.quotationAmount || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between py-1.5 text-sm">
+                  <span>Subtotal:</span>
+                  <span>₹{Number((paymentDetails.bookingAmount || 0) + (paymentDetails.quotationAmount || 0)).toLocaleString('en-IN')}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between py-1.5 text-sm">
+                <span>Subtotal:</span>
+                <span>₹{Number(subtotal || 0).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            
+            {/* Show paid amount if partial payment */}
+            {paymentDetails?.paidAmount && paymentDetails.paidAmount > 0 && paymentDetails.paidAmount < totalAmount && (
+              <div className="flex justify-between py-1.5 text-sm text-green-600">
+                <span>Amount Paid:</span>
+                <span>₹{Number(paymentDetails.paidAmount || 0).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            
             <div className="flex justify-between py-2 bg-gray-800 text-white px-3 font-semibold">
               <span>TOTAL AMOUNT:</span>
-              <span>₹{totalAmount}</span>
+              <span>₹{Number(totalAmount || 0).toLocaleString('en-IN')}</span>
             </div>
+            
+            {/* Show remaining amount if partial payment */}
+            {paymentDetails?.paidAmount && paymentDetails.paidAmount > 0 && paymentDetails.paidAmount < totalAmount && (
+              <div className="flex justify-between py-1.5 text-sm text-red-600 font-medium">
+                <span>Remaining Amount:</span>
+                <span>₹{Number((totalAmount || 0) - (paymentDetails.paidAmount || 0)).toLocaleString('en-IN')}</span>
+              </div>
+            )}
           </div>
         </div>
 

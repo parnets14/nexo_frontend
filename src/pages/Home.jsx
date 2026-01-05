@@ -933,67 +933,6 @@ const Home = () => {
                 })}
               </div>
             )}
-
-            {/* View All Services Button */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="text-center mt-12 sm:mt-16"
-            >
-              <motion.button
-                onClick={handleWhatsAppClick}
-                whileHover={{ scale: 1.05, y: -3 }}
-                whileTap={{ scale: 0.95 }}
-                className="group relative bg-gradient-to-r from-primary to-primary-dark text-white px-8 sm:px-12 py-4 sm:py-5 rounded-2xl text-base sm:text-lg font-bold hover:from-primary-dark hover:to-primary transition-all duration-300 shadow-xl hover:shadow-2xl flex items-center gap-3 mx-auto overflow-hidden"
-              >
-                {/* Button background animation */}
-                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                
-                {/* Icon with animation */}
-                <motion.div
-                  animate={{ 
-                    rotate: [0, 360],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "linear"
-                  }}
-                  className="relative z-10"
-                >
-                  <FaWhatsapp className="w-6 h-6" />
-                </motion.div>
-                
-                {/* Text content */}
-                <span className="relative z-10">Explore All Services on WhatsApp</span>
-                
-                {/* Arrow indicator */}
-                <motion.div
-                  animate={{ x: [0, 5, 0] }}
-                  transition={{
-                    duration: 1.5,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                  className="relative z-10"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
-                </motion.div>
-
-                {/* Shine effect */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
-                </div>
-              </motion.button>
-              
-              <p className="text-gray-500 mt-4 text-sm sm:text-base">
-                200+ services available • Response under 2 minutes
-              </p>
-            </motion.div>
           </div>
         </section>
 

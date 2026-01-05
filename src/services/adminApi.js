@@ -603,6 +603,92 @@ export const adminApi = {
     return handleResponse(response)
   },
 
+  // Support Management
+  async getSupportTickets(token, params = {}) {
+    const queryParams = new URLSearchParams(params).toString()
+    const response = await fetch(buildUrl(`/api/support/admin/tickets?${queryParams}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async updateTicketStatus(token, ticketId, status) {
+    const response = await fetch(buildUrl(`/api/support/admin/tickets/${ticketId}/status`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ status })
+    })
+    return handleResponse(response)
+  },
+
+  async assignTicket(token, ticketId, adminId) {
+    const response = await fetch(buildUrl(`/api/support/admin/tickets/${ticketId}/assign`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ adminId })
+    })
+    return handleResponse(response)
+  },
+
+  async replyToTicket(token, ticketId, replyData) {
+    const response = await fetch(buildUrl(`/api/support/admin/tickets/${ticketId}/reply`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(replyData)
+    })
+    return handleResponse(response)
+  },
+
+  async getFAQs(token, params = {}) {
+    const queryParams = new URLSearchParams(params).toString()
+    const response = await fetch(buildUrl(`/api/support/admin/faqs?${queryParams}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async createFAQ(token, faqData) {
+    const response = await fetch(buildUrl('/api/support/admin/faqs'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(faqData)
+    })
+    return handleResponse(response)
+  },
+
+  async updateFAQ(token, faqId, faqData) {
+    const response = await fetch(buildUrl(`/api/support/admin/faqs/${faqId}`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(faqData)
+    })
+    return handleResponse(response)
+  },
+
+  async deleteFAQ(token, faqId) {
+    const response = await fetch(buildUrl(`/api/support/admin/faqs/${faqId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getSupportSettings(token) {
+    const response = await fetch(buildUrl('/api/support/admin/settings'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async updateSupportSettings(token, settingsData) {
+    const response = await fetch(buildUrl('/api/support/admin/settings'), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(settingsData)
+    })
+    return handleResponse(response)
+  },
+
   // MG Plans Management
   async fetchMGPlans(token) {
     const response = await fetch(buildUrl('/api/admin/mg-plans'), {
@@ -1252,6 +1338,23 @@ export const adminApi = {
     const response = await fetch(buildUrl(`/api/admin/inventory/purchase-orders/${id}`), {
       method: 'DELETE',
       headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Quotation-based Orders
+  async fetchQuotationBasedOrders(token) {
+    const response = await fetch(buildUrl('/api/admin/inventory/quotation-orders'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async updateQuotationOrderStatus(token, orderId, statusData) {
+    const response = await fetch(buildUrl(`/api/admin/inventory/quotation-orders/${orderId}/status`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(statusData)
     })
     return handleResponse(response)
   },

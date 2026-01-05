@@ -56,7 +56,11 @@ const PopularServicesManagement = () => {
     addOns: [],
     cities: [],
     order: 0,
-    isActive: true
+    isActive: true,
+    emergencyService: {
+      enabled: false,
+      extraAmount: 0
+    }
   })
   const [addOnForm, setAddOnForm] = useState({
     name: '',
@@ -151,7 +155,11 @@ const PopularServicesManagement = () => {
         })) || [],
         cities: service.cities?.map(city => typeof city === 'string' ? city : city._id) || [],
         order: service.order || 0,
-        isActive: service.isActive !== undefined ? service.isActive : true
+        isActive: service.isActive !== undefined ? service.isActive : true,
+        emergencyService: {
+          enabled: service.emergencyService?.enabled || false,
+          extraAmount: service.emergencyService?.extraAmount || 0
+        }
       })
     } else {
       setEditingService(null)
@@ -174,7 +182,11 @@ const PopularServicesManagement = () => {
         addOns: [],
         cities: [],
         order: services.length > 0 ? Math.max(...services.map(s => s.order || 0)) + 1 : 0,
-        isActive: true
+        isActive: true,
+        emergencyService: {
+          enabled: false,
+          extraAmount: 0
+        }
       })
     }
     setAddOnForm({
@@ -228,7 +240,11 @@ const PopularServicesManagement = () => {
         addOns: [],
         cities: [],
         order: 0,
-        isActive: true
+        isActive: true,
+        emergencyService: {
+          enabled: false,
+          extraAmount: 0
+        }
       })
     setAddOnIncludedItem('')
     setAddOnExcludedItem('')
@@ -351,10 +367,15 @@ const PopularServicesManagement = () => {
     if (addOn.serviceCharge > 0) {
       total += addOn.serviceCharge
     }
+    // Add emergency service charge if enabled
+    if (formData.emergencyService?.enabled && formData.emergencyService?.extraAmount > 0) {
+      total += formData.emergencyService.extraAmount
+    }
     // Calculate GST on subtotal
     const subtotal = (addOn.basePrice || 0) - 
       (addOn.discount > 0 ? (addOn.basePrice || 0) * addOn.discount / 100 : 0) +
-      (addOn.serviceCharge || 0)
+      (addOn.serviceCharge || 0) +
+      (formData.emergencyService?.enabled ? (formData.emergencyService?.extraAmount || 0) : 0)
     total += (subtotal * (addOn.cgst || 0) / 100) + (subtotal * (addOn.sgst || 0) / 100)
     return `₹${Math.round(total)}`
   }
@@ -370,7 +391,7 @@ const PopularServicesManagement = () => {
         }))
       }
     }
-  }, [addOnForm.basePrice, addOnForm.discount, addOnForm.cgst, addOnForm.sgst, addOnForm.serviceCharge])
+  }, [addOnForm.basePrice, addOnForm.discount, addOnForm.cgst, addOnForm.sgst, addOnForm.serviceCharge, formData.emergencyService.enabled, formData.emergencyService.extraAmount])
 
   const handleAddAddOn = () => {
     if (addOnForm.name.trim() && addOnForm.basePrice > 0) {
@@ -467,7 +488,10 @@ const PopularServicesManagement = () => {
         sgst: 0,
         serviceCharge: 0,
         price: '',
-        icon: 'FaTools'
+        icon: 'FaTools',
+        included: [],
+        excluded: [],
+        subServices: []
       })
     }
   }
@@ -1097,9 +1121,16 @@ const PopularServicesManagement = () => {
                         )}
                       </div>
                       {addOnForm.basePrice > 0 && (
-                        <p className="mt-1 text-xs text-emerald-600">
-                          💡 Calculated: {calculateAddOnPrice(addOnForm)}
-                        </p>
+                        <div className="mt-1 space-y-1">
+                          <p className="text-xs text-emerald-600">
+                            💡 Calculated: {calculateAddOnPrice(addOnForm)}
+                          </p>
+                          {formData.emergencyService?.enabled && formData.emergencyService?.extraAmount > 0 && (
+                            <p className="text-xs text-orange-600">
+                              ⚡ Includes emergency service charge: +₹{formData.emergencyService.extraAmount}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
 
@@ -1343,6 +1374,13 @@ const PopularServicesManagement = () => {
 
                 {/* Add-Ons List */}
                 <div className="space-y-2">
+                  {formData.emergencyService?.enabled && formData.emergencyService?.extraAmount > 0 && formData.addOns.length > 0 && (
+                    <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <p className="text-sm text-orange-700">
+                        ⚡ Emergency service charge (+₹{formData.emergencyService.extraAmount}) will be applied to all add-on services and their sub-services
+                      </p>
+                    </div>
+                  )}
                   {formData.addOns.length === 0 ? (
                     <p className="text-sm text-slate-400 text-center py-4">No add-on services added yet</p>
                   ) : (
@@ -1512,6 +1550,52 @@ const PopularServicesManagement = () => {
                 </label>
               </div>
 
+              {/* Emergency Service Section */}
+              <div className="bg-slate-50 p-4 rounded-xl border-2 border-slate-200">
+                <h4 className="text-sm font-semibold text-slate-700 mb-3">Emergency Service</h4>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.emergencyService.enabled}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        emergencyService: { 
+                          ...prev.emergencyService, 
+                          enabled: e.target.checked 
+                        } 
+                      }))}
+                      className="w-5 h-5 text-primary rounded focus:ring-primary"
+                    />
+                    <span className="text-sm font-semibold text-slate-700">Enable Emergency Service</span>
+                  </label>
+                  
+                  {formData.emergencyService.enabled && (
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Extra Amount for Emergency Service (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.emergencyService.extraAmount}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          emergencyService: { 
+                            ...prev.emergencyService, 
+                            extraAmount: parseFloat(e.target.value) || 0 
+                          } 
+                        }))}
+                        className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                      />
+                      <p className="mt-1 text-xs text-slate-500">Additional amount charged for emergency service</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
@@ -1645,6 +1729,25 @@ const PopularServicesManagement = () => {
                     <p className="text-base text-slate-900 mt-1">{viewingService.trusted}</p>
                   </div>
                 )}
+                {viewingService.emergencyService && (
+                  <div className="mt-4">
+                    <label className="text-sm font-semibold text-slate-600">Emergency Service</label>
+                    <div className="mt-1">
+                      {viewingService.emergencyService.enabled ? (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600">
+                            Enabled
+                          </span>
+                          <span className="text-base text-slate-900">+₹{viewingService.emergencyService.extraAmount || 0}</span>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-600">
+                          Disabled
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Available Cities */}
@@ -1715,10 +1818,15 @@ const PopularServicesManagement = () => {
                         if (addon.serviceCharge > 0) {
                           total += addon.serviceCharge
                         }
+                        // Add emergency service charge if enabled
+                        if (viewingService.emergencyService?.enabled && viewingService.emergencyService?.extraAmount > 0) {
+                          total += viewingService.emergencyService.extraAmount
+                        }
                         // Calculate GST on subtotal
                         const subtotal = (addon.basePrice || 0) - 
                           (addon.discount > 0 ? (addon.basePrice || 0) * addon.discount / 100 : 0) +
-                          (addon.serviceCharge || 0)
+                          (addon.serviceCharge || 0) +
+                          (viewingService.emergencyService?.enabled ? (viewingService.emergencyService?.extraAmount || 0) : 0)
                         total += (subtotal * (addon.cgst || 0) / 100) + (subtotal * (addon.sgst || 0) / 100)
                         return total
                       }
@@ -1755,6 +1863,12 @@ const PopularServicesManagement = () => {
                                 <span className="font-semibold text-slate-900">+₹{(addon.serviceCharge || 0).toFixed(2)}</span>
                               </div>
                             )}
+                            {viewingService.emergencyService?.enabled && viewingService.emergencyService?.extraAmount > 0 && (
+                              <div className="flex justify-between text-orange-600">
+                                <span>Emergency Service:</span>
+                                <span className="font-semibold">+₹{(viewingService.emergencyService.extraAmount || 0).toFixed(2)}</span>
+                              </div>
+                            )}
                             {(addon.cgst > 0 || addon.sgst > 0) && (
                               <div className="flex justify-between">
                                 <span className="text-slate-600">GST ({(addon.cgst || 0) + (addon.sgst || 0)}%):</span>
@@ -1762,7 +1876,8 @@ const PopularServicesManagement = () => {
                                   +₹{(() => {
                                     const subtotal = (addon.basePrice || 0) - 
                                       (addon.discount > 0 ? (addon.basePrice || 0) * addon.discount / 100 : 0) +
-                                      (addon.serviceCharge || 0)
+                                      (addon.serviceCharge || 0) +
+                                      (viewingService.emergencyService?.enabled ? (viewingService.emergencyService?.extraAmount || 0) : 0)
                                     return ((subtotal * (addon.cgst || 0) / 100) + (subtotal * (addon.sgst || 0) / 100)).toFixed(2)
                                   })()}
                                 </span>
@@ -1813,6 +1928,13 @@ const PopularServicesManagement = () => {
                           {addon.subServices && addon.subServices.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-slate-200">
                               <h5 className="text-sm font-semibold text-slate-700 mb-2">Sub-Services</h5>
+                              {viewingService.emergencyService?.enabled && viewingService.emergencyService?.extraAmount > 0 && (
+                                <div className="mb-2 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                                  <p className="text-xs text-orange-700">
+                                    ⚡ Emergency service charge (+₹{viewingService.emergencyService.extraAmount}) applies to all sub-services
+                                  </p>
+                                </div>
+                              )}
                               <div className="space-y-2">
                                 {addon.subServices.map((subService, idx) => {
                                   const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
@@ -1826,7 +1948,14 @@ const PopularServicesManagement = () => {
                                         {subService.shortDescription && (
                                           <div className="text-xs text-slate-600 mt-0.5">{subService.shortDescription}</div>
                                         )}
-                                        <div className="text-xs text-primary font-semibold mt-1">{subService.price}</div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <span className="text-xs text-primary font-semibold">{subService.price}</span>
+                                          {viewingService.emergencyService?.enabled && viewingService.emergencyService?.extraAmount > 0 && (
+                                            <span className="text-xs text-orange-600 font-semibold">
+                                              (+₹{viewingService.emergencyService.extraAmount} emergency)
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                   )

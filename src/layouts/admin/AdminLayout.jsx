@@ -46,6 +46,7 @@ const navItems = [
   { label: 'MG Plans', icon: FiAward, to: '/admin/mg-plans' },
   { label: 'Fee Management', icon: FiDollarSign, to: '/admin/fees' },
   { label: 'Fee Transactions', icon: FiCreditCard, to: '/admin/fee-transactions' },
+  { label: 'Support Management', icon: FiMessageSquare, to: '/admin/support' },
   { label: 'Reports', icon: FiSettings, to: '/admin/reports' },
   { label: 'Notifications', icon: FiBell, to: '/admin/notifications' },
   { label: 'Refund Management', icon: FiRefreshCw, to: '/admin/refunds' },

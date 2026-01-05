@@ -120,9 +120,9 @@ const ProfileTab = () => {
         
         // Set profile picture
         if (prof.profilePicture) {
-          const imageUrl = prof.profilePicture.startsWith('http') 
+          const imageUrl = prof.profilePicture.startsWith('https') 
             ? prof.profilePicture 
-            : `https://nexo.works/${prof.profilePicture}`
+            : `https://nexo.works/uploads/profiles/${prof.profilePicture}`
           setProfilePicturePreview(imageUrl)
         }
         
@@ -193,9 +193,10 @@ const ProfileTab = () => {
   }
 
   const getImageUrl = (path) => {
+    console.log(path)
     if (!path) return null
     if (path.startsWith('http')) return path
-    return `https://nexo.works/${path}`
+    return `https://nexo.works/uploads/kyc/${path}`
   }
 
   const handleImageChange = (e) => {

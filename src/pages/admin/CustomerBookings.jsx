@@ -17,12 +17,17 @@ import {
   FiXCircle,
   FiAlertCircle,
   FiUserPlus,
-  FiSearch
+  FiSearch,
+  FiStar,
+  FiAlertTriangle
 } from 'react-icons/fi'
+import { FaBolt } from 'react-icons/fa'
 import { adminApi } from '../../services/adminApi'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
 import { CompactInvoiceButton } from '../../components/InvoiceButton'
 import QuotationDetailsModal from '../../components/QuotationDetailsModal'
+import { exportToExcel } from '../../utils/excelExport'
+import { supportApi } from '../../services/supportApi'
 
 const CustomerBookings = () => {
   const { token } = useAdminAuth()
@@ -32,6 +37,8 @@ const CustomerBookings = () => {
   const [loading, setLoading] = useState(true)
   const [partnersLoading, setPartnersLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [supportSettings, setSupportSettings] = useState(null)
+  const [emergencyBookings, setEmergencyBookings] = useState([])
   const [filters, setFilters] = useState({
     dateRange: 'all',
     status: 'all',
@@ -61,8 +68,20 @@ const CustomerBookings = () => {
   useEffect(() => {
     if (token) {
       fetchBookings(pagination.currentPage)
+      fetchSupportSettings()
     }
   }, [token, filters.dateRange, filters.status, filters.search, pagination.currentPage, pagination.itemsPerPage])
+
+  const fetchSupportSettings = async () => {
+    try {
+      const response = await supportApi.getSupportSettings()
+      if (response.success) {
+        setSupportSettings(response.data)
+      }
+    } catch (err) {
+      console.error('Error fetching support settings:', err)
+    }
+  }
 
   useEffect(() => {
     // Fetch quotations for all bookings
@@ -154,7 +173,31 @@ const CustomerBookings = () => {
         search: filters.search || undefined
       })
 
-      setBookings(response.data || [])
+      console.log('[CustomerBookings] Fetched bookings response:', response)
+      
+      const bookingsData = response.data || []
+      console.log(`[CustomerBookings] Received ${bookingsData.length} bookings`)
+      
+      // Debug: Check for review data
+      const bookingsWithReviews = bookingsData.filter(b => b.review)
+      console.log(`[CustomerBookings] Found ${bookingsWithReviews.length} bookings with reviews`)
+      if (bookingsWithReviews.length > 0) {
+        console.log('[CustomerBookings] Sample review data:', bookingsWithReviews[0].review)
+      }
+
+      setBookings(bookingsData)
+      
+      // Filter emergency bookings (assuming emergency bookings have a specific field or service type)
+      const emergencyBookingsData = bookingsData.filter(booking => 
+        booking.isEmergency || 
+        booking.serviceName?.toLowerCase().includes('emergency') ||
+        booking.service?.name?.toLowerCase().includes('emergency') ||
+        booking.popularService?.name?.toLowerCase().includes('emergency') ||
+        booking.priority === 'urgent' ||
+        booking.status === 'emergency'
+      )
+      setEmergencyBookings(emergencyBookingsData)
+      
       // Update pagination info
       if (response.pagination) {
         setPagination(prev => ({
@@ -431,8 +474,22 @@ const CustomerBookings = () => {
     }
   }
 
-  // No client-side filtering needed since we're doing server-side filtering
-  const filteredBookings = bookings
+  // Sort bookings to show emergency bookings first
+  const filteredBookings = useMemo(() => {
+    const sortedBookings = [...bookings].sort((a, b) => {
+      const aIsEmergency = emergencyBookings.some(eb => eb._id === a._id)
+      const bIsEmergency = emergencyBookings.some(eb => eb._id === b._id)
+      
+      // Emergency bookings first
+      if (aIsEmergency && !bIsEmergency) return -1
+      if (!aIsEmergency && bIsEmergency) return 1
+      
+      // Then sort by creation date (newest first)
+      return new Date(b.createdAt) - new Date(a.createdAt)
+    })
+    
+    return sortedBookings
+  }, [bookings, emergencyBookings])
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
@@ -468,7 +525,12 @@ const CustomerBookings = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Customer Bookings</h1>
-          <p className="text-gray-600 mt-1">Manage and assign bookings to partners</p>
+          <p className="text-gray-600 mt-1">
+            {emergencyBookings.length > 0 
+              ? `${emergencyBookings.length} emergency booking${emergencyBookings.length > 1 ? 's' : ''} shown at top` 
+              : 'Manage and assign bookings to partners'
+            }
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -478,12 +540,78 @@ const CustomerBookings = () => {
             <FiRefreshCw className="text-sm" />
             Refresh
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+          <button 
+            onClick={() => {
+              const exportData = filteredBookings.map(b => ({
+                'Booking ID': b._id?.toString().slice(-8) || 'N/A',
+                'Customer Name': b.customerName || 'N/A',
+                'Customer Phone': b.customerPhone || 'N/A',
+                'Service': b.service?.name || b.subService?.name || b.popularService?.name || b.serviceName || 'N/A',
+                'Amount (₹)': b.amount || 0,
+                'Total Amount (₹)': b.totalAmount || b.amount || 0,
+                'Paid Amount (₹)': b.payamount || 0,
+                'Status': b.status || 'N/A',
+                'Payment Status': b.paymentStatus || 'N/A',
+                'Scheduled Date': b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString('en-IN') : 'N/A',
+                'Scheduled Time': b.scheduledTime || 'N/A',
+                'Location': b.location?.address || 'N/A',
+                'Partner Name': b.partnerName !== 'Still not assigned' ? b.partnerName : 'Not Assigned',
+                'Team Member': b.teamMember?.name || 'N/A',
+                'Customer Rating': b.review?.rating || 'No Rating',
+                'Review Comment': b.review?.comment || 'No Review',
+                'Review Date': b.review?.createdAt ? new Date(b.review.createdAt).toLocaleDateString('en-IN') : 'N/A',
+                'Has Video Review': b.review?.video ? 'Yes' : 'No',
+                'Created At': b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : 'N/A'
+              }))
+              
+              exportToExcel(exportData, [
+                { header: 'Booking ID', accessor: 'Booking ID' },
+                { header: 'Customer Name', accessor: 'Customer Name' },
+                { header: 'Customer Phone', accessor: 'Customer Phone' },
+                { header: 'Service', accessor: 'Service' },
+                { header: 'Amount (₹)', accessor: 'Amount (₹)' },
+                { header: 'Total Amount (₹)', accessor: 'Total Amount (₹)' },
+                { header: 'Paid Amount (₹)', accessor: 'Paid Amount (₹)' },
+                { header: 'Status', accessor: 'Status' },
+                { header: 'Payment Status', accessor: 'Payment Status' },
+                { header: 'Scheduled Date', accessor: 'Scheduled Date' },
+                { header: 'Scheduled Time', accessor: 'Scheduled Time' },
+                { header: 'Location', accessor: 'Location' },
+                { header: 'Partner Name', accessor: 'Partner Name' },
+                { header: 'Team Member', accessor: 'Team Member' },
+                { header: 'Customer Rating', accessor: 'Customer Rating' },
+                { header: 'Review Comment', accessor: 'Review Comment' },
+                { header: 'Review Date', accessor: 'Review Date' },
+                { header: 'Has Video Review', accessor: 'Has Video Review' },
+                { header: 'Created At', accessor: 'Created At' }
+              ], 'Customer_Bookings', 'Customer Bookings', {
+                columnWidths: [15, 20, 15, 25, 15, 15, 15, 12, 12, 15, 12, 30, 20, 20, 12, 30, 15, 12, 20]
+              })
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+          >
             <FiDownload className="text-sm" />
             Export
           </button>
         </div>
       </div>
+
+      {/* Simple Emergency Alert */}
+      {emergencyBookings.length > 0 && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+          <div className="flex items-center">
+            <FiAlertTriangle className="w-5 h-5 text-red-600 mr-3" />
+            <div>
+              <p className="text-sm font-semibold text-red-800">
+                {emergencyBookings.length} Emergency Booking{emergencyBookings.length > 1 ? 's' : ''} - Showing at top of list
+              </p>
+              <p className="text-xs text-red-600">
+                Emergency Contact: {supportSettings?.emergencyContact || 'Not configured'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -545,7 +673,7 @@ const CustomerBookings = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -622,6 +750,27 @@ const CustomerBookings = () => {
             </div>
           </div>
         </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Avg Rating</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {(() => {
+                  const reviewedBookings = filteredBookings.filter(b => b.review && b.review.rating);
+                  const totalRating = reviewedBookings.reduce((sum, b) => sum + (b.review.rating || 0), 0);
+                  return reviewedBookings.length > 0 ? (totalRating / reviewedBookings.length).toFixed(1) : '0.0';
+                })()}
+              </p>
+              <p className="text-xs text-gray-500">
+                {filteredBookings.filter(b => b.review && b.review.rating).length} reviews on page
+              </p>
+            </div>
+            <div className="p-3 bg-yellow-50 rounded-lg">
+              <FiStar className="text-xl text-yellow-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Bookings Table */}
@@ -636,6 +785,11 @@ const CustomerBookings = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
+                  {emergencyBookings.length > 0 && (
+                    <span className="ml-2 text-red-600 text-xs normal-case">
+                      (Emergency bookings shown first)
+                    </span>
+                  )}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Service
@@ -656,6 +810,9 @@ const CustomerBookings = () => {
                   Quotations
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Customer Review
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -663,19 +820,41 @@ const CustomerBookings = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredBookings.map((booking) => {
                 const StatusIcon = getStatusIcon(booking.status)
+                const isEmergencyBooking = emergencyBookings.some(eb => eb._id === booking._id)
                 
                 return (
-                  <tr key={booking._id} className="hover:bg-gray-50">
+                  <tr 
+                    key={booking._id} 
+                    className={`hover:bg-gray-50 ${
+                      isEmergencyBooking 
+                        ? 'bg-red-50 border-l-4 border-red-500' 
+                        : ''
+                    }`}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold">
-                            {booking.customerName?.charAt(0)?.toUpperCase() || 'U'}
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold ${
+                            isEmergencyBooking 
+                              ? 'bg-gradient-to-br from-red-500 to-red-600' 
+                              : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                          }`}>
+                            {isEmergencyBooking ? (
+                              <FiAlertTriangle className="w-5 h-5" />
+                            ) : (
+                              booking.customerName?.charAt(0)?.toUpperCase() || 'U'
+                            )}
                           </div>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
                             {booking.customerName || 'Unknown Customer'}
+                            {isEmergencyBooking && (
+                              <span className="bg-red-600 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                                <FaBolt className="w-2 h-2" />
+                                EMERGENCY
+                              </span>
+                            )}
                           </div>
                           <div className="text-sm text-gray-500 flex items-center gap-1">
                             <FiPhone className="text-xs" />
@@ -687,7 +866,7 @@ const CustomerBookings = () => {
                     
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {booking.serviceName || 'Service Booking'}
+                        {booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || 'Service Booking'}
                       </div>
                       <div className="text-sm text-gray-500 flex items-center gap-1">
                         <FiMapPin className="text-xs" />
@@ -799,6 +978,59 @@ const CustomerBookings = () => {
                         </div>
                       ) : (
                         <span className="text-sm text-gray-400">No quotations</span>
+                      )}
+                    </td>
+                    
+                    {/* Customer Review Column */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {booking.review ? (
+                        <div className="flex flex-col gap-1">
+                          {/* Star Rating */}
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <FiStar
+                                key={star}
+                                className={`w-3 h-3 ${
+                                  star <= (booking.review.rating || 0)
+                                    ? 'text-yellow-500 fill-current'
+                                    : 'text-gray-300'
+                                }`}
+                              />
+                            ))}
+                            <span className="text-xs text-gray-600 ml-1">
+                              {booking.review.rating || 0}/5
+                            </span>
+                          </div>
+                          
+                          {/* Review Comment Preview */}
+                          {booking.review.comment && (
+                            <div className="text-xs text-gray-500 max-w-32 truncate" title={booking.review.comment}>
+                              "{booking.review.comment}"
+                            </div>
+                          )}
+                          
+                          {/* Review Date */}
+                          {booking.review.createdAt && (
+                            <div className="text-xs text-gray-400">
+                              {new Date(booking.review.createdAt).toLocaleDateString()}
+                            </div>
+                          )}
+                          
+                          {/* Video Review Indicator */}
+                          {booking.review.video && (
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-xs text-blue-600">Video</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : booking.status === 'completed' ? (
+                        <div className="flex items-center gap-1">
+                          <FiStar className="w-3 h-3 text-gray-300" />
+                          <span className="text-xs text-gray-400">No review</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
                       )}
                     </td>
                     

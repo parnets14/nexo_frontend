@@ -139,7 +139,7 @@ const procurementColumns = [
 
 const SpareParts = () => {
   const { token } = useAdminAuth()
-  const [activeTab, setActiveTab] = useState('inventory') // 'inventory', 'materials', or 'vendor-parts'
+  const [activeTab, setActiveTab] = useState('inventory') // 'inventory', 'materials', 'vendor-parts', or 'quotation-orders'
   const [showMaterialModal, setShowMaterialModal] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState(null)
   const [materialFormData, setMaterialFormData] = useState({
@@ -206,6 +206,8 @@ const SpareParts = () => {
     supplier: ''
   })
   const [showAddInventoryModal, setShowAddInventoryModal] = useState(false)
+  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState(null)
   const [addInventoryForm, setAddInventoryForm] = useState({
     materialCategoryId: '',
     materialItemIndex: '',
@@ -262,6 +264,12 @@ const SpareParts = () => {
     activeTab === 'vendor-parts' ? [] : ['skip'] // Skip loading if not on vendor-parts tab
   )
 
+  // Quotation Orders Tab Data
+  const { data: quotationOrdersData, isLoading: quotationOrdersLoading, error: quotationOrdersError, refresh: refreshQuotationOrders } = useAdminData(
+    (token) => adminApi.fetchQuotationBasedOrders(token),
+    activeTab === 'quotation-orders' ? [] : ['skip'] // Skip loading if not on quotation-orders tab
+  )
+
   // Vendors - Load when needed for dropdowns
   const needsVendors = activeTab === 'materials' || showMaterialModal || showPOModal || showStockUpdateModal || showAddInventoryModal
   const { data: vendorsData, isLoading: vendorsLoading, error: vendorsError, refresh: refreshVendors } = useAdminData(
@@ -274,6 +282,7 @@ const SpareParts = () => {
   const purchaseOrders = purchaseOrdersData?.data || []
   const stats = inventoryStatsData?.data || {}
   const vendorSpareParts = vendorSparePartsData?.data || []
+  const quotationOrders = quotationOrdersData?.data || []
   // Fix: Backend returns { success: true, vendors: [...] }
   const vendors = vendorsData?.vendors || []
 
@@ -851,6 +860,16 @@ const SpareParts = () => {
         >
           Vendor Spare Parts
         </button>
+        <button
+          onClick={() => handleTabChange('quotation-orders')}
+          className={`px-4 py-2 font-semibold text-sm transition ${
+            activeTab === 'quotation-orders'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          Quotation Orders
+        </button>
       </div>
 
       {/* Success/Error Messages */}
@@ -1006,6 +1025,169 @@ const SpareParts = () => {
               ]}
               data={vendorSpareParts}
               emptyLabel="No vendor spare parts found. Vendors can add spare parts from their dashboard."
+            />
+          )}
+        </section>
+      )}
+
+      {activeTab === 'quotation-orders' && (
+        <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+              Quotation Orders
+            </h2>
+            <div className="flex items-center gap-3">
+              {quotationOrdersError && (
+                <span className="text-xs text-rose-500">
+                  Error loading quotation orders. {quotationOrders.length > 0 ? `Showing ${quotationOrders.length} cached items.` : 'Please refresh.'}
+                </span>
+              )}
+              {quotationOrdersLoading && <span className="text-xs text-slate-400">Loading...</span>}
+              {!quotationOrdersLoading && !quotationOrdersError && (
+                <span className="text-xs text-slate-500">{quotationOrders.length} orders</span>
+              )}
+              <button
+                onClick={() => refreshQuotationOrders()}
+                className="text-xs text-primary hover:text-primary-dark font-semibold flex items-center gap-1"
+              >
+                <FiRefreshCw className="w-3 h-3" />
+                Refresh
+              </button>
+            </div>
+          </div>
+          
+          {quotationOrdersLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-3 text-slate-600">Loading quotation orders...</span>
+            </div>
+          ) : (
+            <DataTable
+              columns={[
+                { header: 'Order ID', accessor: 'poId' },
+                { 
+                  header: 'Quotation', 
+                  accessor: 'quotationNumber',
+                  render: (value) => (
+                    <span className="font-mono text-sm bg-slate-100 px-2 py-1 rounded">
+                      {value || 'N/A'}
+                    </span>
+                  )
+                },
+                { 
+                  header: 'Job/Booking', 
+                  accessor: 'bookingId',
+                  render: (value, row) => (
+                    <div>
+                      <div className="font-semibold text-sm">#{value}</div>
+                      <div className="text-xs text-slate-600">{row.serviceName}</div>
+                    </div>
+                  )
+                },
+                { 
+                  header: 'Partner', 
+                  accessor: 'partnerName',
+                  render: (value, row) => (
+                    <div>
+                      <div className="font-semibold text-sm">{value}</div>
+                      <div className="text-xs text-slate-600">{row.partnerPhone}</div>
+                    </div>
+                  )
+                },
+                { 
+                  header: 'Customer', 
+                  accessor: 'customerName',
+                  render: (value, row) => (
+                    <div>
+                      <div className="font-semibold text-sm">{value}</div>
+                      <div className="text-xs text-slate-600">{row.customerPhone}</div>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Materials',
+                  accessor: 'items',
+                  render: (value) => (
+                    <div className="space-y-1">
+                      <span className="text-sm text-slate-600">
+                        {Array.isArray(value) ? value.length : 0} items
+                      </span>
+                      {Array.isArray(value) && value.length > 0 && (
+                        <div className="text-xs text-slate-400">
+                          {value.slice(0, 2).map(item => `${item.name} (${item.quantity})`).join(', ')}
+                          {value.length > 2 && ` +${value.length - 2} more`}
+                        </div>
+                      )}
+                    </div>
+                  )
+                },
+                {
+                  header: 'Total Value',
+                  accessor: 'totalValue',
+                  render: (value) => `₹${value?.toLocaleString('en-IN') || 0}`
+                },
+                {
+                  header: 'Status',
+                  accessor: 'status',
+                  render: (value) => (
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      value === 'Delivered' ? 'bg-emerald-500/10 text-emerald-600' :
+                      value === 'In Transit' ? 'bg-blue-500/10 text-blue-600' :
+                      value === 'Pending' ? 'bg-amber-500/10 text-amber-600' :
+                      value === 'Cancelled' ? 'bg-rose-500/10 text-rose-600' :
+                      'bg-slate-500/10 text-slate-600'
+                    }`}>
+                      {value}
+                    </span>
+                  )
+                },
+                {
+                  header: 'Actions',
+                  accessor: '_id',
+                  render: (value, row) => (
+                    <div className="flex items-center gap-1">
+                      {row.status === 'Pending' && (
+                        <button
+                          onClick={async () => {
+                            if (window.confirm('Mark this order as fulfilled? This will decrease inventory quantities.')) {
+                              try {
+                                await adminApi.updateQuotationOrderStatus(token, value, {
+                                  status: 'Delivered',
+                                  action: 'fulfill'
+                                })
+                                setSuccessMsg('Order fulfilled successfully! Inventory updated.')
+                                refreshQuotationOrders()
+                                refreshInventory()
+                                refreshStats()
+                                setTimeout(() => setSuccessMsg(''), 3000)
+                              } catch (error) {
+                                setErrorMsg(error.message || 'Failed to fulfill order')
+                                setTimeout(() => setErrorMsg(''), 3000)
+                              }
+                            }
+                          }}
+                          className="p-1.5 text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
+                          title="Fulfill Order"
+                        >
+                          <FiPackage className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(row)
+                          setShowOrderDetailsModal(true)
+                        }}
+                        className="p-1.5 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition"
+                        title="View Order Details"
+                      >
+                        <FiEye className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )
+                }
+              ]}
+              data={quotationOrders}
+              emptyLabel="No quotation orders found. Orders will appear here when partners send quotations with materials."
             />
           )}
         </section>
@@ -2793,6 +2975,210 @@ const SpareParts = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Order Details Modal */}
+      {showOrderDetailsModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-5 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Quotation Order Details</h3>
+              <button
+                onClick={() => {
+                  setShowOrderDetailsModal(false)
+                  setSelectedOrder(null)
+                }}
+                className="p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Order Header */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Order ID</label>
+                  <div className="text-lg font-bold text-primary">{selectedOrder.poId}</div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Quotation</label>
+                  <div className="font-mono text-sm bg-slate-200 px-2 py-1 rounded inline-block">
+                    {selectedOrder.quotationNumber || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</label>
+                  <div>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                      selectedOrder.status === 'Delivered' ? 'bg-emerald-500/10 text-emerald-600' :
+                      selectedOrder.status === 'In Transit' ? 'bg-blue-500/10 text-blue-600' :
+                      selectedOrder.status === 'Pending' ? 'bg-amber-500/10 text-amber-600' :
+                      selectedOrder.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-600' :
+                      'bg-slate-500/10 text-slate-600'
+                    }`}>
+                      {selectedOrder.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Job & Customer Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
+                    Job Information
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Booking ID</label>
+                      <div className="text-sm font-mono">#{selectedOrder.bookingId}</div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Service</label>
+                      <div className="text-sm">{selectedOrder.serviceName}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
+                    Customer Information
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Name</label>
+                      <div className="text-sm">{selectedOrder.customerName}</div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Phone</label>
+                      <div className="text-sm font-mono">{selectedOrder.customerPhone}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Partner Info */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
+                  Partner Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Partner Name</label>
+                    <div className="text-sm">{selectedOrder.partnerName}</div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Phone</label>
+                    <div className="text-sm font-mono">{selectedOrder.partnerPhone}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Materials List */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
+                  Materials Requested
+                </h4>
+                <div className="space-y-3">
+                  {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                    selectedOrder.items.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex-1">
+                          <div className="font-semibold text-sm">{item.name}</div>
+                          <div className="text-xs text-slate-600 space-x-4">
+                            <span>SKU: {item.sku}</span>
+                            {item.category && <span>Category: {item.category}</span>}
+                          </div>
+                          {item.description && (
+                            <div className="text-xs text-slate-500 mt-1">{item.description}</div>
+                          )}
+                        </div>
+                        <div className="text-right ml-4">
+                          <div className="text-sm font-semibold">Qty: {item.quantity}</div>
+                          <div className="text-xs text-slate-600">₹{item.unitPrice?.toLocaleString('en-IN') || 0} each</div>
+                          <div className="text-sm font-bold text-primary">₹{item.totalPrice?.toLocaleString('en-IN') || 0}</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-slate-400">No materials found</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Summary */}
+              <div className="border-t border-slate-200 pt-4">
+                <div className="flex justify-between items-center text-lg font-bold">
+                  <span>Total Order Value:</span>
+                  <span className="text-primary">₹{selectedOrder.totalValue?.toLocaleString('en-IN') || 0}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-slate-200">
+                {selectedOrder.status === 'Pending' && (
+                  <button
+                    onClick={async () => {
+                      if (window.confirm('Mark this order as fulfilled? This will decrease inventory quantities.')) {
+                        try {
+                          await adminApi.updateQuotationOrderStatus(token, selectedOrder._id, {
+                            status: 'Delivered',
+                            action: 'fulfill'
+                          })
+                          setSuccessMsg('Order fulfilled successfully! Inventory updated.')
+                          refreshQuotationOrders()
+                          refreshInventory()
+                          refreshStats()
+                          setShowOrderDetailsModal(false)
+                          setSelectedOrder(null)
+                          setTimeout(() => setSuccessMsg(''), 3000)
+                        } catch (error) {
+                          setErrorMsg(error.message || 'Failed to fulfill order')
+                          setTimeout(() => setErrorMsg(''), 3000)
+                        }
+                      }
+                    }}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold flex items-center gap-2"
+                  >
+                    <FiPackage className="w-4 h-4" />
+                    Fulfill Order
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowOrderDetailsModal(false)
+                    setSelectedOrder(null)
+                  }}
+                  className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Additional Info */}
+              {selectedOrder.notes && (
+                <div className="space-y-2 pt-4 border-t border-slate-200">
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Notes</label>
+                  <div className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg">
+                    {selectedOrder.notes}
+                  </div>
+                </div>
+              )}
+
+              {selectedOrder.createdAt && (
+                <div className="text-xs text-slate-500 text-center pt-4 border-t border-slate-200">
+                  Order created on {new Date(selectedOrder.createdAt).toLocaleString()}
+                  {selectedOrder.expectedDeliveryDate && (
+                    <span className="ml-4">
+                      Expected delivery: {new Date(selectedOrder.expectedDeliveryDate).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
