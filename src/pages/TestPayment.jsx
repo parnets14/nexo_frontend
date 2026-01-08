@@ -10,7 +10,6 @@ const TestPayment = () => {
   const [showPayment, setShowPayment] = useState(false);
 
   const handlePaymentSuccess = (result) => {
-    console.log('Payment successful:', result);
     alert('Payment successful! Check console for details.');
     setShowPayment(false);
   };

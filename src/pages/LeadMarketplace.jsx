@@ -1,15 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FaWhatsapp, FaTimes, FaUser, FaPhone, FaMapMarkerAlt, FaEnvelope, FaFileAlt } from 'react-icons/fa'
 import SEO from '../components/SEO'
-import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
-import { partnerApi } from '../services/partnerApi'
 
 const LeadMarketplace = () => {
   const navigate = useNavigate()
-  const whatsappNumber = "919590926068"
-  const handleWhatsAppClick = useWhatsAppClick()
   const [showEnquiryModal, setShowEnquiryModal] = useState(false)
   const [categories, setCategories] = useState([])
   const [services, setServices] = useState([])
@@ -50,13 +46,23 @@ const LeadMarketplace = () => {
             .map(cat => ({
               _id: cat._id,
               name: cat.name,
+              icon: cat.icon, // Make sure icon is included
+              description: cat.description,
               services: cat.services || []
             }))
           setCategories(categoriesList)
           console.log('Categories loaded:', categoriesList.length)
+          console.log('Categories with icons:', categoriesList.map(c => ({ name: c.name, icon: c.icon })))
         } else if (data?.data && Array.isArray(data.data)) {
           // Handle case where data is directly an array
-          setCategories(data.data)
+          const categoriesList = data.data.map(cat => ({
+            _id: cat._id,
+            name: cat.name,
+            icon: cat.icon,
+            description: cat.description,
+            services: cat.services || []
+          }))
+          setCategories(categoriesList)
         } else {
           console.warn('Unexpected data format:', data)
           setCategories([])
@@ -154,15 +160,7 @@ const LeadMarketplace = () => {
     }
   }
 
-  const staticCategories = [
-    { name: 'Painting', icon: '🎨' },
-    { name: 'Carpentry', icon: '🪚' },
-    { name: 'Renovation', icon: '🏗️' },
-    { name: 'AC Installation', icon: '❄️' },
-    { name: 'Electrical Wiring', icon: '⚡' },
-    { name: 'Plumbing Projects', icon: '🔧' },
-    { name: 'Waterproofing', icon: '💧' },
-  ]
+  // Remove static categories - we'll use dynamic categories from admin
 
 
   const howItWorks = [
@@ -339,7 +337,7 @@ const LeadMarketplace = () => {
             <p className="text-lg sm:text-xl md:text-2xl mb-6 sm:mb-8 text-white/90">Pay only for genuine leads</p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               <motion.button
-                onClick={() => navigate('/partner/onboard?from=leads')}
+                onClick={() => navigate('/partner/onboard?from=leadsneed')}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-white text-primary px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold shadow-2xl hover:shadow-white/50 transition-all duration-300 flex items-center justify-center gap-2"
@@ -383,22 +381,48 @@ const LeadMarketplace = () => {
             <p className="text-xl text-gray-600">Choose from various service categories</p>
           </motion.div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {staticCategories.map((category, index) => (
-              <motion.div
-                key={category.name}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: index * 0.1 }}
-                whileHover={{ y: -5, scale: 1.05 }}
-                className="bg-gradient-to-br from-primary/5 to-primary/10 p-8 rounded-xl border border-primary/20 text-center cursor-pointer hover:shadow-xl transition-all duration-300"
-              >
-                <span className="text-5xl mb-4 block">{category.icon}</span>
-                <h3 className="text-xl font-bold text-primary">{category.name}</h3>
-              </motion.div>
-            ))}
-          </div>
+          {loadingCategories ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, index) => (
+                <div
+                  key={index}
+                  className="bg-gradient-to-br from-gray-100 to-gray-200 p-8 rounded-xl animate-pulse"
+                >
+                  <div className="w-16 h-16 bg-gray-300 rounded-full mx-auto mb-4"></div>
+                  <div className="h-6 bg-gray-300 rounded mx-auto w-3/4"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {categories.length > 0 ? (
+                categories.map((category, index) => (
+                  <motion.div
+                    key={category._id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    whileHover={{ y: -5, scale: 1.05 }}
+                    className="bg-gradient-to-br from-primary/5 to-primary/10 p-8 rounded-xl border border-primary/20 text-center cursor-pointer hover:shadow-xl transition-all duration-300"
+                    onClick={() => setShowEnquiryModal(true)}
+                  >
+                    <span className="text-5xl mb-4 block">{category.icon || '🔧'}</span>
+                    <h3 className="text-xl font-bold text-primary">{category.name}</h3>
+                    {category.description && (
+                      <p className="text-sm text-gray-600 mt-2">{category.description}</p>
+                    )}
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <div className="text-gray-400 text-6xl mb-4">📋</div>
+                  <p className="text-gray-500 text-lg">No categories available at the moment</p>
+                  <p className="text-gray-400 text-sm mt-2">Categories will appear here once added by admin</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -443,7 +467,7 @@ const LeadMarketplace = () => {
           >
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               <motion.button
-                onClick={() => navigate('/partner/onboard?from=leads')}
+                onClick={() => navigate('/partner/onboard?from=leadsneed')}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-primary-dark transition-all duration-300 shadow-lg hover:shadow-xl"

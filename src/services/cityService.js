@@ -23,18 +23,15 @@ class CityService {
   async getEnabledCities(forceRefresh = false) {
     // Return cached data if valid and not forcing refresh
     if (!forceRefresh && this.isCacheValid()) {
-      console.log('🎯 Returning cached cities data');
       return this.cache.data;
     }
 
     // If there's already a pending request, wait for it
     if (this.pendingRequest) {
-      console.log('⏳ Waiting for pending cities request');
       return await this.pendingRequest;
     }
 
     // Create new request
-    console.log('🌐 Fetching fresh cities data');
     this.pendingRequest = this.fetchCitiesFromAPI();
 
     try {
@@ -96,7 +93,6 @@ class CityService {
       timestamp: null,
       expiry: 5 * 60 * 1000
     };
-    console.log('🗑️ Cities cache cleared');
   }
 
   // Refresh cache

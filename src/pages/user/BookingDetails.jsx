@@ -459,7 +459,7 @@ const BookingDetails = () => {
             </div>
             {bookingData.gstAmount > 0 && (
               <div className="flex justify-between text-gray-600">
-                <span>GST (18%)</span>
+                <span>GST</span>
                 <span>₹{bookingData.gstAmount}</span>
               </div>
             )}

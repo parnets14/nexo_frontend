@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { FiPhone, FiMail, FiLock, FiArrowRight, FiRefreshCw } from 'react-icons/fi'
+import { FaWhatsapp } from 'react-icons/fa'
 import { useVendorAuth } from '../context/VendorAuthContext.jsx'
 import { vendorApi } from '../services/vendorApi.js'
 
@@ -334,7 +335,11 @@ const VendorLogin = () => {
                   />
                 </div>
                 <p className="mt-2 text-xs text-slate-400 text-center">
-                  OTP sent to +91 {formData.phone}
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <FaWhatsapp className="text-green-400 text-lg" />
+                    <span className="text-slate-300">OTP sent to your WhatsApp</span>
+                  </div>
+                  <span className="text-slate-400">+91 {formData.phone}</span>
                 </p>
               </div>
 

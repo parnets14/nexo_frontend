@@ -71,11 +71,83 @@ const ServiceCheckout = () => {
   const [amcPlans, setAmcPlans] = useState([])
   const [selectedAMCPlan, setSelectedAMCPlan] = useState(null)
   const [amcLoading, setAmcLoading] = useState(false)
-  const [confirmationDialog, setConfirmationDialog] = useState({ 
-    isOpen: false, 
-    plan: null, 
-    addressData: null 
-  })
+  const [formErrors, setFormErrors] = useState({})
+  const [confirmationDialog, setConfirmationDialog] = useState({ isOpen: false, plan: null, addressData: null })
+
+  // Helper function to validate individual fields
+  const validateField = (name, value) => {
+    const errors = { ...formErrors }
+    
+    switch (name) {
+      case 'name':
+        if (!value?.trim()) {
+          errors.name = 'Full name is required'
+        } else {
+          delete errors.name
+        }
+        break
+      case 'phone':
+        if (!value?.trim()) {
+          errors.phone = 'Phone number is required'
+        } else if (!/^[6-9]\d{9}$/.test(value.trim())) {
+          errors.phone = 'Enter a valid 10-digit mobile number'
+        } else {
+          delete errors.phone
+        }
+        break
+      case 'address':
+        if (!value?.trim()) {
+          errors.address = 'Service address is required'
+        } else {
+          delete errors.address
+        }
+        break
+      case 'pincode':
+        if (!value?.trim()) {
+          errors.pincode = 'Pincode is required'
+        } else if (!/^\d{6}$/.test(value.trim())) {
+          errors.pincode = 'Enter a valid 6-digit pincode'
+        } else {
+          delete errors.pincode
+        }
+        break
+      case 'bookingDate':
+        if (!value?.trim()) {
+          errors.bookingDate = 'Booking date is required'
+        } else {
+          const selectedDate = new Date(value)
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          selectedDate.setHours(0, 0, 0, 0)
+          
+          if (selectedDate < today) {
+            errors.bookingDate = 'Date cannot be in the past'
+          } else {
+            delete errors.bookingDate
+          }
+        }
+        break
+      case 'bookingTime':
+        if (!value?.trim()) {
+          errors.bookingTime = 'Time slot is required'
+        } else {
+          delete errors.bookingTime
+        }
+        break
+    }
+    
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  // Helper function to get input field styling based on validation state
+  const getInputClassName = (fieldName, baseClassName) => {
+    const hasError = formErrors[fieldName]
+    if (hasError) {
+      return `${baseClassName} border-red-300 focus:ring-red-500 focus:border-red-500`
+    }
+    return `${baseClassName} border-gray-300 focus:ring-primary focus:border-transparent`
+  }
   
   // Form state - restore from sessionStorage if available
   const getInitialFormData = () => {
@@ -122,6 +194,18 @@ const ServiceCheckout = () => {
       })
     }
   }, [user])
+  
+  // Validate existing form data on component mount
+  useEffect(() => {
+    if (formData.name || formData.phone || formData.address || formData.pincode || formData.bookingDate || formData.bookingTime) {
+      // Validate all fields that have values
+      Object.entries(formData).forEach(([field, value]) => {
+        if (value && ['name', 'phone', 'address', 'pincode', 'bookingDate', 'bookingTime'].includes(field)) {
+          validateField(field, value)
+        }
+      })
+    }
+  }, []) // Run only on mount
   
   // Clear sessionStorage when leaving checkout successfully
   useEffect(() => {
@@ -331,7 +415,7 @@ const ServiceCheckout = () => {
     console.log('🔍 Form Data:', formData)
     console.log('🔍 Selected Address:', selectedAddress)
     
-    // Enhanced validation for required fields
+    // Enhanced validation for required fields with specific field names
     const missingFields = []
     
     // Get pincode from either formData or selectedAddress
@@ -339,13 +423,25 @@ const ServiceCheckout = () => {
     const currentAddress = formData.address?.trim() || selectedAddress?.address?.trim() || ''
     const currentLandmark = formData.landmark?.trim() || selectedAddress?.landmark?.trim() || ''
     
-    if (!formData.name?.trim()) missingFields.push('Name')
+    if (!formData.name?.trim()) missingFields.push('Full Name')
     if (!formData.phone?.trim()) missingFields.push('Phone Number')
     if (!currentAddress) missingFields.push('Service Address')
     if (!currentPincode) missingFields.push('Pincode')
     
+    // Validate phone number format
+    if (formData.phone?.trim() && !/^[6-9]\d{9}$/.test(formData.phone.trim())) {
+      showAlert('warning', 'Invalid Phone Number', 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9')
+      return
+    }
+    
+    // Validate pincode format
+    if (currentPincode && !/^\d{6}$/.test(currentPincode)) {
+      showAlert('warning', 'Invalid Pincode', 'Please enter a valid 6-digit pincode')
+      return
+    }
+    
     if (missingFields.length > 0) {
-      showAlert('warning', 'Missing Information', `Please fill in the following fields before subscribing to AMC plan: ${missingFields.join(', ')}`)
+      showAlert('warning', 'Missing Required Information', `Please fill in the following required fields before subscribing to AMC plan: ${missingFields.join(', ')}`)
       return
     }
 
@@ -511,6 +607,9 @@ const ServiceCheckout = () => {
       sessionStorage.setItem('checkoutFormData', JSON.stringify(newData))
       return newData
     })
+    
+    // Validate field in real-time
+    validateField(name, value)
   }
 
   const handleAddressSelect = (address) => {
@@ -527,12 +626,27 @@ const ServiceCheckout = () => {
       return newData
     })
     setShowAddressForm(false)
+    
+    // Clear validation errors for address fields
+    validateField('address', address.address || '')
+    validateField('pincode', address.pincode || '')
   }
 
   const handleSaveAddress = async () => {
-    // Validate address fields
-    if (!formData.address || !formData.pincode) {
-      showAlert('warning', 'Missing Information', 'Please fill in address and pincode')
+    // Enhanced validation for address fields
+    const missingFields = []
+    
+    if (!formData.address?.trim()) missingFields.push('Complete Address')
+    if (!formData.pincode?.trim()) missingFields.push('Pincode')
+    
+    // Validate pincode format
+    if (formData.pincode?.trim() && !/^\d{6}$/.test(formData.pincode.trim())) {
+      showAlert('warning', 'Invalid Pincode', 'Please enter a valid 6-digit pincode')
+      return
+    }
+    
+    if (missingFields.length > 0) {
+      showAlert('warning', 'Missing Required Information', `Please fill in the following required fields: ${missingFields.join(', ')}`)
       return
     }
 
@@ -653,7 +767,10 @@ const ServiceCheckout = () => {
 
   const calculateFinalAmount = () => {
     const subtotal = calculateTotal()
-    const gst = Math.round(subtotal * 0.18)
+    const cgst = serviceData.cgst || 9 // Default CGST 9%
+    const sgst = serviceData.sgst || 9 // Default SGST 9%
+    const totalGstRate = cgst + sgst
+    const gst = Math.round(subtotal * totalGstRate / 100)
     const total = subtotal + gst
     
     if (useWallet && walletAmount > 0) {
@@ -668,7 +785,10 @@ const ServiceCheckout = () => {
     setUseWallet(newUseWallet)
     
     if (newUseWallet) {
-      const total = Math.round(calculateTotal() * 1.18)
+      const cgst = serviceData.cgst || 9
+      const sgst = serviceData.sgst || 9
+      const totalGstRate = cgst + sgst
+      const total = Math.round(calculateTotal() * (1 + totalGstRate / 100))
       const maxWalletUse = Math.min(walletBalance, total)
       setWalletAmount(maxWalletUse)
       setCustomWalletAmount('')
@@ -682,7 +802,10 @@ const ServiceCheckout = () => {
 
   const handleCustomWalletAmount = (value) => {
     const amount = parseFloat(value) || 0
-    const total = Math.round(calculateTotal() * 1.18)
+    const cgst = serviceData.cgst || 9
+    const sgst = serviceData.sgst || 9
+    const totalGstRate = cgst + sgst
+    const total = Math.round(calculateTotal() * (1 + totalGstRate / 100))
     const maxWalletUse = Math.min(walletBalance, total)
     
     if (amount > maxWalletUse) {
@@ -700,9 +823,43 @@ const ServiceCheckout = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // Validation
-    if (!formData.name || !formData.phone || !formData.bookingDate || !formData.bookingTime || !formData.address) {
-      showAlert('warning', 'Missing Information', 'Please fill all required fields')
+    // Enhanced validation with specific field names
+    const missingFields = []
+    
+    if (!formData.name?.trim()) missingFields.push('Full Name')
+    if (!formData.phone?.trim()) missingFields.push('Phone Number')
+    if (!formData.bookingDate?.trim()) missingFields.push('Booking Date')
+    if (!formData.bookingTime?.trim()) missingFields.push('Time Slot')
+    if (!formData.address?.trim()) missingFields.push('Service Address')
+    if (!formData.pincode?.trim()) missingFields.push('Pincode')
+    
+    // Validate phone number format
+    if (formData.phone?.trim() && !/^[6-9]\d{9}$/.test(formData.phone.trim())) {
+      showAlert('warning', 'Invalid Phone Number', 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9')
+      return
+    }
+    
+    // Validate pincode format
+    if (formData.pincode?.trim() && !/^\d{6}$/.test(formData.pincode.trim())) {
+      showAlert('warning', 'Invalid Pincode', 'Please enter a valid 6-digit pincode')
+      return
+    }
+    
+    // Validate booking date (should not be in the past)
+    if (formData.bookingDate) {
+      const selectedDate = new Date(formData.bookingDate)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      selectedDate.setHours(0, 0, 0, 0)
+      
+      if (selectedDate < today) {
+        showAlert('warning', 'Invalid Date', 'Booking date cannot be in the past')
+        return
+      }
+    }
+    
+    if (missingFields.length > 0) {
+      showAlert('warning', 'Missing Required Information', `Please fill in the following required fields: ${missingFields.join(', ')}`)
       return
     }
 
@@ -873,6 +1030,56 @@ const ServiceCheckout = () => {
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
           <p className="text-gray-600 mt-2">Complete your booking details</p>
+          
+          {/* Form Progress Indicator */}
+          <div className="mt-4 bg-white rounded-lg p-4 shadow-sm border">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Form Completion</span>
+              <span className="text-sm text-gray-500">
+                {(() => {
+                  const requiredFields = ['name', 'phone', 'address', 'pincode', 'bookingDate', 'bookingTime']
+                  const completedFields = requiredFields.filter(field => formData[field]?.trim())
+                  return `${completedFields.length}/${requiredFields.length} completed`
+                })()}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-primary h-2 rounded-full transition-all duration-300"
+                style={{
+                  width: `${(() => {
+                    const requiredFields = ['name', 'phone', 'address', 'pincode', 'bookingDate', 'bookingTime']
+                    const completedFields = requiredFields.filter(field => formData[field]?.trim())
+                    return (completedFields.length / requiredFields.length) * 100
+                  })()}%`
+                }}
+              ></div>
+            </div>
+            {Object.keys(formErrors).length > 0 ? (
+              <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                <span>⚠️</span>
+                {Object.keys(formErrors).length} field{Object.keys(formErrors).length > 1 ? 's' : ''} need{Object.keys(formErrors).length === 1 ? 's' : ''} attention
+              </p>
+            ) : (
+              (() => {
+                const requiredFields = ['name', 'phone', 'address', 'pincode', 'bookingDate', 'bookingTime']
+                const completedFields = requiredFields.filter(field => formData[field]?.trim())
+                const isComplete = completedFields.length === requiredFields.length
+                
+                return isComplete ? (
+                  <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
+                    <FaCheckCircle />
+                    All required fields completed! Ready to proceed.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-gray-600 flex items-center gap-1">
+                    <FaInfoCircle />
+                    Fill all required fields marked with * to proceed
+                  </p>
+                )
+              })()
+            )}
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -898,9 +1105,15 @@ const ServiceCheckout = () => {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className={getInputClassName('name', "w-full px-4 py-2 border rounded-lg focus:ring-2")}
                     required
                   />
+                  {formErrors.name && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                      <span>⚠️</span>
+                      {formErrors.name}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -911,9 +1124,15 @@ const ServiceCheckout = () => {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className={getInputClassName('phone', "w-full px-4 py-2 border rounded-lg focus:ring-2")}
                     required
                   />
+                  {formErrors.phone && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                      <span>⚠️</span>
+                      {formErrors.phone}
+                    </p>
+                  )}
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1062,9 +1281,15 @@ const ServiceCheckout = () => {
                       onChange={handleInputChange}
                       rows="3"
                       placeholder="House/Flat No., Building Name, Street, Area, City"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                      className={getInputClassName('address', "w-full px-4 py-2 border rounded-lg focus:ring-2 resize-none")}
                       required
                     />
+                    {formErrors.address && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                        <span>⚠️</span>
+                        {formErrors.address}
+                      </p>
+                    )}
                   </div>
                   
                   <div className="grid md:grid-cols-2 gap-4">
@@ -1093,9 +1318,15 @@ const ServiceCheckout = () => {
                         placeholder="e.g., 123456"
                         maxLength="6"
                         pattern="[0-9]{6}"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className={getInputClassName('pincode', "w-full px-4 py-2 border rounded-lg focus:ring-2")}
                         required
                       />
+                      {formErrors.pincode && (
+                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                          <span>⚠️</span>
+                          {formErrors.pincode}
+                        </p>
+                      )}
                     </div>
                   </div>
                   
@@ -1163,14 +1394,26 @@ const ServiceCheckout = () => {
                     value={formData.bookingDate}
                     onChange={handleInputChange}
                     min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className={getInputClassName('bookingDate', "w-full px-4 py-2 border rounded-lg focus:ring-2")}
                     required
                   />
+                  {formErrors.bookingDate && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                      <span>⚠️</span>
+                      {formErrors.bookingDate}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Select Time Slot *
                   </label>
+                  {formErrors.bookingTime && (
+                    <p className="mb-2 text-sm text-red-600 flex items-center gap-1">
+                      <span>⚠️</span>
+                      {formErrors.bookingTime}
+                    </p>
+                  )}
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                     {[
                       '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
@@ -1215,6 +1458,8 @@ const ServiceCheckout = () => {
                           onClick={() => !isDisabled && setFormData(prev => {
                             const newData = { ...prev, bookingTime: time }
                             sessionStorage.setItem('checkoutFormData', JSON.stringify(newData))
+                            // Clear time slot error when selected
+                            validateField('bookingTime', time)
                             return newData
                           })}
                           disabled={isDisabled}
@@ -1454,8 +1699,8 @@ const ServiceCheckout = () => {
                   <span className="font-medium">₹{calculateTotal()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">GST (18%)</span>
-                  <span className="font-medium">₹{Math.round(calculateTotal() * 0.18)}</span>
+                  <span className="text-gray-600">GST ({((serviceData.cgst || 9) + (serviceData.sgst || 9))}%)</span>
+                  <span className="font-medium">₹{Math.round(calculateTotal() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)}</span>
                 </div>
                 
                 {/* Wallet Section - Always show if user is authenticated */}
@@ -1520,7 +1765,7 @@ const ServiceCheckout = () => {
                               onChange={(e) => handleCustomWalletAmount(e.target.value)}
                               placeholder="Enter amount"
                               min="0"
-                              max={Math.min(walletBalance, Math.round(calculateTotal() * 1.18))}
+                              max={Math.min(walletBalance, Math.round(calculateTotal() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)))}
                               className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                             />
                           </div>
@@ -1531,7 +1776,7 @@ const ServiceCheckout = () => {
                           </div>
                         )}
                         
-                        {walletAmount >= Math.round(calculateTotal() * 1.18) && (
+                        {walletAmount >= Math.round(calculateTotal() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)) && (
                           <div className="flex items-start gap-2 bg-blue-50 rounded-lg p-2">
                             <FaInfoCircle className="text-blue-500 mt-0.5 flex-shrink-0" />
                             <p className="text-xs text-blue-700">
@@ -1550,10 +1795,32 @@ const ServiceCheckout = () => {
                 </div>
               </div>
 
+              {/* Validation Summary */}
+              {Object.keys(formErrors).length > 0 && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-500 text-lg">⚠️</span>
+                    <div>
+                      <h4 className="text-sm font-semibold text-red-800 mb-2">
+                        Please fix the following issues:
+                      </h4>
+                      <ul className="text-sm text-red-700 space-y-1">
+                        {Object.entries(formErrors).map(([field, error]) => (
+                          <li key={field} className="flex items-center gap-2">
+                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                            {error}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Payment Button */}
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || Object.keys(formErrors).length > 0}
                 className={`w-full mt-6 text-white py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
                   calculateFinalAmount() === 0 
                     ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700' 

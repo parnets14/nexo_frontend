@@ -219,14 +219,14 @@ const PartnerOnboarding = () => {
       borderColor: 'border-orange-200',
       hoverColor: 'hover:border-orange-300'
     },
-    { 
-      icon: FaGraduationCap, 
-      text: 'Free training', 
-      color: 'text-[#224a73]', 
-      bgColor: 'from-[#224a73]/5 to-[#224a73]/10', 
-      borderColor: 'border-[#224a73]/20',
-      hoverColor: 'hover:border-[#224a73]/40'
-    },
+    // { 
+    //   icon: FaGraduationCap, 
+    //   text: 'Free training', 
+    //   color: 'text-[#224a73]', 
+    //   bgColor: 'from-[#224a73]/5 to-[#224a73]/10', 
+    //   borderColor: 'border-[#224a73]/20',
+    //   hoverColor: 'hover:border-[#224a73]/40'
+    // },
     { 
       icon: FaBolt, 
       text: 'Early payouts (Premium)', 

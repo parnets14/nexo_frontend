@@ -396,7 +396,67 @@ const AMCSubscriptionModal = ({
                             )}
                           </ul>
 
-                          {/* Service Frequency */}
+                          {/* Display included and excluded services */}
+                          {((plan.includedServices && plan.includedServices.length > 0) || (plan.excludedServices && plan.excludedServices.length > 0)) && (
+                            <div className="mb-6 space-y-3">
+                              {/* Included Services */}
+                              {plan.includedServices && plan.includedServices.length > 0 && (
+                                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                                  <h4 className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-2">
+                                    <FaCheckCircle className="text-green-600 w-3 h-3" />
+                                    Included Services ({plan.includedServices.length})
+                                  </h4>
+                                  <div className="space-y-1">
+                                    {plan.includedServices.slice(0, 3).map((service, idx) => (
+                                      <div key={idx} className="flex items-center justify-between text-xs">
+                                        <span className="text-green-700 font-medium">
+                                          {typeof service === 'object' ? service.name : service}
+                                        </span>
+                                        {plan.serviceFrequency && plan.serviceFrequency[service._id || service] && (
+                                          <span className="text-green-600 font-semibold">
+                                            {plan.serviceFrequency[service._id || service] === 'unlimited' 
+                                              ? 'Unlimited' 
+                                              : `${plan.serviceFrequency[service._id || service]}x/year`}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {plan.includedServices.length > 3 && (
+                                      <div className="text-xs text-green-600 font-medium">
+                                        +{plan.includedServices.length - 3} more services
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Excluded Services */}
+                              {plan.excludedServices && plan.excludedServices.length > 0 && (
+                                <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                                  <h4 className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-2">
+                                    <FaTimes className="text-red-600 w-3 h-3" />
+                                    Not Included ({plan.excludedServices.length})
+                                  </h4>
+                                  <div className="space-y-1">
+                                    {plan.excludedServices.slice(0, 3).map((service, idx) => (
+                                      <div key={idx} className="flex items-center text-xs">
+                                        <span className="text-red-700 font-medium">
+                                          {typeof service === 'object' ? service.name : service}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {plan.excludedServices.length > 3 && (
+                                      <div className="text-xs text-red-600 font-medium">
+                                        +{plan.excludedServices.length - 3} more services
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Plan Duration */}
                           {plan.duration && (
                             <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
                               <FaCalendarAlt className="w-4 h-4 text-gray-600" />

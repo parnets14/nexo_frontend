@@ -682,7 +682,9 @@ const ServiceDetail = () => {
       slug: currentService.slug,
       price: currentService.price,
       averageRating: currentService.averageRating,
-      totalReviews: currentService.totalReviews
+      totalReviews: currentService.totalReviews,
+      cgst: currentService.cgst || 9, // Default CGST 9%
+      sgst: currentService.sgst || 9  // Default SGST 9%
     }
 
     // Navigate directly to checkout

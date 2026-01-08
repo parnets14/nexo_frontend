@@ -298,6 +298,14 @@ export const adminApi = {
     })
     return handleResponse(response)
   },
+
+  async deleteMGPlanHistoryEntry(token, partnerId, historyIndex) {
+    const response = await fetch(buildUrl(`/api/admin/partners/${partnerId}/mg-plan/history/${historyIndex}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
   
   // Bookings
   async fetchBookings(token, params = {}) {
@@ -316,6 +324,35 @@ export const adminApi = {
     })
     const data = await handleResponse(response)
     return data
+  },
+
+  async getBookingDetails(token, bookingId) {
+    // Try to get specific booking details
+    // If no specific endpoint exists, fallback to searching in all bookings
+    try {
+      const response = await fetch(buildUrl(`/api/admin/bookings/${bookingId}`), {
+        headers: getDefaultHeaders(token)
+      });
+      return handleResponse(response);
+    } catch (error) {
+      // Fallback: search for the booking in the list
+      console.log('Specific booking endpoint not available, searching in bookings list...');
+      
+      // Use the fetchBookings function from the same object
+      const bookingsResponse = await fetch(buildUrl(`/api/admin/bookings/bookings?search=${bookingId}&limit=1000`), {
+        headers: getDefaultHeaders(token)
+      });
+      const bookingsData = await handleResponse(bookingsResponse);
+      
+      const bookings = bookingsData.data || [];
+      const booking = bookings.find(b => b._id === bookingId || b.bookingId === bookingId);
+      
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+      
+      return { success: true, data: booking, booking: booking };
+    }
   },
   
   async assignBooking(token, bookingId, partnerId, teamMemberId) {
@@ -692,6 +729,14 @@ export const adminApi = {
   // MG Plans Management
   async fetchMGPlans(token) {
     const response = await fetch(buildUrl('/api/admin/mg-plans'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Lead Plans Management
+  async fetchLeadPlans(token) {
+    const response = await fetch(buildUrl('/api/admin/lead-plans'), {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
@@ -1632,6 +1677,83 @@ export const adminApi = {
       method: 'PUT',
       headers: getDefaultHeaders(token),
       body: JSON.stringify(deliveryData)
+    })
+    return handleResponse(response)
+  },
+
+  // Tax Management
+  async getTaxSettings(token) {
+    const response = await fetch(buildUrl('/tax/settings'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async updateTaxSettings(token, settings) {
+    const response = await fetch(buildUrl('/tax/settings'), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(settings)
+    })
+    return handleResponse(response)
+  },
+
+  async calculateTax(token, data) {
+    const response = await fetch(buildUrl('/tax/calculate'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(data)
+    })
+    return handleResponse(response)
+  },
+
+  async saveTaxCalculation(token, data) {
+    const response = await fetch(buildUrl('/tax/save-calculation'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(data)
+    })
+    return handleResponse(response)
+  },
+
+  async getTaxHistory(token, params = {}) {
+    const queryParams = new URLSearchParams(params).toString()
+    const response = await fetch(buildUrl(`/tax/history?${queryParams}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getTaxAnalytics(token, params = {}) {
+    const queryParams = new URLSearchParams(params).toString()
+    const response = await fetch(buildUrl(`/tax/analytics?${queryParams}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async addCustomTax(token, taxData) {
+    const response = await fetch(buildUrl('/tax/custom-taxes'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(taxData)
+    })
+    return handleResponse(response)
+  },
+
+  async updateCustomTax(token, taxIndex, taxData) {
+    const response = await fetch(buildUrl(`/tax/custom-taxes/${taxIndex}`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(taxData)
+    })
+    return handleResponse(response)
+  },
+
+  async deleteCustomTax(token, taxIndex) {
+    const response = await fetch(buildUrl(`/tax/custom-taxes/${taxIndex}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
   }

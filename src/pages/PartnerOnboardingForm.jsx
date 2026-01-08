@@ -21,7 +21,8 @@ import {
   FaShieldAlt,
   FaCheck,
   FaHourglassHalf,
-  FaSyncAlt
+  FaSyncAlt,
+  FaBullseye
 } from 'react-icons/fa'
 import SEO from '../components/SEO'
 import { partnerApi } from '../services/partnerApi'
@@ -443,7 +444,9 @@ const ProfileReviewStep = ({ currentStep, setCurrentStep, formData, token }) => 
             className="bg-primary text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2 mx-auto"
           >
             Proceed to MG Plan Selection
-            <FaArrowRight />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
           </motion.button>
         ) : (
           <div className={`border-2 rounded-xl p-4 max-w-md mx-auto ${
@@ -536,6 +539,7 @@ const PartnerOnboardingForm = () => {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const fromLeads = searchParams.get('from') === 'leads' || location.state?.fromLeads
+  const fromLeadsneed = searchParams.get('from') === 'leadsneed' || location.state?.fromLeadsneed
   
   // Load saved data from localStorage on mount
   const loadSavedData = () => {
@@ -588,6 +592,8 @@ const PartnerOnboardingForm = () => {
     selectedHubs: [], // Array of selected hub objects with name and pinCodes
     selectedPlan: null,
     selectedPlanId: null,
+    selectedLeadPlan: null,
+    selectedLeadPlanId: null,
     kyc: {
       panCard: null,
       aadhaar: null,
@@ -627,6 +633,9 @@ const PartnerOnboardingForm = () => {
   const [partnerId, setPartnerId] = useState(null)
   const [mgPlans, setMgPlans] = useState([]) // Start empty, will be loaded dynamically
   const [loadingMGPlans, setLoadingMGPlans] = useState(false) // Loading state for MG plans
+  const [leadPlans, setLeadPlans] = useState([]) // Lead plans for leadsneed flow
+  const [loadingLeadPlans, setLoadingLeadPlans] = useState(false) // Loading state for Lead plans
+  const [existingLeadPlan, setExistingLeadPlan] = useState(null) // Existing lead plan subscription
   const [categories, setCategories] = useState([]) // Dynamic categories from API
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [pricingSettings, setPricingSettings] = useState(null) // Pricing settings including refundable status
@@ -718,9 +727,44 @@ const PartnerOnboardingForm = () => {
     const txnid = searchParams.get('txnid')
     const payid = searchParams.get('payid')
     const reason = searchParams.get('reason')
+    const paymentType = searchParams.get('type') // 'leadplan' for lead plan payments
+    const planName = searchParams.get('plan') // Lead plan name
+
+    if (paymentStatus === 'success' && paymentType === 'leadplan' && planName) {
+      // Lead plan payment success
+      console.log('💳 Lead plan payment success:', { planName })
+      
+      // Decode the plan name in case it was URL encoded
+      const decodedPlanName = decodeURIComponent(planName)
+      
+      setFormData(prev => ({
+        ...prev,
+        selectedLeadPlan: decodedPlanName,
+        leadPlanPaymentStatus: 'success'
+      }))
+      
+      // Move to success step (case 11 for lead plan success)
+      setTimeout(() => {
+        setCurrentStep(11)
+        // Clear URL parameters but preserve the 'from' parameter
+        const currentUrl = new URL(window.location)
+        const fromParam = currentUrl.searchParams.get('from')
+        const newUrl = window.location.pathname + (fromParam ? `?from=${fromParam}` : '')
+        window.history.replaceState({}, '', newUrl)
+      }, 100)
+      
+      return
+    }
+
+    if (paymentStatus === 'failed' && paymentType === 'leadplan') {
+      // Lead plan payment failed
+      console.log('❌ Lead plan payment failed:', { reason })
+      setError(`Lead plan payment failed: ${reason || 'Unknown error'}`)
+      return
+    }
 
     if (paymentStatus === 'success' && txnid && payid) {
-      // Payment callback received - verify with backend before showing success
+      // Regular registration payment callback received - verify with backend before showing success
       console.log('💳 Payment callback received:', { txnid, payid })
       
       const verifyPayment = async () => {
@@ -1206,94 +1250,201 @@ const PartnerOnboardingForm = () => {
   useEffect(() => {
     const fetchPlans = async () => {
       if (token && (currentStep === 11 || currentStep === 12)) {
-        setLoadingMGPlans(true)
-        try {
-          // Fetch both available plans and current plan
-          const [plansResponse, currentPlanResponse] = await Promise.all([
-            partnerApi.getMGPlans(token, formData.partnerType),
-            partnerApi.getCurrentPlan(token).catch(() => null) // Don't fail if no current plan
-          ])
-          
-          // Check if partner already has a plan selected
-          if (currentPlanResponse?.data || currentPlanResponse?.plan) {
-            const currentPlan = currentPlanResponse.data || currentPlanResponse
-            const planData = currentPlan.plan || currentPlan
+        // Load MG Plans for regular flow
+        if (!fromLeadsneed) {
+          setLoadingMGPlans(true)
+          try {
+            // Fetch both available plans and current plan
+            const [plansResponse, currentPlanResponse] = await Promise.all([
+              partnerApi.getMGPlans(token, formData.partnerType),
+              partnerApi.getCurrentPlan(token).catch(() => null) // Don't fail if no current plan
+            ])
             
-            // Update formData with current plan info
-            if (planData && planData.name) {
-              setFormData(prev => ({
-                ...prev,
-                selectedPlan: planData.name,
-                selectedPlanId: planData._id || planData.id || currentPlan.planId
-              }))
+            // Check if partner already has a plan selected
+            if (currentPlanResponse?.data || currentPlanResponse?.plan) {
+              const currentPlan = currentPlanResponse.data || currentPlanResponse
+              const planData = currentPlan.plan || currentPlan
+              
+              // Update formData with current plan info
+              if (planData && planData.name) {
+                setFormData(prev => ({
+                  ...prev,
+                  selectedPlan: planData.name,
+                  selectedPlanId: planData._id || planData.id || currentPlan.planId
+                }))
+              }
             }
-          }
-          
-          if (plansResponse.success && plansResponse.data && Array.isArray(plansResponse.data)) {
-            // Filter plans by partner type
-            const filteredPlans = plansResponse.data.filter(plan => {
-              if (!plan.partnerType || plan.partnerType === 'both') return true
-              return plan.partnerType === formData.partnerType
-            })
             
-            // Map admin-configured plans dynamically
-            setMgPlans(filteredPlans.map(plan => {
-              // Determine icon and colors dynamically based on plan name or use defaults
-              const planName = plan.name || ''
-              const nameLower = planName.toLowerCase()
-              let icon = '📦'
-              let color = 'bg-blue-50'
-              let borderColor = 'border-blue-300'
+            if (plansResponse.success && plansResponse.data && Array.isArray(plansResponse.data)) {
+              // Filter plans by partner type
+              const filteredPlans = plansResponse.data.filter(plan => {
+                if (!plan.partnerType || plan.partnerType === 'both') return true
+                return plan.partnerType === formData.partnerType
+              })
               
-              // Smart icon/color assignment based on plan name
-              if (nameLower.includes('silver')) {
-                icon = '🥈'
-                color = 'bg-gray-100'
-                borderColor = 'border-gray-300'
-              } else if (nameLower.includes('gold')) {
-                icon = '🥇'
-                color = 'bg-yellow-50'
-                borderColor = 'border-yellow-300'
-              } else if (nameLower.includes('platinum') || nameLower.includes('diamond')) {
-                icon = '💎'
-                color = 'bg-purple-50'
-                borderColor = 'border-purple-300'
-              } else if (nameLower.includes('bronze')) {
-                icon = '🥉'
-                color = 'bg-orange-50'
-                borderColor = 'border-orange-300'
-              }
-              
-              return {
-              _id: plan._id,
-              id: plan._id,
-              name: plan.name,
-                price: plan.price || 0,
-                leads: plan.leads || 0,
-                commission: plan.commission || 0,
-                leadFee: plan.leadFee || 0,
-                minWalletBalance: plan.minWalletBalance || 0,
-              features: plan.features || [],
-                icon: plan.icon || icon,
-                color: plan.color || color,
-                borderColor: plan.borderColor || borderColor,
-                partnerType: plan.partnerType || 'individual'
-              }
-            }))
-          } else {
-            // If no plans returned, set empty array
-            setMgPlans([])
+              // Map admin-configured plans dynamically
+              setMgPlans(filteredPlans.map(plan => {
+                // Determine icon and colors dynamically based on plan name or use defaults
+                const planName = plan.name || ''
+                const nameLower = planName.toLowerCase()
+                let icon = '📦'
+                let color = 'bg-blue-50'
+                let borderColor = 'border-blue-300'
+                
+                // Smart icon/color assignment based on plan name
+                if (nameLower.includes('silver')) {
+                  icon = '🥈'
+                  color = 'bg-gray-100'
+                  borderColor = 'border-gray-300'
+                } else if (nameLower.includes('gold')) {
+                  icon = '🥇'
+                  color = 'bg-yellow-50'
+                  borderColor = 'border-yellow-300'
+                } else if (nameLower.includes('platinum') || nameLower.includes('diamond')) {
+                  icon = '💎'
+                  color = 'bg-purple-50'
+                  borderColor = 'border-purple-300'
+                } else if (nameLower.includes('bronze')) {
+                  icon = '🥉'
+                  color = 'bg-orange-50'
+                  borderColor = 'border-orange-300'
+                }
+                
+                return {
+                _id: plan._id,
+                id: plan._id,
+                name: plan.name,
+                  price: plan.price || 0,
+                  leads: plan.leads || 0,
+                  commission: plan.commission || 0,
+                  leadFee: plan.leadFee || 0,
+                  minWalletBalance: plan.minWalletBalance || 0,
+                features: plan.features || [],
+                  icon: plan.icon || icon,
+                  color: plan.color || color,
+                  borderColor: plan.borderColor || borderColor,
+                  partnerType: plan.partnerType || 'individual'
+                }
+              }))
+            } else {
+              // If no plans returned, set empty array
+              setMgPlans([])
+            }
+          } catch (err) {
+            console.error('Failed to fetch MG plans:', err)
+            setMgPlans([]) // Set empty array on error
+          } finally {
+            setLoadingMGPlans(false)
           }
-        } catch (err) {
-          console.error('Failed to fetch MG plans:', err)
-          setMgPlans([]) // Set empty array on error
-        } finally {
-          setLoadingMGPlans(false)
+        }
+        
+        // Load Lead Plans for leadsneed flow
+        if (fromLeadsneed) {
+          setLoadingLeadPlans(true)
+          try {
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
+              (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+            
+            // First check if partner already has an active lead plan
+            if (token) {
+              try {
+                const currentPlanResponse = await fetch(`${API_BASE_URL}/api/partner/lead-plans/current`, {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  }
+                })
+                
+                if (currentPlanResponse.ok) {
+                  const currentPlanResult = await currentPlanResponse.json()
+                  if (currentPlanResult.success && currentPlanResult.data && currentPlanResult.data.subscription) {
+                    const subscription = currentPlanResult.data.subscription
+                    const currentPlan = currentPlanResult.data.currentPlan
+                    
+                    setExistingLeadPlan({
+                      ...subscription,
+                      planName: currentPlan?.name || 'Lead Plan'
+                    })
+                    console.log('Partner already has active lead plan:', subscription)
+                  }
+                }
+              } catch (err) {
+                console.error('Error checking existing lead plan:', err)
+              }
+            }
+            
+            const response = await fetch(`${API_BASE_URL}/api/partner/lead-plans/public?partnerType=${formData.partnerType}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            })
+
+            if (response.ok) {
+              const result = await response.json()
+              if (result.success && result.data && Array.isArray(result.data)) {
+                const mappedPlans = result.data.map(plan => {
+                  const planName = plan.name || ''
+                  const nameLower = planName.toLowerCase()
+                  let icon = plan.icon || '📦'
+                  let color = 'bg-blue-50'
+                  let borderColor = 'border-blue-300'
+
+                  if (!plan.icon) {
+                    if (nameLower.includes('silver')) {
+                      icon = '🥈'
+                      color = 'bg-gray-100'
+                      borderColor = 'border-gray-300'
+                    } else if (nameLower.includes('gold')) {
+                      icon = '🥇'
+                      color = 'bg-yellow-50'
+                      borderColor = 'border-yellow-300'
+                    } else if (nameLower.includes('platinum') || nameLower.includes('diamond')) {
+                      icon = '💎'
+                      color = 'bg-purple-50'
+                      borderColor = 'border-purple-300'
+                    } else if (nameLower.includes('custom')) {
+                      icon = '⚙️'
+                      color = 'bg-indigo-50'
+                      borderColor = 'border-indigo-300'
+                    }
+                  }
+
+                  return {
+                    _id: plan._id,
+                    id: plan._id,
+                    name: plan.name,
+                    price: plan.price || 0,
+                    leads: plan.leads || 0,
+                    leadFee: plan.leadFee || 50,
+                    leadQuality: plan.leadQuality || 'standard',
+                    responseTime: plan.responseTime || '24 hours',
+                    supportLevel: plan.supportLevel || 'basic',
+                    features: plan.features || [],
+                    icon: icon,
+                    color: color,
+                    borderColor: borderColor,
+                    partnerType: plan.partnerType || 'individual',
+                    termsAndConditions: plan.termsAndConditions || '',
+                    customPricing: plan.customPricing || null
+                  }
+                })
+
+                setLeadPlans(mappedPlans)
+              }
+            }
+          } catch (err) {
+            console.error('Failed to fetch Lead plans:', err)
+            setLeadPlans([])
+          } finally {
+            setLoadingLeadPlans(false)
+          }
         }
       }
     }
     fetchPlans()
-  }, [token, currentStep, formData.partnerType])
+  }, [token, currentStep, formData.partnerType, fromLeadsneed])
 
   const handleSendOTP = async () => {
     if (!formData.phone || formData.phone.length !== 10) {
@@ -1305,11 +1456,6 @@ const PartnerOnboardingForm = () => {
     setError(null)
     try {
       const response = await partnerApi.sendOTP(formData.phone)
-      // Display OTP on screen (remove in production)
-      if (response.otp) {
-        alert(`OTP for testing: ${response.otp}`)
-        // Or you could set it to state: setDisplayedOtp(response.otp)
-      }
       setOtpSent(true)
       setOtpTimer(60)
     } catch (err) {
@@ -1910,11 +2056,11 @@ const PartnerOnboardingForm = () => {
 
   const nextStep = () => {
     if (currentStep < totalSteps) {
-      // Skip payment step (7) if coming from Lead Marketplace
-      if (fromLeads && currentStep === 6) {
-        // After terms, complete registration without payment and go to MG Plan (step 10)
+      // Skip payment step (7) if coming from Lead Marketplace or Lead Need
+      if ((fromLeads || fromLeadsneed) && currentStep === 6) {
+        // After terms, complete registration without payment and go to plan selection
         handleCompleteRegistrationWithoutPayment()
-      } else if (fromLeads && currentStep === 7) {
+      } else if ((fromLeads || fromLeadsneed) && currentStep === 7) {
         // Skip step 7 (payment) entirely
         setCurrentStep(12)
       } else if (currentStep === 6 && formData.payment.payId && formData.payment.status === 'completed') {
@@ -1931,9 +2077,9 @@ const PartnerOnboardingForm = () => {
 
   const prevStep = () => {
     if (currentStep > 1) {
-      // Skip payment step (7) when going back if from Lead Marketplace
-      if (fromLeads && currentStep === 8) {
-        setCurrentStep(6) // Go back to terms from MG Plan
+      // Skip payment step (7) when going back if from Lead Marketplace or Lead Need
+      if ((fromLeads || fromLeadsneed) && currentStep === 8) {
+        setCurrentStep(6) // Go back to terms from plan selection
       } else if (currentStep === 9 && formData.payment.payId && formData.payment.status === 'completed') {
         // If on profile review (step 9) and payment was completed and verified, skip back to step 8 (payment confirmation)
         setCurrentStep(8)
@@ -2031,8 +2177,8 @@ const PartnerOnboardingForm = () => {
         }
         
         // Create a lead entry in Lead Management for this partner registration
-        // This will help track partners who registered from Lead Marketplace
-        if (fromLeads && formData.categories && formData.categories.length > 0 && formData.city) {
+        // This will help track partners who registered from Lead Marketplace or Lead Need
+        if ((fromLeads || fromLeadsneed) && formData.categories && formData.categories.length > 0 && formData.city) {
           try {
             // Use the first category as the lead category
             const leadCategory = formData.categories[0]
@@ -2047,23 +2193,23 @@ const PartnerOnboardingForm = () => {
               value: 0, // Default value for partner registration leads
               allocationStrategy: 'rule_based',
               priority: 'medium',
-              description: `Partner registration from Lead Marketplace - ${formData.name || 'New Partner'}`
+              description: `Partner registration from ${fromLeadsneed ? 'Lead Need' : 'Lead Marketplace'} - ${formData.name || 'New Partner'}`
             }
             
             // Call backend API to create lead (this requires admin token, so we'll create a partner endpoint)
             // For now, we'll just log it - the backend should handle this automatically
-            console.log('Partner registered from Lead Marketplace:', leadData)
+            console.log(`Partner registered from ${fromLeadsneed ? 'Lead Need' : 'Lead Marketplace'}:`, leadData)
           } catch (leadErr) {
             console.error('Error creating lead entry:', leadErr)
             // Don't block registration if lead creation fails
           }
         }
         
-        // Go to MG Plan selection (step 10 for fromLeads, step 8 for regular flow)
-        if (fromLeads) {
-          setCurrentStep(12) // Skip success message, go directly to MG Plan
+        // Go to plan selection (step 12 for fromLeads/fromLeadsneed)
+        if (fromLeads || fromLeadsneed) {
+          setCurrentStep(12) // Skip success message, go directly to plan selection
         } else {
-          setCurrentStep(12) // Go to MG Plan selection
+          setCurrentStep(12) // Go to plan selection
         }
       }
     } catch (err) {
@@ -2220,12 +2366,22 @@ const PartnerOnboardingForm = () => {
     }
   }
 
-  // Auto-skip step 7 if fromLeads and somehow reached step 7
+  // Auto-skip step 7 if fromLeads or fromLeadsneed and somehow reached step 7
   useEffect(() => {
-    if (fromLeads && currentStep === 7) {
+    if ((fromLeads || fromLeadsneed) && currentStep === 7) {
       setCurrentStep(12)
     }
-  }, [currentStep, fromLeads])
+  }, [currentStep, fromLeads, fromLeadsneed])
+
+  // Auto-skip MG plan selection (step 12) if partner already has an active MG plan
+  useEffect(() => {
+    if (currentStep === 12 && !fromLeads && !fromLeadsneed && formData.selectedPlan && formData.selectedPlanId) {
+      // Partner already has an MG plan, auto-skip to success page
+      console.log('Partner already has MG plan, auto-skipping to success page')
+      setMgPlanSkipped(true)
+      setTimeout(() => setCurrentStep(11), 1000) // Small delay to show the "already active" message briefly
+    }
+  }, [currentStep, fromLeads, fromLeadsneed, formData.selectedPlan, formData.selectedPlanId])
 
   // Auto-skip payment steps if payment already completed AND verified
   useEffect(() => {
@@ -2248,9 +2404,9 @@ const PartnerOnboardingForm = () => {
     }
   }, [currentStep])
 
-  // Check if registration is complete and route accordingly (for Lead Marketplace flow)
+  // Check if registration is complete and route accordingly (for Lead Marketplace and Lead Need flow)
   useEffect(() => {
-    if (fromLeads && token && partnerData && currentStep !== 12 && currentStep !== 11) {
+    if ((fromLeads || fromLeadsneed) && token && partnerData && currentStep !== 12 && currentStep !== 11) {
       // Check if all required data is collected
       const hasPersonalInfo = !!(formData.name && formData.email && formData.address && formData.pincode && formData.city)
       const hasKYC = !!(
@@ -2275,7 +2431,7 @@ const PartnerOnboardingForm = () => {
         setCurrentStep(11)
       }
     }
-  }, [formData, fromLeads, token, partnerData, currentStep])
+  }, [formData, fromLeads, fromLeadsneed, token, partnerData, currentStep])
 
   const handleUpdatePaymentConfirmation = async () => {
     // Check if payment ID is provided
@@ -2378,6 +2534,10 @@ const PartnerOnboardingForm = () => {
                         placeholder="Enter 6-digit OTP"
                         maxLength={6}
                       />
+                    </div>
+                    <div className="flex items-center justify-center gap-2 mt-2 text-sm text-gray-600">
+                      <FaWhatsapp className="text-green-500 text-lg" />
+                      <span>OTP sent to your WhatsApp: +91 {formData.phone}</span>
                     </div>
                   </div>
                   <button
@@ -4048,7 +4208,9 @@ const PartnerOnboardingForm = () => {
                   <>
                     <FaCreditCard />
                     Pay ₹{(formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)).toLocaleString()} Securely
-                    <FaArrowRight />
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                   </>
                 )}
               </motion.button>
@@ -4330,9 +4492,30 @@ const PartnerOnboardingForm = () => {
           />
         )
 
+      case 10:
+        // Lead Plan Selection for leadsneed flow - redirect to case 12
+        if (fromLeadsneed) {
+          // Automatically proceed to lead plan selection (case 12)
+          setTimeout(() => setCurrentStep(12), 100)
+          return (
+            <div className="text-center py-12">
+              <FaSpinner className="animate-spin text-4xl text-primary mx-auto mb-4" />
+              <p className="text-gray-600">Preparing lead plan selection...</p>
+            </div>
+          )
+        }
+        // For regular flow, proceed to MG plan selection (case 11)
+        setTimeout(() => setCurrentStep(11), 100)
+        return (
+          <div className="text-center py-12">
+            <FaSpinner className="animate-spin text-4xl text-primary mx-auto mb-4" />
+            <p className="text-gray-600">Preparing plan selection...</p>
+          </div>
+        )
+
       case 11:
-        // Show success message if plan is selected OR if user skipped
-        if (formData.selectedPlan || mgPlanSkipped) {
+        // Show success message if plan is selected OR if user skipped OR if lead plan payment succeeded
+        if (formData.selectedPlan || mgPlanSkipped || (fromLeadsneed && formData.selectedLeadPlan)) {
           return (
             <div className="space-y-6 text-center">
               <motion.div
@@ -4346,10 +4529,13 @@ const PartnerOnboardingForm = () => {
 
               <div>
                 <h2 className="text-3xl font-bold text-primary mb-2">
-                  {formData.selectedPlan ? 'Thank You!' : 'Registration Complete!'}
+                  {formData.selectedLeadPlan ? 'Lead Plan Activated!' : 
+                   formData.selectedPlan ? 'Thank You!' : 'Registration Complete!'}
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  {formData.selectedPlan 
+                  {formData.selectedLeadPlan 
+                    ? `Congratulations! Your ${formData.selectedLeadPlan} lead plan is now active. You'll start receiving quality leads based on your selected categories and location.`
+                    : formData.selectedPlan 
                     ? `Thank you for subscribing to the ${formData.selectedPlan} plan! Your lead subscription is now active.`
                     : 'Your partner registration is complete! You can subscribe to an MG plan anytime from your dashboard.'
                   }
@@ -4374,7 +4560,26 @@ const PartnerOnboardingForm = () => {
                 </div>
               )}
 
-              {formData.selectedPlan && (
+              {/* Show Lead Plan Success */}
+              {formData.selectedLeadPlan && (
+                <div className="bg-white border-2 border-green-500 rounded-2xl p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Your Lead Plan</h3>
+                  <div className="text-center">
+                    <div className="text-4xl mb-3">🎯</div>
+                    <div className="text-2xl font-bold text-green-600 mb-2">{formData.selectedLeadPlan} Lead Plan</div>
+                    <p className="text-gray-600 mb-3">
+                      Your lead plan is now active! You'll receive quality leads based on your selected categories and location.
+                    </p>
+                    <div className="bg-green-50 rounded-lg p-3 inline-block">
+                      <p className="text-sm font-semibold text-green-700">✅ Payment Successful</p>
+                      <p className="text-xs text-green-600">Plan activated and ready to receive leads</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Show MG Plan Success - Only for non-leadsneed flow */}
+              {formData.selectedPlan && !fromLeadsneed && (
                 <div className="bg-white border-2 border-primary rounded-2xl p-6">
                   <h3 className="text-xl font-semibold text-gray-800 mb-4">Your MG Plan</h3>
                   <div className="text-center">
@@ -4395,7 +4600,7 @@ const PartnerOnboardingForm = () => {
               )}
 
               <div className="flex gap-4 justify-center">
-                <motion.a
+                <motion.button
                   onClick={(e) => {
                     e.preventDefault()
                     handleWhatsAppClick(e)
@@ -4406,15 +4611,28 @@ const PartnerOnboardingForm = () => {
                 >
                   <FaWhatsapp className="text-lg" />
                   Contact Support
-                </motion.a>
+                </motion.button>
                 <motion.button
-                  onClick={() => navigate('/partner/login')}
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to start a new registration? This will clear all saved data from this device.')) {
+                      // Clear all localStorage data
+                      localStorage.removeItem('partnerOnboardingStep')
+                      localStorage.removeItem('partnerOnboardingFormData')
+                      localStorage.removeItem('partnerOnboardingToken')
+                      localStorage.removeItem('partnerOnboardingPartnerData')
+                      
+                      // Reload the page to start fresh
+                      window.location.href = '/partner/onboard'
+                    }
+                  }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-primary text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                  className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
                 >
-                  Go to Dashboard
-                  <FaArrowRight />
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  New Register
                 </motion.button>
               </div>
             </div>
@@ -4687,168 +4905,1255 @@ const PartnerOnboardingForm = () => {
 
 
       case 12:
-        // Already Registered - for Lead Marketplace flow when registration is complete
-        return (
-          <div className="space-y-6 text-center">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto"
-            >
-              <FaUserCheck className="text-4xl text-green-600" />
-            </motion.div>
-
-            <div>
-              <h2 className="text-3xl font-bold text-primary mb-2">You're Already Registered!</h2>
-              <p className="text-gray-600 mb-6">
-                Your partner profile is already complete. You can proceed to subscribe to a lead plan or manage your account.
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-6">
-              <div className="text-sm text-gray-600 mb-2">Your Partner ID</div>
-              <div className="text-3xl font-bold text-primary">{partnerId || partnerData?._id?.toString().slice(-8) || partnerData?.partnerId || 'PRT-XXXXXX'}</div>
-            </div>
-
-            {formData.categoryNames && formData.categoryNames.length > 0 && (
-              <div className="bg-white border-2 border-primary rounded-2xl p-6">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Your Categories</h3>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {formData.categoryNames.map((catName, idx) => (
-                    <span key={idx} className="bg-primary/10 text-primary px-4 py-2 rounded-full font-semibold">
-                      {catName}
-                    </span>
-                  ))}
+        // Plan Selection - MG Plans for regular flow, Lead Plans for leadsneed flow
+        if (fromLeadsneed) {
+          // Lead Plan Selection for leadsneed flow
+          
+          // Show "Already Subscribed" message if partner has active lead plan
+          if (existingLeadPlan && existingLeadPlan.status === 'active') {
+            return (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', duration: 0.5 }}
+                    className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6"
+                  >
+                    <FaCheckCircle className="text-4xl text-white" />
+                  </motion.div>
+                  <h2 className="text-3xl font-bold text-primary mb-2">Already Subscribed!</h2>
+                  <p className="text-gray-600 mb-6">
+                    You already have an active lead plan subscription. You're all set to receive quality leads!
+                  </p>
                 </div>
-              </div>
-            )}
 
-            {/* Show Activated Plan Section if plan exists */}
-            {formData.selectedPlan && selectedPlanMeta ? (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                      <FaCheckCircle className="text-white text-2xl" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-xl font-bold text-green-800">Your Activated Plan</h3>
-                      <p className="text-sm text-green-600">Currently active and receiving leads</p>
-                    </div>
-                  </div>
-                  <div className="text-4xl">{selectedPlanMeta.icon}</div>
-                </div>
-                
-                <div className="bg-white rounded-xl p-4 mb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-2xl font-bold text-primary">{formData.selectedPlan} Plan</h4>
-                    <span className="text-2xl font-bold text-green-600">₹{selectedPlanMeta.price.toLocaleString('en-IN')}/mo</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div className="bg-green-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Guaranteed Leads</p>
-                      <p className="text-xl font-bold text-green-700">{selectedPlanMeta.leads}/month</p>
-                    </div>
-                    <div className="bg-blue-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Commission Rate</p>
-                      <p className="text-xl font-bold text-blue-700">{selectedPlanMeta.commission}%</p>
-                    </div>
-                    <div className="bg-purple-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Lead Fee</p>
-                      <p className="text-xl font-bold text-purple-700">₹{selectedPlanMeta.leadFee}</p>
-                    </div>
-                    <div className="bg-orange-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">Min Wallet Balance</p>
-                      <p className="text-xl font-bold text-orange-700">₹{selectedPlanMeta.minWalletBalance}</p>
-                    </div>
-                  </div>
-                  
-                  {selectedPlanMeta.features?.length > 0 && (
-                    <div className="border-t border-gray-200 pt-3">
-                      <p className="text-xs font-semibold text-gray-600 mb-2">Plan Features:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedPlanMeta.features.map((feature, idx) => (
-                          <span key={idx} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                            ✓ {feature}
-                          </span>
-                        ))}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                        <FaBullseye className="text-white text-2xl" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-green-800">Your Active Lead Plan</h3>
+                        <p className="text-sm text-green-600">Currently receiving leads</p>
                       </div>
                     </div>
-                  )}
-                </div>
-                
-                <div className="flex items-center justify-center gap-2 text-sm text-green-700">
-                  <FaCheckCircle />
-                  <span className="font-medium">Plan is active and you're receiving leads</span>
-                </div>
-              </motion.div>
-            ) : (
-              <div className="bg-white border-2 border-primary rounded-2xl p-6">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Your MG Plan</h3>
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <p className="text-gray-600 mb-6">
-                      You haven't subscribed to a lead plan yet. Choose a plan to start receiving leads!
-                    </p>
+                    <div className="text-4xl">🎯</div>
                   </div>
                   
-                  {/* Static Plans */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {defaultMGPlans.map((plan) => {
-                      return (
-                        <motion.button
-                          key={plan.name}
-                          onClick={async () => {
-                            setFormData(prev => ({ ...prev, selectedPlan: plan.name, selectedPlanId: null }))
-                            setLoading(true)
-                            setError(null)
+                  <div className="bg-white rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-2xl font-bold text-primary">{existingLeadPlan.planName || 'Lead Plan'}</h4>
+                      <span className="text-lg font-bold text-green-600">Active</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-green-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Leads Quota</p>
+                        <p className="text-xl font-bold text-green-700">{existingLeadPlan.leadsQuota || 0}</p>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Leads Used</p>
+                        <p className="text-xl font-bold text-blue-700">{existingLeadPlan.leadsUsed || 0}</p>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Subscribed</p>
+                        <p className="text-sm font-bold text-purple-700">
+                          {existingLeadPlan.subscribedAt ? new Date(existingLeadPlan.subscribedAt).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="bg-orange-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Expires</p>
+                        <p className="text-sm font-bold text-orange-700">
+                          {existingLeadPlan.expiresAt ? new Date(existingLeadPlan.expiresAt).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+                    <FaCheckCircle />
+                    <span className="font-medium">Your lead plan is active and you're receiving leads</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 justify-center">
+                  <motion.button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleWhatsAppClick(e)
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-green-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                  >
+                    <FaWhatsapp className="text-lg" />
+                    Contact Support
+                  </motion.button>
+                  <motion.button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to start a new registration? This will clear all saved data from this device.')) {
+                        // Clear all localStorage data
+                        localStorage.removeItem('partnerOnboardingStep')
+                        localStorage.removeItem('partnerOnboardingFormData')
+                        localStorage.removeItem('partnerOnboardingToken')
+                        localStorage.removeItem('partnerOnboardingPartnerData')
+                        
+                        // Reload the page to start fresh
+                        window.location.href = '/partner/onboard'
+                      }
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                  >
+                    New Register
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                  </motion.button>
+                </div>
+              </div>
+            )
+          }
+          
+          // Show lead plan selection if no active subscription
+          return (
+            <div className="space-y-6">
+              <div className="text-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', duration: 0.5 }}
+                  className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6"
+                >
+                  <FaBullseye className="text-4xl text-white" />
+                </motion.div>
+                <h2 className="text-3xl font-bold text-primary mb-2">Choose Your Lead Plan</h2>
+                <p className="text-gray-600 mb-6">
+                  Select a lead plan that matches your business needs and start receiving quality leads.
+                </p>
+              </div>
+
+              {loadingLeadPlans ? (
+                <div className="text-center py-12">
+                  <FaSpinner className="animate-spin text-4xl text-primary mx-auto mb-4" />
+                  <p className="text-gray-600">Loading lead plans...</p>
+                </div>
+              ) : leadPlans.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                  <p className="text-gray-600 text-lg font-medium mb-2">No lead plans available</p>
+                  <p className="text-gray-500 text-sm">Please contact admin to set up lead plans.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {leadPlans.map((plan) => (
+                    <motion.div
+                      key={plan._id}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{ y: -5, scale: 1.02 }}
+                      className={`${plan.color} border-2 rounded-2xl p-6 transition-all duration-300 ${
+                        formData.selectedLeadPlan === plan.name 
+                          ? `${plan.borderColor} border-4 shadow-2xl` 
+                          : 'border-gray-200 hover:border-primary/50 hover:shadow-xl'
+                      } ${plan.name === 'Gold' ? 'scale-105 lg:scale-105 sm:scale-100' : ''}`}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="text-4xl">{plan.icon}</div>
+                        {plan.name === 'Gold' && (
+                          <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                            POPULAR
+                          </span>
+                        )}
+                      </div>
+                      
+                      <h3 className="text-2xl font-bold text-primary mb-2">{plan.name}</h3>
+                      <div className="mb-4">
+                        <span className="text-3xl font-bold text-primary">₹{plan.price.toLocaleString('en-IN')}</span>
+                        <span className="text-gray-600">/month</span>
+                      </div>
+                      
+                      <ul className="space-y-3 mb-6">
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.leads} Quality Leads/month</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>₹{plan.leadFee} per lead fee</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.leadQuality} quality leads</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.responseTime} response time</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.supportLevel} support</span>
+                        </li>
+                        {plan.features?.map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-gray-700">
+                            <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      
+                      <motion.button
+                        onClick={async () => {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            selectedLeadPlan: plan.name, 
+                            selectedLeadPlanId: plan._id 
+                          }))
+                          setLoading(true)
+                          setError(null)
+                          
+                          try {
+                            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
+                              (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
                             
-                            try {
-                              // For static plans, we need to find the matching plan from API
-                              if (token) {
-                                const plansResponse = await partnerApi.getMGPlans(token)
-                                const selectedPlanData = plansResponse.data?.find(p => p.name === plan.name)
-                                if (selectedPlanData) {
-                                  const subscribeResponse = await partnerApi.subscribeToPlan(token, selectedPlanData._id)
-                                  if (subscribeResponse.success) {
-                                    setFormData(prev => ({ ...prev, selectedPlanId: selectedPlanData._id }))
-                                    
-                                    // Create lead when plan is selected (for Lead Marketplace flow)
-                                    if (fromLeads && formData.categories && formData.categories.length > 0 && formData.city) {
-                                      console.log('Plan subscribed, lead should be created by backend')
+                            const response = await fetch(`${API_BASE_URL}/api/partner/lead-plans/subscribe`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify({
+                                planId: plan._id,
+                                fromLeadNeed: true
+                              })
+                            })
+
+                            const result = await response.json()
+                            
+                            if (result.success && result.data) {
+                              // Create PayU form and submit
+                              const paymentData = result.data
+                              const form = document.createElement('form')
+                              form.method = 'POST'
+                              form.action = paymentData.action
+                              
+                              // Add all PayU parameters as hidden inputs
+                              Object.keys(paymentData).forEach(key => {
+                                if (key !== 'action' && key !== 'planDetails') {
+                                  const input = document.createElement('input')
+                                  input.type = 'hidden'
+                                  input.name = key
+                                  input.value = paymentData[key]
+                                  form.appendChild(input)
+                                }
+                              })
+                              
+                              document.body.appendChild(form)
+                              form.submit()
+                            } else {
+                              setError(result.message || 'Failed to initiate payment for lead plan')
+                            }
+                          } catch (err) {
+                            console.error('Failed to initiate lead plan payment:', err)
+                            setError('Failed to initiate payment. Please try again.')
+                          } finally {
+                            setLoading(false)
+                          }
+                        }}
+                        disabled={loading}
+                        whileHover={{ scale: loading ? 1 : 1.02 }}
+                        whileTap={{ scale: loading ? 1 : 0.98 }}
+                        className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                          plan.name === 'Gold'
+                            ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white hover:from-yellow-600 hover:to-yellow-700 shadow-lg'
+                            : formData.selectedLeadPlan === plan.name
+                            ? 'bg-primary text-white'
+                            : 'bg-white text-primary border-2 border-primary hover:bg-primary hover:text-white'
+                        } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {loading ? (
+                          <FaSpinner className="animate-spin" />
+                        ) : formData.selectedLeadPlan === plan.name ? (
+                          <>
+                            <FaCheckCircle />
+                            Selected
+                          </>
+                        ) : (
+                          <>
+                            <FaBullseye />
+                            Choose {plan.name}
+                          </>
+                        )}
+                      </motion.button>
+                      
+                      {plan.name === 'Custom' && plan.customPricing && (
+                        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Custom Pricing:</p>
+                          <p className="text-sm font-semibold">₹{plan.customPricing.pricePerLead}/lead</p>
+                          <p className="text-xs text-gray-500">Min {plan.customPricing.minimumCommitment} months</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-center">
+                  {error}
+                </div>
+              )}
+
+              {/* Lead Plan Terms */}
+              {leadPlans.length > 0 && leadPlans[0].termsAndConditions && (
+                <div className="bg-gray-50 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Lead Plan Terms & Conditions</h3>
+                  <div className="text-sm text-gray-600 whitespace-pre-line">
+                    {leadPlans[0].termsAndConditions}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        } else if (fromLeads) {
+          // Already Registered - for Lead Marketplace flow when registration is complete
+          return (
+            <div className="space-y-6 text-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', duration: 0.5 }}
+                className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto"
+              >
+                <FaUserCheck className="text-4xl text-green-600" />
+              </motion.div>
+
+              <div>
+                <h2 className="text-3xl font-bold text-primary mb-2">You're Already Registered!</h2>
+                <p className="text-gray-600 mb-6">
+                  Your partner profile is already complete. You can proceed to subscribe to a plan or manage your account.
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-6">
+                <div className="text-sm text-gray-600 mb-2">Your Partner ID</div>
+                <div className="text-3xl font-bold text-primary">{partnerId || partnerData?._id?.toString().slice(-8) || partnerData?.partnerId || 'PRT-XXXXXX'}</div>
+              </div>
+
+              {formData.categoryNames && formData.categoryNames.length > 0 && (
+                <div className="bg-white border-2 border-primary rounded-2xl p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Your Categories</h3>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {formData.categoryNames.map((catName, idx) => (
+                      <span key={idx} className="bg-primary/10 text-primary px-4 py-2 rounded-full font-semibold">
+                        {catName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Show Activated Plan Section if plan exists */}
+              {formData.selectedPlan && selectedPlanMeta ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                        <FaCheckCircle className="text-white text-2xl" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="text-xl font-bold text-green-800">Your Activated Plan</h3>
+                        <p className="text-sm text-green-600">Currently active and receiving leads</p>
+                      </div>
+                    </div>
+                    <div className="text-4xl">{selectedPlanMeta.icon}</div>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-2xl font-bold text-primary">{formData.selectedPlan} Plan</h4>
+                      <span className="text-2xl font-bold text-green-600">₹{selectedPlanMeta.price.toLocaleString('en-IN')}/mo</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-green-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Guaranteed Leads</p>
+                        <p className="text-xl font-bold text-green-700">{selectedPlanMeta.leads}/month</p>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Commission Rate</p>
+                        <p className="text-xl font-bold text-blue-700">{selectedPlanMeta.commission}%</p>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Lead Fee</p>
+                        <p className="text-xl font-bold text-purple-700">₹{selectedPlanMeta.leadFee}</p>
+                      </div>
+                      <div className="bg-orange-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Min Wallet Balance</p>
+                        <p className="text-xl font-bold text-orange-700">₹{selectedPlanMeta.minWalletBalance}</p>
+                      </div>
+                    </div>
+                    
+                    {selectedPlanMeta.features?.length > 0 && (
+                      <div className="border-t border-gray-200 pt-3">
+                        <p className="text-xs font-semibold text-gray-600 mb-2">Plan Features:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedPlanMeta.features.map((feature, idx) => (
+                            <span key={idx} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                              ✓ {feature}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+                    <FaCheckCircle />
+                    <span className="font-medium">Plan is active and you're receiving leads</span>
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="bg-white border-2 border-primary rounded-2xl p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Your MG Plan</h3>
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <p className="text-gray-600 mb-6">
+                        You haven't subscribed to a plan yet. Choose a plan to start receiving leads!
+                      </p>
+                    </div>
+                    
+                    {/* Static Plans */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {defaultMGPlans.map((plan) => {
+                        return (
+                          <motion.button
+                            key={plan.name}
+                            onClick={async () => {
+                              setFormData(prev => ({ ...prev, selectedPlan: plan.name, selectedPlanId: null }))
+                              setLoading(true)
+                              setError(null)
+                              
+                              try {
+                                // For static plans, we need to find the matching plan from API
+                                if (token) {
+                                  const plansResponse = await partnerApi.getMGPlans(token)
+                                  const selectedPlanData = plansResponse.data?.find(p => p.name === plan.name)
+                                  if (selectedPlanData) {
+                                    const subscribeResponse = await partnerApi.subscribeToPlan(token, selectedPlanData._id)
+                                    if (subscribeResponse.success) {
+                                      setFormData(prev => ({ ...prev, selectedPlanId: selectedPlanData._id }))
+                                      
+                                      // Create lead when plan is selected (for Lead Marketplace flow)
+                                      if (fromLeads && formData.categories && formData.categories.length > 0 && formData.city) {
+                                        console.log('Plan subscribed, lead should be created by backend')
+                                      }
+                                      
+                                      // Go to success page with thanks message instead of reloading
+                                      setCurrentStep(11)
+                                      setError(null)
                                     }
-                                    
-                                    // Go to success page with thanks message instead of reloading
-                                    setCurrentStep(11)
-                                    setError(null)
+                                  } else {
+                                    setError(`Plan "${plan.name}" not available. Please contact support.`)
                                   }
                                 } else {
-                                  setError(`Plan "${plan.name}" not available. Please contact support.`)
+                                  setError('Please login to subscribe to a plan')
                                 }
-                              } else {
-                                setError('Please login to subscribe to a plan')
+                              } catch (err) {
+                                console.error('Failed to subscribe to plan:', err)
+                                setError('Failed to subscribe to plan. Please try again.')
+                              } finally {
+                                setLoading(false)
                               }
-                            } catch (err) {
-                              console.error('Failed to subscribe to plan:', err)
-                              setError('Failed to subscribe to plan. Please try again.')
-                            } finally {
-                              setLoading(false)
+                            }}
+                            disabled={loading}
+                            whileHover={{ scale: loading ? 1 : 1.05 }}
+                            whileTap={{ scale: loading ? 1 : 0.95 }}
+                            className={`${plan.color} border-2 rounded-2xl p-6 text-left transition ${
+                              formData.selectedPlan === plan.name 
+                                ? `${plan.borderColor} border-4 shadow-lg` 
+                                : 'border-gray-200 hover:border-primary'
+                            } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            <div className="text-4xl mb-3">{plan.icon}</div>
+                            <div className="font-bold text-xl text-gray-800 mb-2">{plan.name}</div>
+                            <div className="text-3xl font-bold text-primary mb-3">₹{plan.price.toLocaleString('en-IN')}</div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center gap-2">
+                                <FaCheckCircle className="text-green-500" />
+                                <span className="text-gray-700">{plan.leads} Leads/month</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <FaCheckCircle className="text-green-500" />
+                                <span className="text-gray-700">{plan.commission}% Commission</span>
+                              </div>
+                              {plan.leadFee && (
+                                <div className="flex items-center gap-2">
+                                  <FaCheckCircle className="text-green-500" />
+                                  <span className="text-gray-700">Lead Fee ₹{plan.leadFee}</span>
+                                </div>
+                              )}
+                              {plan.minWalletBalance && (
+                                <div className="flex items-center gap-2">
+                                  <FaCheckCircle className="text-green-500" />
+                                  <span className="text-gray-700">Min Wallet ₹{plan.minWalletBalance}</span>
+                                </div>
+                              )}
+                            </div>
+                            {plan.features?.length ? (
+                              <ul className="mt-4 space-y-1 text-xs text-gray-600">
+                                {plan.features.map((feature, idx) => (
+                                  <li key={idx} className="flex items-center gap-2">
+                                    <FaCheckCircle className="text-primary" />
+                                    <span>{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            {formData.selectedPlan === plan.name && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="mt-4"
+                              >
+                                <FaCheckCircle className="text-primary text-2xl mx-auto" />
+                              </motion.div>
+                            )}
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                    
+                    {error && (
+                      <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm text-center">
+                        {error}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-4 justify-center">
+                <motion.button
+                  
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-primary text-white px-6 py-3 rounded-xl font-semibold"
+                >
+                  New Register
+                </motion.button>
+              </div>
+            </div>
+          )
+        }
+
+      case 13:
+        // Plan Selection - MG Plans for regular flow, Lead Plans for leadsneed flow
+        if (fromLeadsneed) {
+          // Lead Plan Selection for leadsneed flow
+          
+          // Show "Already Subscribed" message if partner has active lead plan
+          if (existingLeadPlan && existingLeadPlan.status === 'active') {
+            return (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', duration: 0.5 }}
+                    className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6"
+                  >
+                    <FaCheckCircle className="text-4xl text-white" />
+                  </motion.div>
+                  <h2 className="text-3xl font-bold text-primary mb-2">Already Subscribed!</h2>
+                  <p className="text-gray-600 mb-6">
+                    You already have an active lead plan subscription. You're all set to receive quality leads!
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                        <FaBullseye className="text-white text-2xl" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-green-800">Your Active Lead Plan</h3>
+                        <p className="text-sm text-green-600">Currently receiving leads</p>
+                      </div>
+                    </div>
+                    <div className="text-4xl">🎯</div>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-2xl font-bold text-primary">{existingLeadPlan.planName || 'Lead Plan'}</h4>
+                      <span className="text-lg font-bold text-green-600">Active</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-green-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Leads Quota</p>
+                        <p className="text-xl font-bold text-green-700">{existingLeadPlan.leadsQuota || 0}</p>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Leads Used</p>
+                        <p className="text-xl font-bold text-blue-700">{existingLeadPlan.leadsUsed || 0}</p>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Subscribed</p>
+                        <p className="text-sm font-bold text-purple-700">
+                          {existingLeadPlan.subscribedAt ? new Date(existingLeadPlan.subscribedAt).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="bg-orange-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Expires</p>
+                        <p className="text-sm font-bold text-orange-700">
+                          {existingLeadPlan.expiresAt ? new Date(existingLeadPlan.expiresAt).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+                    <FaCheckCircle />
+                    <span className="font-medium">Your lead plan is active and you're receiving leads</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 justify-center">
+                  <motion.button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleWhatsAppClick(e)
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-green-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                  >
+                    <FaWhatsapp className="text-lg" />
+                    Contact Support
+                  </motion.button>
+                  <motion.button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to start a new registration? This will clear all saved data from this device.')) {
+                        // Clear all localStorage data
+                        localStorage.removeItem('partnerOnboardingStep')
+                        localStorage.removeItem('partnerOnboardingFormData')
+                        localStorage.removeItem('partnerOnboardingToken')
+                        localStorage.removeItem('partnerOnboardingPartnerData')
+                        
+                        // Reload the page to start fresh
+                        window.location.href = '/partner/onboard'
+                      }
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                  >
+                    New Register
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                  </motion.button>
+                </div>
+              </div>
+            )
+          }
+          
+          // Show lead plan selection if no active subscription
+          return (
+            <div className="space-y-6">
+              <div className="text-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', duration: 0.5 }}
+                  className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6"
+                >
+                  <FaBullseye className="text-4xl text-white" />
+                </motion.div>
+                <h2 className="text-3xl font-bold text-primary mb-2">Choose Your Lead Plan</h2>
+                <p className="text-gray-600 mb-6">
+                  Select a lead plan that matches your business needs and start receiving quality leads.
+                </p>
+              </div>
+
+              {loadingLeadPlans ? (
+                <div className="text-center py-12">
+                  <FaSpinner className="animate-spin text-4xl text-primary mx-auto mb-4" />
+                  <p className="text-gray-600">Loading lead plans...</p>
+                </div>
+              ) : leadPlans.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                  <p className="text-gray-600 text-lg font-medium mb-2">No lead plans available</p>
+                  <p className="text-gray-500 text-sm">Please contact admin to set up lead plans.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {leadPlans.map((plan) => (
+                    <motion.div
+                      key={plan._id}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{ y: -5, scale: 1.02 }}
+                      className={`${plan.color} border-2 rounded-2xl p-6 transition-all duration-300 ${
+                        formData.selectedLeadPlan === plan.name 
+                          ? `${plan.borderColor} border-4 shadow-2xl` 
+                          : 'border-gray-200 hover:border-primary/50 hover:shadow-xl'
+                      } ${plan.name === 'Gold' ? 'scale-105 lg:scale-105 sm:scale-100' : ''}`}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="text-4xl">{plan.icon}</div>
+                        {plan.name === 'Gold' && (
+                          <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                            POPULAR
+                          </span>
+                        )}
+                      </div>
+                      
+                      <h3 className="text-2xl font-bold text-primary mb-2">{plan.name}</h3>
+                      <div className="mb-4">
+                        <span className="text-3xl font-bold text-primary">₹{plan.price.toLocaleString('en-IN')}</span>
+                        <span className="text-gray-600">/month</span>
+                      </div>
+                      
+                      <ul className="space-y-3 mb-6">
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.leads} Quality Leads/month</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>₹{plan.leadFee} per lead fee</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.leadQuality} quality leads</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.responseTime} response time</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.supportLevel} support</span>
+                        </li>
+                        {plan.features?.map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-gray-700">
+                            <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      
+                      <motion.button
+                        onClick={async () => {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            selectedLeadPlan: plan.name, 
+                            selectedLeadPlanId: plan._id 
+                          }))
+                          setLoading(true)
+                          setError(null)
+                          
+                          try {
+                            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
+                              (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+                            
+                            const response = await fetch(`${API_BASE_URL}/api/partner/lead-plans/subscribe`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify({
+                                planId: plan._id,
+                                fromLeadNeed: true
+                              })
+                            })
+
+                            const result = await response.json()
+                            
+                            if (result.success && result.data) {
+                              // Create PayU form and submit
+                              const paymentData = result.data
+                              const form = document.createElement('form')
+                              form.method = 'POST'
+                              form.action = paymentData.action
+                              
+                              // Add all PayU parameters as hidden inputs
+                              Object.keys(paymentData).forEach(key => {
+                                if (key !== 'action' && key !== 'planDetails') {
+                                  const input = document.createElement('input')
+                                  input.type = 'hidden'
+                                  input.name = key
+                                  input.value = paymentData[key]
+                                  form.appendChild(input)
+                                }
+                              })
+                              
+                              document.body.appendChild(form)
+                              form.submit()
+                            } else {
+                              setError(result.message || 'Failed to initiate payment for lead plan')
                             }
-                          }}
-                          disabled={loading}
-                          whileHover={{ scale: loading ? 1 : 1.05 }}
-                          whileTap={{ scale: loading ? 1 : 0.95 }}
-                          className={`${plan.color} border-2 rounded-2xl p-6 text-left transition ${
-                            formData.selectedPlan === plan.name 
-                              ? `${plan.borderColor} border-4 shadow-lg` 
-                              : 'border-gray-200 hover:border-primary'
-                          } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          } catch (err) {
+                            console.error('Failed to initiate lead plan payment:', err)
+                            setError('Failed to initiate payment. Please try again.')
+                          } finally {
+                            setLoading(false)
+                          }
+                        }}
+                        disabled={loading}
+                        whileHover={{ scale: loading ? 1 : 1.02 }}
+                        whileTap={{ scale: loading ? 1 : 0.98 }}
+                        className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                          plan.name === 'Gold'
+                            ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white hover:from-yellow-600 hover:to-yellow-700 shadow-lg'
+                            : formData.selectedLeadPlan === plan.name
+                            ? 'bg-primary text-white'
+                            : 'bg-white text-primary border-2 border-primary hover:bg-primary hover:text-white'
+                        } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {loading ? (
+                          <FaSpinner className="animate-spin" />
+                        ) : formData.selectedLeadPlan === plan.name ? (
+                          <>
+                            <FaCheckCircle />
+                            Selected
+                          </>
+                        ) : (
+                          <>
+                            <FaBullseye />
+                            Choose {plan.name}
+                          </>
+                        )}
+                      </motion.button>
+                      
+                      {plan.name === 'Custom' && plan.customPricing && (
+                        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Custom Pricing:</p>
+                          <p className="text-sm font-semibold">₹{plan.customPricing.pricePerLead}/lead</p>
+                          <p className="text-xs text-gray-500">Min {plan.customPricing.minimumCommitment} months</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-center">
+                  {error}
+                </div>
+              )}
+
+              {/* Lead Plan Terms */}
+              {leadPlans.length > 0 && leadPlans[0].termsAndConditions && (
+                <div className="bg-gray-50 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Lead Plan Terms & Conditions</h3>
+                  <div className="text-sm text-gray-600 whitespace-pre-line">
+                    {leadPlans[0].termsAndConditions}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        } else if (fromLeads) {
+          // Already Registered - for Lead Marketplace flow when registration is complete
+          return (
+            <div className="space-y-6 text-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', duration: 0.5 }}
+                className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto"
+              >
+                <FaUserCheck className="text-4xl text-green-600" />
+              </motion.div>
+
+              <div>
+                <h2 className="text-3xl font-bold text-primary mb-2">You're Already Registered!</h2>
+                <p className="text-gray-600 mb-6">
+                  Your partner profile is already complete. You can proceed to subscribe to a plan or manage your account.
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-6">
+                <div className="text-sm text-gray-600 mb-2">Your Partner ID</div>
+                <div className="text-3xl font-bold text-primary">{partnerId || partnerData?._id?.toString().slice(-8) || partnerData?.partnerId || 'PRT-XXXXXX'}</div>
+              </div>
+
+              {formData.categoryNames && formData.categoryNames.length > 0 && (
+                <div className="bg-white border-2 border-primary rounded-2xl p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Your Categories</h3>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {formData.categoryNames.map((catName, idx) => (
+                      <span key={idx} className="bg-primary/10 text-primary px-4 py-2 rounded-full font-semibold">
+                        {catName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Show Activated Plan Section if plan exists */}
+              {formData.selectedPlan && selectedPlanMeta ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                        <FaCheckCircle className="text-white text-2xl" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="text-xl font-bold text-green-800">Your Activated Plan</h3>
+                        <p className="text-sm text-green-600">Currently active and receiving leads</p>
+                      </div>
+                    </div>
+                    <div className="text-4xl">{selectedPlanMeta.icon}</div>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-2xl font-bold text-primary">{formData.selectedPlan} Plan</h4>
+                      <span className="text-2xl font-bold text-green-600">₹{selectedPlanMeta.price.toLocaleString('en-IN')}/mo</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-green-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Guaranteed Leads</p>
+                        <p className="text-xl font-bold text-green-700">{selectedPlanMeta.leads}/month</p>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Commission Rate</p>
+                        <p className="text-xl font-bold text-blue-700">{selectedPlanMeta.commission}%</p>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Lead Fee</p>
+                        <p className="text-xl font-bold text-purple-700">₹{selectedPlanMeta.leadFee}</p>
+                      </div>
+                      <div className="bg-orange-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-600 mb-1">Min Wallet Balance</p>
+                        <p className="text-xl font-bold text-orange-700">₹{selectedPlanMeta.minWalletBalance}</p>
+                      </div>
+                    </div>
+                    
+                    {selectedPlanMeta.features?.length > 0 && (
+                      <div className="border-t border-gray-200 pt-3">
+                        <p className="text-xs font-semibold text-gray-600 mb-2">Plan Features:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedPlanMeta.features.map((feature, idx) => (
+                            <span key={idx} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                              ✓ {feature}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+                    <FaCheckCircle />
+                    <span className="font-medium">Plan is active and you're receiving leads</span>
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="bg-white border-2 border-primary rounded-2xl p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Your MG Plan</h3>
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <p className="text-gray-600 mb-6">
+                        You haven't subscribed to a plan yet. Choose a plan to start receiving leads!
+                      </p>
+                    </div>
+                    
+                    {/* Static Plans */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {defaultMGPlans.map((plan) => {
+                        return (
+                          <motion.button
+                            key={plan.name}
+                            onClick={async () => {
+                              setFormData(prev => ({ ...prev, selectedPlan: plan.name, selectedPlanId: null }))
+                              setLoading(true)
+                              setError(null)
+                              
+                              try {
+                                // For static plans, we need to find the matching plan from API
+                                if (token) {
+                                  const plansResponse = await partnerApi.getMGPlans(token)
+                                  const selectedPlanData = plansResponse.data?.find(p => p.name === plan.name)
+                                  if (selectedPlanData) {
+                                    const subscribeResponse = await partnerApi.subscribeToPlan(token, selectedPlanData._id)
+                                    if (subscribeResponse.success) {
+                                      setFormData(prev => ({ ...prev, selectedPlanId: selectedPlanData._id }))
+                                      
+                                      // Create lead when plan is selected (for Lead Marketplace flow)
+                                      if (fromLeads && formData.categories && formData.categories.length > 0 && formData.city) {
+                                        console.log('Plan subscribed, lead should be created by backend')
+                                      }
+                                      
+                                      // Go to success page with thanks message instead of reloading
+                                      setCurrentStep(11)
+                                      setError(null)
+                                    }
+                                  } else {
+                                    setError(`Plan "${plan.name}" not available. Please contact support.`)
+                                  }
+                                } else {
+                                  setError('Please login to subscribe to a plan')
+                                }
+                              } catch (err) {
+                                console.error('Failed to subscribe to plan:', err)
+                                setError('Failed to subscribe to plan. Please try again.')
+                              } finally {
+                                setLoading(false)
+                              }
+                            }}
+                            disabled={loading}
+                            whileHover={{ scale: loading ? 1 : 1.05 }}
+                            whileTap={{ scale: loading ? 1 : 0.95 }}
+                            className={`${plan.color} border-2 rounded-2xl p-6 text-left transition ${
+                              formData.selectedPlan === plan.name 
+                                ? `${plan.borderColor} border-4 shadow-lg` 
+                                : 'border-gray-200 hover:border-primary'
+                            } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            <div className="text-4xl mb-3">{plan.icon}</div>
+                            <div className="font-bold text-xl text-gray-800 mb-2">{plan.name}</div>
+                            <div className="text-3xl font-bold text-primary mb-3">₹{plan.price.toLocaleString('en-IN')}</div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center gap-2">
+                                <FaCheckCircle className="text-green-500" />
+                                <span className="text-gray-700">{plan.leads} Leads/month</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <FaCheckCircle className="text-green-500" />
+                                <span className="text-gray-700">{plan.commission}% Commission</span>
+                              </div>
+                              {plan.leadFee && (
+                                <div className="flex items-center gap-2">
+                                  <FaCheckCircle className="text-green-500" />
+                                  <span className="text-gray-700">Lead Fee ₹{plan.leadFee}</span>
+                                </div>
+                              )}
+                              {plan.minWalletBalance && (
+                                <div className="flex items-center gap-2">
+                                  <FaCheckCircle className="text-green-500" />
+                                  <span className="text-gray-700">Min Wallet ₹{plan.minWalletBalance}</span>
+                                </div>
+                              )}
+                            </div>
+                            {plan.features?.length ? (
+                              <ul className="mt-4 space-y-1 text-xs text-gray-600">
+                                {plan.features.map((feature, idx) => (
+                                  <li key={idx} className="flex items-center gap-2">
+                                    <FaCheckCircle className="text-primary" />
+                                    <span>{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            {formData.selectedPlan === plan.name && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="mt-4"
+                              >
+                                <FaCheckCircle className="text-primary text-2xl mx-auto" />
+                              </motion.div>
+                            )}
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                    
+                    {error && (
+                      <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm text-center">
+                        {error}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-4 justify-center">
+                <motion.button
+                  
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-primary text-white px-6 py-3 rounded-xl font-semibold"
+                >
+                  New Register
+                </motion.button>
+              </div>
+            </div>
+          )
+        } else {
+          // Regular partner onboarding flow - MG Plan Selection
+          
+          // Check if partner already has an MG plan and auto-skip
+          if (formData.selectedPlan && formData.selectedPlanId) {
+            // Partner already has an MG plan, show success message and skip plan selection
+            return (
+              <div className="space-y-6 text-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', duration: 0.5 }}
+                  className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto"
+                >
+                  <FaCheckCircle className="text-4xl text-green-600" />
+                </motion.div>
+
+                <div>
+                  <h2 className="text-3xl font-bold text-primary mb-2">MG Plan Already Active!</h2>
+                  <p className="text-gray-600 mb-6">
+                    You already have an active MG plan subscription. Your plan is working and you're receiving leads.
+                  </p>
+                </div>
+
+                {/* Show Current Plan Details */}
+                {selectedPlanMeta && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6 max-w-md mx-auto"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                          <FaCheckCircle className="text-white text-2xl" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className="text-xl font-bold text-green-800">Your Active Plan</h3>
+                          <p className="text-sm text-green-600">Currently receiving leads</p>
+                        </div>
+                      </div>
+                      <div className="text-4xl">{selectedPlanMeta.icon}</div>
+                    </div>
+                    
+                    <div className="bg-white rounded-xl p-4 mb-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-2xl font-bold text-primary">{formData.selectedPlan} Plan</h4>
+                        <span className="text-lg font-bold text-green-600">Active</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="bg-green-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-600 mb-1">Guaranteed Leads</p>
+                          <p className="text-xl font-bold text-green-700">{selectedPlanMeta.leads}/month</p>
+                        </div>
+                        <div className="bg-blue-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-600 mb-1">Commission Rate</p>
+                          <p className="text-xl font-bold text-blue-700">{selectedPlanMeta.commission}%</p>
+                        </div>
+                      </div>
+                      
+                      {selectedPlanMeta.features?.length > 0 && (
+                        <div className="border-t border-gray-200 pt-3">
+                          <p className="text-xs font-semibold text-gray-600 mb-2">Plan Features:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedPlanMeta.features.map((feature, idx) => (
+                              <span key={idx} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                ✓ {feature}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+                      <FaCheckCircle />
+                      <span className="font-medium">Your MG plan is active and working</span>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-4 justify-center">
+                  <motion.button
+                    onClick={() => {
+                      // Auto-skip MG plan since already subscribed
+                      setMgPlanSkipped(true)
+                      setCurrentStep(11)
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                  >
+                    Continue to Dashboard
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                  </motion.button>
+                </div>
+
+                {/* Help Section */}
+                <div className="bg-gray-50 rounded-xl p-4 max-w-md mx-auto">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="text-sm">
+                      <div className="font-medium text-gray-800">Need to change your plan?</div>
+                      <div className="text-gray-600">You can upgrade or modify your MG plan from your partner dashboard.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+          
+          // Show MG plan selection for partners without active plans
+          return (
+            <div className="space-y-6">
+              <div className="text-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', duration: 0.5 }}
+                  className="w-20 h-20 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center mx-auto mb-6"
+                >
+                  <FaUserCheck className="text-4xl text-white" />
+                </motion.div>
+                <h2 className="text-3xl font-bold text-primary mb-2">Choose Your MG Plan</h2>
+                <p className="text-gray-600 mb-6">
+                  Select a plan that matches your business needs and start receiving leads.
+                </p>
+              </div>
+
+              {loadingMGPlans ? (
+                <div className="text-center py-12">
+                  <FaSpinner className="animate-spin text-4xl text-primary mx-auto mb-4" />
+                  <p className="text-gray-600">Loading MG plans...</p>
+                </div>
+              ) : mgPlans.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                  <p className="text-gray-600 text-lg font-medium mb-2">No MG plans available</p>
+                  <p className="text-gray-500 text-sm">Please contact admin to set up MG plans.</p>
+                  
+                  {/* Show default plans as fallback */}
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Plans</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {defaultMGPlans.map((plan) => (
+                        <motion.div
+                          key={plan.name}
+                          whileHover={{ y: -5, scale: 1.02 }}
+                          className={`${plan.color} border-2 rounded-2xl p-6 text-left transition ${plan.borderColor}`}
                         >
                           <div className="text-4xl mb-3">{plan.icon}</div>
                           <div className="font-bold text-xl text-gray-800 mb-2">{plan.name}</div>
@@ -4862,117 +6167,146 @@ const PartnerOnboardingForm = () => {
                               <FaCheckCircle className="text-green-500" />
                               <span className="text-gray-700">{plan.commission}% Commission</span>
                             </div>
-                            {plan.leadFee && (
-                              <div className="flex items-center gap-2">
+                            {plan.features?.map((feature, idx) => (
+                              <div key={idx} className="flex items-center gap-2">
                                 <FaCheckCircle className="text-green-500" />
-                                <span className="text-gray-700">Lead Fee ₹{plan.leadFee}</span>
+                                <span className="text-gray-700">{feature}</span>
                               </div>
-                            )}
-                            {plan.minWalletBalance && (
-                              <div className="flex items-center gap-2">
-                                <FaCheckCircle className="text-green-500" />
-                                <span className="text-gray-700">Min Wallet ₹{plan.minWalletBalance}</span>
-                              </div>
-                            )}
+                            ))}
                           </div>
-                          {plan.features?.length ? (
-                            <ul className="mt-4 space-y-1 text-xs text-gray-600">
-                              {plan.features.map((feature, idx) => (
-                                <li key={idx} className="flex items-center gap-2">
-                                  <FaCheckCircle className="text-primary" />
-                                  <span>{feature}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                          {formData.selectedPlan === plan.name && (
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="mt-4"
-                            >
-                              <FaCheckCircle className="text-primary text-2xl mx-auto" />
-                            </motion.div>
-                          )}
-                        </motion.button>
-                      )
-                    })}
-                  </div>
-                  
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm text-center">
-                      {error}
+                          <div className="mt-4 text-center">
+                            <span className="text-sm text-gray-500">Contact admin to activate</span>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            <div className="flex gap-4 justify-center">
-              <motion.a
-                href="/partner/login"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-primary text-white px-6 py-3 rounded-xl font-semibold"
-              >
-                Go to Dashboard
-              </motion.a>
-              <motion.a
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleWhatsAppClick(e)
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-[#25D366] text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2"
-              >
-                <FaWhatsapp /> Contact Support
-              </motion.a>
-            </div>
-
-            {/* Register New Partner Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="border-t border-gray-200 pt-6 mt-6"
-            >
-              <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
-                <div className="text-center mb-4">
-                  <h4 className="font-semibold text-gray-800 mb-2 flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
-                    Want to register a new partner?
-                  </h4>
-                  <p className="text-sm text-gray-600">Clear all saved data and start fresh registration</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {mgPlans.map((plan) => (
+                    <motion.div
+                      key={plan._id}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{ y: -5, scale: 1.02 }}
+                      className={`${plan.color} border-2 rounded-2xl p-6 transition-all duration-300 ${
+                        formData.selectedPlan === plan.name 
+                          ? `${plan.borderColor} border-4 shadow-2xl` 
+                          : 'border-gray-200 hover:border-primary/50 hover:shadow-xl'
+                      } ${plan.name === 'Gold' ? 'scale-105 lg:scale-105 sm:scale-100' : ''}`}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="text-4xl">{plan.icon}</div>
+                        {plan.name === 'Gold' && (
+                          <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                            POPULAR
+                          </span>
+                        )}
+                      </div>
+                      
+                      <h3 className="text-2xl font-bold text-primary mb-2">{plan.name}</h3>
+                      <div className="mb-4">
+                        <span className="text-3xl font-bold text-primary">₹{plan.price.toLocaleString('en-IN')}</span>
+                        <span className="text-gray-600">/month</span>
+                      </div>
+                      
+                      <ul className="space-y-3 mb-6">
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.leads} Guaranteed Leads/month</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-gray-700">
+                          <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                          <span>{plan.commission}% Commission Rate</span>
+                        </li>
+                        {plan.features?.map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-gray-700">
+                            <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      
+                      <motion.button
+                        onClick={async () => {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            selectedPlan: plan.name, 
+                            selectedPlanId: plan._id 
+                          }))
+                          setLoading(true)
+                          setError(null)
+                          
+                          try {
+                            const subscribeResponse = await partnerApi.subscribeToPlan(token, plan._id)
+                            if (subscribeResponse.success) {
+                              // Go to success page
+                              setCurrentStep(11)
+                              setError(null)
+                            } else {
+                              setError(subscribeResponse.message || 'Failed to subscribe to plan')
+                            }
+                          } catch (err) {
+                            console.error('Failed to subscribe to plan:', err)
+                            setError('Failed to subscribe to plan. Please try again.')
+                          } finally {
+                            setLoading(false)
+                          }
+                        }}
+                        disabled={loading}
+                        whileHover={{ scale: loading ? 1 : 1.02 }}
+                        whileTap={{ scale: loading ? 1 : 0.98 }}
+                        className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                          plan.name === 'Gold'
+                            ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white hover:from-yellow-600 hover:to-yellow-700 shadow-lg'
+                            : formData.selectedPlan === plan.name
+                            ? 'bg-primary text-white'
+                            : 'bg-white text-primary border-2 border-primary hover:bg-primary hover:text-white'
+                        } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {loading ? (
+                          <FaSpinner className="animate-spin" />
+                        ) : formData.selectedPlan === plan.name ? (
+                          <>
+                            <FaCheckCircle />
+                            Selected
+                          </>
+                        ) : (
+                          <>
+                            <FaUserCheck />
+                            Choose {plan.name}
+                          </>
+                        )}
+                      </motion.button>
+                    </motion.div>
+                  ))}
                 </div>
+              )}
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-center">
+                  {error}
+                </div>
+              )}
+
+              {/* Skip Option */}
+              <div className="text-center">
                 <motion.button
                   onClick={() => {
-                    if (window.confirm('Are you sure you want to start a new registration? This will clear all saved data from this device.')) {
-                      // Clear all localStorage data
-                      localStorage.removeItem('partnerOnboardingStep')
-                      localStorage.removeItem('partnerOnboardingFormData')
-                      localStorage.removeItem('partnerOnboardingToken')
-                      localStorage.removeItem('partnerOnboardingPartnerData')
-                      
-                      // Reload the page to start fresh
-                      window.location.href = '/partner/onboard'
-                    }
+                    setMgPlanSkipped(true)
+                    setCurrentStep(11)
                   }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition shadow-md"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="text-gray-600 hover:text-primary transition underline"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
-                  Register New Partner
+                  Skip for now - I'll choose a plan later
                 </motion.button>
               </div>
-            </motion.div>
-          </div>
-        )
+            </div>
+          )
+        }
 
       default:
         return null
@@ -5011,17 +6345,17 @@ const PartnerOnboardingForm = () => {
             <div className="mb-4 sm:mb-6">
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-xs sm:text-sm font-semibold text-gray-600">
-                  Step {currentStep} of {fromLeads ? totalSteps - 2 : totalSteps - 1}
+                  Step {currentStep} of {(fromLeads || fromLeadsneed) ? totalSteps - 2 : totalSteps - 1}
                 </span>
                 <span className="text-xs sm:text-sm font-semibold text-primary">
-                  {Math.round((currentStep / (fromLeads ? totalSteps - 2 : totalSteps - 1)) * 100)}%
+                  {Math.round((currentStep / ((fromLeads || fromLeadsneed) ? totalSteps - 2 : totalSteps - 1)) * 100)}%
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-1.5">
                 <motion.div
                   className="bg-primary h-1.5 rounded-full"
                   initial={{ width: 0 }}
-                  animate={{ width: `${(currentStep / (fromLeads ? totalSteps - 2 : totalSteps - 1)) * 100}%` }}
+                  animate={{ width: `${(currentStep / ((fromLeads || fromLeadsneed) ? totalSteps - 2 : totalSteps - 1)) * 100}%` }}
                   transition={{ duration: 0.3 }}
                 />
               </div>
@@ -5063,7 +6397,9 @@ const PartnerOnboardingForm = () => {
                     disabled={loading || !canProceed()}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? <FaSpinner className="animate-spin" /> : 'Save & Continue'} <FaArrowRight />
+                    {loading ? <FaSpinner className="animate-spin" /> : 'Save & Continue'} <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                   </button>
                 ) : currentStep === 3 ? (
                   <button
@@ -5071,7 +6407,9 @@ const PartnerOnboardingForm = () => {
                     disabled={loading || !canProceed()}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? <FaSpinner className="animate-spin" /> : 'Upload & Continue'} <FaArrowRight />
+                    {loading ? <FaSpinner className="animate-spin" /> : 'Upload & Continue'} <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                   </button>
                 ) : currentStep === 4 ? (
                   <button
@@ -5079,13 +6417,15 @@ const PartnerOnboardingForm = () => {
                     disabled={loading || formData.categories.length === 0}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? <FaSpinner className="animate-spin" /> : 'Save Categories & Continue'} <FaArrowRight />
+                    {loading ? <FaSpinner className="animate-spin" /> : 'Save Categories & Continue'} <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                   </button>
                 ) : currentStep === 6 ? (
                   <button
                     onClick={async () => {
-                      if (fromLeads) {
-                        // For Lead Marketplace flow, complete registration without payment
+                      if (fromLeads || fromLeadsneed) {
+                        // For Lead Marketplace and Lead Need flow, complete registration without payment
                         await handleCompleteRegistrationWithoutPayment()
                       } else {
                         // Regular flow - check if payment already completed
@@ -5145,15 +6485,19 @@ const PartnerOnboardingForm = () => {
                     disabled={!canProceed() || loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? <FaSpinner className="animate-spin" /> : fromLeads ? 'Complete Registration' : 'Accept & Continue'} <FaArrowRight />
+                    {loading ? <FaSpinner className="animate-spin" /> : (fromLeads || fromLeadsneed) ? 'Complete Registration' : 'Accept & Continue'} <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                   </button>
-                ) : currentStep === 7 && !fromLeads ? (
+                ) : currentStep === 7 && !(fromLeads || fromLeadsneed) ? (
                   <button
                     onClick={handleCompletePayment}
                     disabled={loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? <FaSpinner className="animate-spin" /> : 'Complete Payment'} <FaArrowRight />
+                    {loading ? <FaSpinner className="animate-spin" /> : 'Complete Payment'} <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                   </button>
                 ) : currentStep === 8 && formData.payment.status !== 'failed' ? (
                   <button
@@ -5161,7 +6505,9 @@ const PartnerOnboardingForm = () => {
                     disabled={loading || !formData.payment.payId}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? <FaSpinner className="animate-spin" /> : 'Confirm Payment & Continue'} <FaArrowRight />
+                    {loading ? <FaSpinner className="animate-spin" /> : 'Confirm Payment & Continue'} <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                   </button>
                 ) : currentStep === 9 ? (
                   <div className="flex gap-3 justify-center">
@@ -5170,7 +6516,9 @@ const PartnerOnboardingForm = () => {
                       disabled={loading}
                       className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Yes, Choose MG Plan <FaArrowRight />
+                      Yes, Choose MG Plan <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                     </button>
                     <button
                       onClick={() => {
@@ -5190,7 +6538,9 @@ const PartnerOnboardingForm = () => {
                     disabled={!canProceed() || loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Next <FaArrowRight />
+                    Next <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                   </button>
                 ) : (
                   <button
@@ -5198,7 +6548,9 @@ const PartnerOnboardingForm = () => {
                     disabled={!canProceed() || loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Next <FaArrowRight />
+                    Next <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
                   </button>
                 )}
               </div>

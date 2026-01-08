@@ -66,7 +66,7 @@ const VerifyPartner = () => {
   const profileImage = partner.profilePicture
     ? (partner.profilePicture.startsWith('http') 
         ? partner.profilePicture 
-        : `https://nexo.works/${partner.profilePicture}`)
+        : `https://nexo.works/uploads/profiles/${partner.profilePicture}`)
     : null
 
   return (

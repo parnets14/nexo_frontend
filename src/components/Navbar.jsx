@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Logo from './Logo'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FaWhatsapp, FaBars, FaTimes, FaUserCheck, FaUser, FaChevronDown, FaSignOutAlt, FaTachometerAlt } from 'react-icons/fa'
+import { FaBars, FaTimes, FaUserCheck, FaUser, FaChevronDown, FaSignOutAlt, FaTachometerAlt } from 'react-icons/fa'
 import { useHashNavigation } from '../utils/hashNavigation'
 import { useUserAuth } from '../context/UserAuthContext'
 
@@ -11,11 +11,11 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false)
   const [currentHash, setCurrentHash] = useState('')
   const [showUserDropdown, setShowUserDropdown] = useState(false)
+  const [showTabletMoreMenu, setShowTabletMoreMenu] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { handleHashClick } = useHashNavigation()
   const { user, isAuthenticated, logout } = useUserAuth()
-  const whatsappNumber = "919590926068"
 
   // Debug: Log user state changes
   useEffect(() => {
@@ -34,11 +34,14 @@ const Navbar = () => {
       if (showUserDropdown && !event.target.closest('.user-dropdown-container')) {
         setShowUserDropdown(false)
       }
+      if (showTabletMoreMenu && !event.target.closest('.tablet-more-menu-container')) {
+        setShowTabletMoreMenu(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showUserDropdown])
+  }, [showUserDropdown, showTabletMoreMenu])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -88,7 +91,7 @@ const Navbar = () => {
     { name: 'Home', path: '/' },
     { name: 'Services', path: '/#services' },
     { name: 'Emergency Service', path: '/emergency' },
-    { name: 'Material Store', path: '/materials' },
+    // { name: 'Material Store', path: '/materials' },
     { name: 'Partner Program', path: '/partner' },
     { name: 'AMC Plans', path: '/amc' },
     { name: 'Lead Marketplace', path: '/leads' },
@@ -138,7 +141,7 @@ const Navbar = () => {
             </motion.div>
           </div>
 
-          {/* Desktop Navigation - Large Screens */}
+          {/* Desktop Navigation - Extra Large Screens */}
           <nav className="hidden xl:flex items-center gap-1 flex-1 justify-center max-w-4xl mx-4">
             {navLinks.map((link, index) => {
               const isActive = isLinkActive(link.path)
@@ -194,53 +197,180 @@ const Navbar = () => {
             })}
           </nav>
 
-          {/* Desktop Navigation - Medium Large Screens (lg to xl) */}
+          {/* Desktop Navigation - Large Screens (lg to xl) */}
           <nav className="hidden lg:flex xl:hidden items-center gap-1 flex-1 justify-center max-w-3xl mx-2">
             {navLinks.slice(0, 5).map((link, index) => {
               const isActive = isLinkActive(link.path)
               return (
-                link.path.startsWith('/#') ? (
-                  <a
-                    key={link.name}
-                    href={link.path}
-                    onClick={(e) => handleHashClick(e, link.path)}
-                    className={`px-2 py-2 text-xs font-medium transition-colors duration-200 whitespace-nowrap cursor-pointer ${
-                      isActive
-                        ? 'text-primary'
-                        : 'text-gray-700 hover:text-primary'
-                    }`}
-                  >
-                    {link.name.length > 15 ? link.name.substring(0, 12) + '...' : link.name}
-                  </a>
-                ) : (
-                  <Link
-                    key={link.name}
-                    to={link.path}
-                    className={`px-2 py-2 text-xs font-medium transition-colors duration-200 whitespace-nowrap ${
-                      isActive
-                        ? 'text-primary'
-                        : 'text-gray-700 hover:text-primary'
-                    }`}
-                  >
-                    {link.name.length > 15 ? link.name.substring(0, 12) + '...' : link.name}
-                  </Link>
-                )
+                <motion.div
+                  key={link.name}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.05 }}
+                >
+                  {link.path.startsWith('/#') ? (
+                    <a
+                      href={link.path}
+                      onClick={(e) => handleHashClick(e, link.path)}
+                      className={`relative px-2 py-2 text-xs font-medium transition-colors duration-200 whitespace-nowrap cursor-pointer ${
+                        isActive
+                          ? 'text-primary'
+                          : 'text-gray-700 hover:text-primary'
+                      }`}
+                    >
+                      {link.name.length > 15 ? link.name.substring(0, 12) + '...' : link.name}
+                      {isActive && (
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                          layoutId="navbar-indicator-lg"
+                          initial={false}
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                    </a>
+                  ) : (
+                    <Link
+                      to={link.path}
+                      className={`relative px-2 py-2 text-xs font-medium transition-colors duration-200 whitespace-nowrap ${
+                        isActive
+                          ? 'text-primary'
+                          : 'text-gray-700 hover:text-primary'
+                      }`}
+                    >
+                      {link.name.length > 15 ? link.name.substring(0, 12) + '...' : link.name}
+                      {isActive && (
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                          layoutId="navbar-indicator-lg"
+                          initial={false}
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                    </Link>
+                  )}
+                </motion.div>
               )
             })}
           </nav>
 
+          {/* Tablet Navigation - Medium Screens (md to lg) */}
+          <nav className="hidden md:flex lg:hidden items-center gap-1 flex-1 justify-center max-w-2xl mx-2">
+            {navLinks.slice(0, 4).map((link, index) => {
+              const isActive = isLinkActive(link.path)
+              return (
+                <motion.div
+                  key={link.name}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.05 }}
+                >
+                  {link.path.startsWith('/#') ? (
+                    <a
+                      href={link.path}
+                      onClick={(e) => handleHashClick(e, link.path)}
+                      className={`relative px-2 py-2 text-xs font-medium transition-colors duration-200 whitespace-nowrap cursor-pointer ${
+                        isActive
+                          ? 'text-primary'
+                          : 'text-gray-700 hover:text-primary'
+                      }`}
+                    >
+                      {link.name.length > 12 ? link.name.substring(0, 10) + '...' : link.name}
+                      {isActive && (
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                          layoutId="navbar-indicator-md"
+                          initial={false}
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                    </a>
+                  ) : (
+                    <Link
+                      to={link.path}
+                      className={`relative px-2 py-2 text-xs font-medium transition-colors duration-200 whitespace-nowrap ${
+                        isActive
+                          ? 'text-primary'
+                          : 'text-gray-700 hover:text-primary'
+                      }`}
+                    >
+                      {link.name.length > 12 ? link.name.substring(0, 10) + '...' : link.name}
+                      {isActive && (
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                          layoutId="navbar-indicator-md"
+                          initial={false}
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                    </Link>
+                  )}
+                </motion.div>
+              )
+            })}
+            
+            {/* More Menu for Tablet */}
+            <div className="relative tablet-more-menu-container">
+              <motion.button
+                onClick={() => setShowTabletMoreMenu(!showTabletMoreMenu)}
+                className="flex items-center gap-1 px-2 py-2 text-xs font-medium text-gray-700 hover:text-primary transition-colors duration-200"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                More
+                <FaChevronDown className={`w-3 h-3 transition-transform ${showTabletMoreMenu ? 'rotate-180' : ''}`} />
+              </motion.button>
+
+              {/* More Menu Dropdown */}
+              <AnimatePresence>
+                {showTabletMoreMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-[10000]"
+                  >
+                    {navLinks.slice(4).map((link) => (
+                      <div key={link.name}>
+                        {link.path.startsWith('/#') ? (
+                          <a
+                            href={link.path}
+                            onClick={(e) => {
+                              handleHashClick(e, link.path)
+                              setShowTabletMoreMenu(false)
+                            }}
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer"
+                          >
+                            {link.name}
+                          </a>
+                        ) : (
+                          <Link
+                            to={link.path}
+                            onClick={() => setShowTabletMoreMenu(false)}
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors"
+                          >
+                            {link.name}
+                          </Link>
+                        )}
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </nav>
+
           {/* Right Side - User Profile & CTA Button */}
-          <div className="flex-shrink-0 flex items-center gap-3">
+          <div className="flex-shrink-0 flex items-center gap-2 md:gap-3">
             {/* User Profile Dropdown */}
             {isAuthenticated && user ? (
-              <div className="relative hidden lg:block user-dropdown-container">
+              <div className="relative hidden md:block user-dropdown-container">
                 <motion.button
                   onClick={() => setShowUserDropdown(!showUserDropdown)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-gray-100 transition-all duration-200"
+                  className="flex items-center gap-2 px-2 md:px-3 py-2 rounded-full hover:bg-gray-100 transition-all duration-200"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden ring-2 ring-white shadow-md">
+                  <div className="w-7 h-7 md:w-8 md:h-8 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center text-white font-bold text-xs md:text-sm overflow-hidden ring-2 ring-white shadow-md">
                     {user.profilePicture ? (
                       <img 
                         src={user.profilePicture} 
@@ -251,7 +381,7 @@ const Navbar = () => {
                       <span>{user.name?.charAt(0).toUpperCase() || 'U'}</span>
                     )}
                   </div>
-                  <span className="text-sm font-medium text-gray-700 hidden xl:block">{user.name}</span>
+                  <span className="text-xs md:text-sm font-medium text-gray-700 hidden lg:block">{user.name}</span>
                   <FaChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
                 </motion.button>
 
@@ -297,32 +427,32 @@ const Navbar = () => {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.3 }}
-                className="hidden lg:block"
+                className="hidden md:block"
               >
                 <Link
                   to="/user/login"
-                  className="flex items-center gap-2 px-4 py-2 text-primary hover:bg-primary/10 rounded-full transition-all duration-200 font-medium text-sm"
+                  className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 text-primary hover:bg-primary/10 rounded-full transition-all duration-200 font-medium text-xs md:text-sm"
                 >
-                  <FaUser className="w-4 h-4" />
-                  <span>Login</span>
+                  <FaUser className="w-3 h-3 md:w-4 md:h-4" />
+                  <span className="hidden lg:inline">Login</span>
                 </Link>
               </motion.div>
             )}
 
-            {/* Desktop CTA */}
+            {/* Desktop & Tablet CTA */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="hidden lg:block"
+              className="hidden md:block"
             >
               <Link
                 to="/partner/onboard"
-                className="bg-primary text-white px-4 xl:px-5 py-2 xl:py-2.5 rounded-full hover:bg-primary-dark transition-all duration-300 font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 text-xs xl:text-sm whitespace-nowrap"
+                className="bg-primary text-white px-3 md:px-4 xl:px-5 py-2 xl:py-2.5 rounded-full hover:bg-primary-dark transition-all duration-300 font-semibold shadow-lg hover:shadow-xl flex items-center gap-1 md:gap-2 text-xs md:text-sm whitespace-nowrap"
               >
-                <FaUserCheck className="w-3 h-3 xl:w-4 xl:h-4" />
-                <span className="hidden 2xl:inline">Become a Partner</span>
-                <span className="2xl:hidden">Partner</span>
+                <FaUserCheck className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden lg:inline">Become a Partner</span>
+                <span className="lg:hidden">Partner</span>
               </Link>
             </motion.div>
           </div>

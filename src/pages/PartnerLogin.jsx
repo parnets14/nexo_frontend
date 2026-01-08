@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { FiPhone, FiLock, FiArrowRight, FiRefreshCw } from 'react-icons/fi'
+import { FiPhone, FiLock, FiArrowRight, FiRefreshCw, FiAlertCircle } from 'react-icons/fi'
+import { FaWhatsapp } from 'react-icons/fa'
 import { usePartnerAuth } from '../context/PartnerAuthContext.jsx'
 import { partnerApi } from '../services/partnerApi.js'
 
@@ -17,6 +18,7 @@ const PartnerLogin = () => {
   const [localError, setLocalError] = useState(null)
   const [otpSent, setOtpSent] = useState(false)
   const [otpTimer, setOtpTimer] = useState(0)
+  const [showRegistrationDialog, setShowRegistrationDialog] = useState(false)
 
   // OTP Timer
   React.useEffect(() => {
@@ -45,11 +47,6 @@ const PartnerLogin = () => {
     try {
       const response = await partnerApi.sendOTP(formData.phone)
       if (response.success) {
-        // Display OTP on screen (remove in production)
-        if (response.otp) {
-          alert(`OTP for testing: ${response.otp}`)
-          // Or you could set it to state: setDisplayedOtp(response.otp)
-        }
         setOtpSent(true)
         setStep(2)
         setOtpTimer(60) // 60 seconds timer
@@ -111,7 +108,7 @@ const PartnerLogin = () => {
     }
     
     try {
-      await login(formData.phone, formData.otp)
+      const result = await login(formData.phone, formData.otp)
       
       // Wait for permission request to complete if it was initiated
       if (permissionPromise) {
@@ -122,6 +119,13 @@ const PartnerLogin = () => {
             window.dispatchEvent(new Event('notificationPermissionGranted'));
           }, 500);
         }
+      }
+      
+      // Check if partner profile is completed
+      if (result && result.partner && !result.partner.profileCompleted) {
+        // Show registration dialog instead of basic alert
+        setShowRegistrationDialog(true)
+        return
       }
       
       navigate('/partner/dashboard', { replace: true })
@@ -232,7 +236,11 @@ const PartnerLogin = () => {
                   />
                 </div>
                 <p className="mt-2 text-xs text-slate-400 text-center">
-                  OTP sent to +91 {formData.phone}
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <FaWhatsapp className="text-green-400 text-lg" />
+                    <span className="text-slate-300">OTP sent to your WhatsApp</span>
+                  </div>
+                  <span className="text-slate-400">+91 {formData.phone}</span>
                 </p>
               </div>
 
@@ -292,6 +300,51 @@ const PartnerLogin = () => {
             </p>
           </div>
         </div>
+
+        {/* Registration Required Dialog */}
+        {showRegistrationDialog && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center px-4 z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-8 max-w-md w-full"
+            >
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-500 rounded-full mb-4">
+                  <FiAlertCircle className="text-2xl text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-4">Registration Required</h3>
+                <p className="text-slate-300 mb-6">
+                  You're not registered as a partner yet. Please complete your registration to access the partner dashboard.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowRegistrationDialog(false)
+                      navigate('/partner/onboard', { replace: true })
+                    }}
+                    className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
+                  >
+                    Register Now
+                    <FiArrowRight />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowRegistrationDialog(false)
+                      setStep(1)
+                      setFormData({ phone: '', otp: '' })
+                      setOtpSent(false)
+                      setOtpTimer(0)
+                    }}
+                    className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </motion.div>
     </div>
   )

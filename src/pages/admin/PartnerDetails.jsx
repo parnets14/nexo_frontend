@@ -26,7 +26,8 @@ import {
   FiImage,
   FiCheck,
   FiEye,
-  FiLoader
+  FiLoader,
+  FiUsers
 } from 'react-icons/fi'
 import PartnerIDCard from '../../components/PartnerIDCard.jsx'
 import ModuleHeader from '../../components/admin/ModuleHeader.jsx'
@@ -127,6 +128,16 @@ const PartnerDetails = () => {
   const [mgPlanPaymentMethod, setMgPlanPaymentMethod] = useState('cash')
   const [mgPlanCollectedBy, setMgPlanCollectedBy] = useState('')
   const [mgPlanTransactionId, setMgPlanTransactionId] = useState('')
+  
+  // Lead Plan states
+  const [showLeadPlanModal, setShowLeadPlanModal] = useState(false)
+  const [leadPlans, setLeadPlans] = useState([])
+  const [selectedLeadPlanId, setSelectedLeadPlanId] = useState(null)
+  const [leadPlanSubmitting, setLeadPlanSubmitting] = useState(false)
+  const [leadPlanPaymentMethod, setLeadPlanPaymentMethod] = useState('cash')
+  const [leadPlanCollectedBy, setLeadPlanCollectedBy] = useState('')
+  const [leadPlanTransactionId, setLeadPlanTransactionId] = useState('')
+  const [leadPlanLeadsToAdd, setLeadPlanLeadsToAdd] = useState('')
   
   // Update payment details for current plan
   const [showUpdatePaymentDetails, setShowUpdatePaymentDetails] = useState(false)
@@ -280,6 +291,36 @@ const PartnerDetails = () => {
     fetchMGPlans()
   }, [token, partnerDetailsData, earningsData])
 
+  // Fetch Lead Plans filtered by partner type
+  useEffect(() => {
+    const fetchLeadPlans = async () => {
+      // Get partner data from the data sources
+      const fullPartner = partnerDetailsData?.partner || {}
+      const earningsPartner = earningsData?.partner || {}
+      const partnerData = { ...earningsPartner, ...fullPartner }
+      
+      if (!token || !partnerData?._id) return
+      
+      try {
+        const response = await adminApi.fetchLeadPlans(token)
+        const plans = response.plans || response.data || []
+        
+        // Filter by partner type
+        const partnerType = partnerData?.partnerType || 'individual'
+        const filteredPlans = plans.filter(plan => {
+          if (!plan.partnerType || plan.partnerType === 'both') return true
+          return plan.partnerType === partnerType
+        })
+        
+        setLeadPlans(filteredPlans)
+      } catch (error) {
+        console.error('Error fetching Lead plans:', error)
+      }
+    }
+    
+    fetchLeadPlans()
+  }, [token, partnerDetailsData, earningsData])
+
   const handlePaymentApproval = async () => {
     // Use values from updateForm (which are bound to the input fields)
     const paymentId = updateForm.payId || partner?.profile?.payId || ''
@@ -425,7 +466,72 @@ const PartnerDetails = () => {
     }
   }
   
-  // Handle MG Plan Assignment
+  // Handle Lead Plan Assignment
+  const handleAssignLeadPlan = async () => {
+    if (!selectedLeadPlanId) {
+      alert('Please select a Lead plan')
+      return
+    }
+    
+    // Validate payment details based on method
+    if (leadPlanPaymentMethod === 'cash' && !leadPlanCollectedBy.trim()) {
+      alert('Please enter who collected the payment')
+      return
+    }
+    
+    if ((leadPlanPaymentMethod === 'online' || leadPlanPaymentMethod === 'upi') && !leadPlanTransactionId.trim()) {
+      alert('Please enter the transaction ID')
+      return
+    }
+    
+    setLeadPlanSubmitting(true)
+    try {
+      const paymentDetails = {
+        paymentMethod: leadPlanPaymentMethod,
+        ...(leadPlanPaymentMethod === 'cash' 
+          ? { collectedBy: leadPlanCollectedBy }
+          : { transactionId: leadPlanTransactionId }
+        ),
+        ...(leadPlanLeadsToAdd && { customLeads: parseInt(leadPlanLeadsToAdd) })
+      }
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/lead-plans/${selectedLeadPlanId}/subscribe`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ 
+            partnerId,
+            ...paymentDetails
+          })
+        }
+      )
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        alert('Lead Plan assigned successfully!')
+        setShowLeadPlanModal(false)
+        setSelectedLeadPlanId(null)
+        setLeadPlanPaymentMethod('cash')
+        setLeadPlanCollectedBy('')
+        setLeadPlanTransactionId('')
+        setLeadPlanLeadsToAdd('')
+        // Refresh partner data
+        window.location.reload()
+      } else {
+        alert(data.message || 'Failed to assign Lead plan')
+      }
+    } catch (error) {
+      console.error('Error assigning Lead plan:', error)
+      alert('Error assigning Lead plan')
+    } finally {
+      setLeadPlanSubmitting(false)
+    }
+  }
   const handleAssignMGPlan = async () => {
     if (!selectedMGPlanId) {
       alert('Please select an MG plan')
@@ -551,12 +657,62 @@ const PartnerDetails = () => {
     }
   }
 
+  // Handle MG Plan History Delete
+  const handleDeleteMGPlanHistory = async (historyIndex) => {
+    if (!confirm('Are you sure you want to delete this MG plan history entry? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await adminApi.deleteMGPlanHistoryEntry(token, partnerId, historyIndex)
+      if (response.success) {
+        alert('MG plan history entry deleted successfully')
+        // Refresh the page to show updated data
+        window.location.reload()
+      } else {
+        alert(response.message || 'Failed to delete MG plan history entry')
+      }
+    } catch (error) {
+      console.error('Error deleting MG plan history:', error)
+      alert('Error deleting MG plan history entry')
+    }
+  }
+
+  // Handle Partner Permanent Delete
+  const handleDeletePartner = async () => {
+    const partnerName = partner?.profile?.name || 'this partner'
+    
+    if (!confirm(`⚠️ PERMANENT DELETE WARNING ⚠️\n\nAre you absolutely sure you want to permanently delete ${partnerName}?\n\nThis will:\n- Delete all partner data\n- Delete all bookings\n- Delete all transactions\n- Delete all history\n\nThis action CANNOT be undone!`)) {
+      return
+    }
+
+    // Double confirmation
+    if (!confirm(`Type "DELETE" to confirm permanent deletion of ${partnerName}`)) {
+      return
+    }
+
+    try {
+      const response = await adminApi.deletePartner(token, partnerId)
+      if (response.success) {
+        alert('Partner deleted permanently')
+        navigate('/admin/partners')
+      } else {
+        alert(response.message || 'Failed to delete partner')
+      }
+    } catch (error) {
+      console.error('Error deleting partner:', error)
+      alert('Error deleting partner')
+    }
+  }
+
   // Consolidate partner data from all sources - use fullPartner as primary, fallback to earningsData partner
   const fullPartner = partnerDetailsData?.partner || {}
 
   const earningsPartner = earningsData?.partner || {}
   const partner = { ...earningsPartner, ...fullPartner } // Merge with fullPartner taking precedence
   const mgPlanSummary = partner?.mgPlanSummary || {}
+  const leadPlan = partner?.leadPlan || {}
+  const leadPlanSummary = partner?.leadPlanSummary || {}
   
   // Debug logging for payment data
   console.log('Partner Payment Data:', {
@@ -1725,6 +1881,16 @@ const PartnerDetails = () => {
             <FiAward className="w-5 h-5" />
             ID Card
           </button>
+          
+          {/* Permanent Delete Button */}
+          <button
+            onClick={handleDeletePartner}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold"
+            title="Permanently delete this partner"
+          >
+            <FiTrash2 className="w-5 h-5" />
+            Delete Partner
+          </button>
         </div>
       </div>
 
@@ -2472,6 +2638,66 @@ const PartnerDetails = () => {
               </div>
             )}
 
+            {/* Lead Plan Information */}
+            {(leadPlan?._id || leadPlan?.name || partner?.leadPlanLeadQuota > 0) && (
+              <div className="print-section border-t border-slate-200 pt-6">
+                <h2 className="text-lg font-bold text-slate-900 mb-4 print-section-title flex items-center gap-2">
+                  <FiUsers className="w-5 h-5" />
+                  Lead Plan Details
+                </h2>
+                <div className="grid md:grid-cols-2 gap-6 print-grid">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Plan Name</p>
+                    <p className="text-base text-slate-900 print-value">
+                      {leadPlan?.name || (partner?.leadPlanHistory?.length > 0 ? partner.leadPlanHistory[partner.leadPlanHistory.length - 1].planName : 'Custom Plan')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Plan Price</p>
+                    <p className="text-base text-slate-900 print-value">
+                      ₹{(leadPlan?.price || (partner?.leadPlanHistory?.length > 0 ? partner.leadPlanHistory[partner.leadPlanHistory.length - 1].price : 0) || 0).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Total Leads</p>
+                    <p className="text-base text-slate-900 print-value">{partner?.leadPlanLeadQuota || 0} leads</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Leads Used</p>
+                    <p className="text-base text-slate-900 print-value">{partner?.leadPlanLeadsUsed || 0} leads</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Leads Remaining</p>
+                    <p className="text-base text-slate-900 print-value font-semibold text-emerald-600">
+                      {Math.max((partner?.leadPlanLeadQuota || 0) - (partner?.leadPlanLeadsUsed || 0), 0)} leads
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Lead Fee</p>
+                    <p className="text-base text-slate-900 print-value">
+                      ₹{(leadPlan?.leadFee || (partner?.leadPlanHistory?.length > 0 ? partner.leadPlanHistory[partner.leadPlanHistory.length - 1].leadFee : 0) || 0).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                  {partner?.leadPlanSubscribedAt && (
+                    <div>
+                      <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Subscribed On</p>
+                      <p className="text-base text-slate-900 print-value">
+                        {new Date(partner.leadPlanSubscribedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
+                  )}
+                  {partner?.leadPlanExpiresAt && (
+                    <div>
+                      <p className="text-sm font-semibold text-slate-500 mb-1 print-label">Expires On</p>
+                      <p className="text-base text-slate-900 print-value">
+                        {new Date(partner.leadPlanExpiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Performance Summary */}
             <div className="print-section border-t border-slate-200 pt-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4 print-section-title flex items-center gap-2">
@@ -3023,6 +3249,28 @@ const PartnerDetails = () => {
               </button>
             </div>
           </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-2">Lead Plan</p>
+            <div className="flex items-center gap-2">
+              <FiUsers className="w-5 h-5 text-indigo-600" />
+              <div className="flex-1">
+                <p className="text-lg font-bold text-indigo-600">
+                  {leadPlan?.name || (partner?.leadPlanHistory?.length > 0 ? partner.leadPlanHistory[partner.leadPlanHistory.length - 1].planName : 'No Plan Assigned')}
+                </p>
+                {(leadPlan?.name || partner?.leadPlanLeadQuota > 0) && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    {partner?.leadPlanLeadQuota || 0} total leads · {Math.max((partner?.leadPlanLeadQuota || 0) - (partner?.leadPlanLeadsUsed || 0), 0)} remaining
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setShowLeadPlanModal(true)}
+                className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-semibold"
+              >
+                {leadPlan?.name || partner?.leadPlanLeadQuota > 0 ? 'Manage Plan' : 'Assign Plan'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -3195,17 +3443,26 @@ const PartnerDetails = () => {
                       {entry.expiresAt ? new Date(entry.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                     </p>
                   </div>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      entry.refundStatus === 'eligible'
-                        ? 'bg-amber-500/10 text-amber-600'
-                        : entry.refundStatus === 'processed'
-                        ? 'bg-emerald-500/10 text-emerald-600'
-                        : 'bg-slate-200 text-slate-600'
-                    }`}
-                  >
-                    {entry.refundStatus ?? 'pending'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        entry.refundStatus === 'eligible'
+                          ? 'bg-amber-500/10 text-amber-600'
+                          : entry.refundStatus === 'processed'
+                          ? 'bg-emerald-500/10 text-emerald-600'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {entry.refundStatus ?? 'pending'}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteMGPlanHistory(mgPlanSummary.history.length - 1 - idx)}
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete this MG plan history entry"
+                    >
+                      <FiTrash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-600">
                   <div>
@@ -4832,6 +5089,273 @@ const PartnerDetails = () => {
                     <>
                       <FiCheck className="w-4 h-4" />
                       {mgPlan?.name ? 'Change Plan' : 'Assign Plan'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lead Plan Assignment Modal */}
+      {showLeadPlanModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Lead Plan Management
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Assign or manage lead plans for this partner
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowLeadPlanModal(false)
+                  setSelectedLeadPlanId(null)
+                  setLeadPlanPaymentMethod('cash')
+                  setLeadPlanCollectedBy('')
+                  setLeadPlanTransactionId('')
+                  setLeadPlanLeadsToAdd('')
+                }}
+                className="p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <FiX className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            {/* Show existing plan details if assigned */}
+            {(leadPlan?.name || partner?.leadPlanLeadQuota > 0) && (
+              <div className="mb-6 space-y-4">
+                <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FiUsers className="w-5 h-5 text-indigo-600" />
+                      <h3 className="font-semibold text-indigo-900">Current Lead Plan</h3>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                    <div>
+                      <p className="text-slate-500">Plan Name</p>
+                      <p className="font-semibold text-slate-900">
+                        {leadPlan?.name || (partner?.leadPlanHistory?.length > 0 ? partner.leadPlanHistory[partner.leadPlanHistory.length - 1].planName : 'Custom Plan')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Total Leads</p>
+                      <p className="font-semibold text-slate-900">{partner?.leadPlanLeadQuota || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Leads Used</p>
+                      <p className="font-semibold text-slate-900">{partner?.leadPlanLeadsUsed || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Leads Remaining</p>
+                      <p className="font-semibold text-emerald-600">
+                        {Math.max((partner?.leadPlanLeadQuota || 0) - (partner?.leadPlanLeadsUsed || 0), 0)}
+                      </p>
+                    </div>
+                    {leadPlan?.price && (
+                      <div>
+                        <p className="text-slate-500">Plan Price</p>
+                        <p className="font-semibold text-slate-900">₹{leadPlan.price?.toLocaleString('en-IN') || 0}</p>
+                      </div>
+                    )}
+                    {leadPlan?.leadFee && (
+                      <div>
+                        <p className="text-slate-500">Lead Fee</p>
+                        <p className="font-semibold text-slate-900">₹{leadPlan.leadFee?.toLocaleString('en-IN') || 0}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={(e) => { e.preventDefault(); handleAssignLeadPlan(); }} className="space-y-6">
+              {/* Plan Selection */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">
+                  Select Lead Plan *
+                </label>
+                {leadPlans.length === 0 ? (
+                  <div className="text-center py-8 bg-slate-50 rounded-xl">
+                    <p className="text-slate-500">No Lead plans available for this partner type</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {leadPlans.map((plan) => {
+                      const isSelected = selectedLeadPlanId === plan._id
+                      return (
+                        <div
+                          key={plan._id}
+                          className={`border-2 rounded-xl p-4 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-indigo-600 bg-indigo-50'
+                              : 'border-slate-200 hover:border-indigo-300 bg-white'
+                          }`}
+                          onClick={() => setSelectedLeadPlanId(plan._id)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="radio"
+                              checked={isSelected}
+                              onChange={() => setSelectedLeadPlanId(plan._id)}
+                              className="mt-1 w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-600"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold text-slate-800">{plan.name}</h4>
+                                <span className="text-lg font-bold text-indigo-600">
+                                  ₹{plan.price?.toLocaleString('en-IN') || 0}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                <div>
+                                  <p className="text-slate-500">Leads</p>
+                                  <p className="font-semibold text-slate-700">{plan.leads || 0}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Lead Fee</p>
+                                  <p className="font-semibold text-slate-700">₹{plan.leadFee || 0}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Validity</p>
+                                  <p className="font-semibold text-slate-700">{plan.validityMonths || 1} month{plan.validityMonths > 1 ? 's' : ''}</p>
+                                </div>
+                              </div>
+                              {plan.description && (
+                                <p className="text-xs text-slate-500 mt-2">{plan.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Custom Leads Addition */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Additional Leads (Optional)
+                </label>
+                <input
+                  type="number"
+                  value={leadPlanLeadsToAdd}
+                  onChange={(e) => setLeadPlanLeadsToAdd(e.target.value)}
+                  placeholder="Enter number of additional leads to add"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
+                  min="0"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Add extra leads beyond the plan's default allocation
+                </p>
+              </div>
+
+              {/* Payment Details */}
+              {selectedLeadPlanId && (
+                <div className="border-t border-slate-200 pt-6 space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-3">Payment Details</h3>
+                  
+                  {/* Payment Method */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Payment Method *
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {['cash', 'online', 'upi'].map((method) => (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => {
+                            setLeadPlanPaymentMethod(method)
+                            setLeadPlanCollectedBy('')
+                            setLeadPlanTransactionId('')
+                          }}
+                          className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
+                            leadPlanPaymentMethod === method
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          {method.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Collected By (for cash) */}
+                  {leadPlanPaymentMethod === 'cash' && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Collected By *
+                      </label>
+                      <input
+                        type="text"
+                        value={leadPlanCollectedBy}
+                        onChange={(e) => setLeadPlanCollectedBy(e.target.value)}
+                        placeholder="Enter name of person who collected payment"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Transaction ID (for online/upi) */}
+                  {(leadPlanPaymentMethod === 'online' || leadPlanPaymentMethod === 'upi') && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Transaction ID *
+                      </label>
+                      <input
+                        type="text"
+                        value={leadPlanTransactionId}
+                        onChange={(e) => setLeadPlanTransactionId(e.target.value)}
+                        placeholder="Enter transaction ID"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent font-mono"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLeadPlanModal(false)
+                    setSelectedLeadPlanId(null)
+                    setLeadPlanPaymentMethod('cash')
+                    setLeadPlanCollectedBy('')
+                    setLeadPlanTransactionId('')
+                    setLeadPlanLeadsToAdd('')
+                  }}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={leadPlanSubmitting || (!selectedLeadPlanId && !leadPlanLeadsToAdd) || leadPlans.length === 0}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {leadPlanSubmitting ? (
+                    <>
+                      <FiLoader className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <FiCheck className="w-4 h-4" />
+                      {leadPlan?.name || partner?.leadPlanLeadQuota > 0 ? 'Update Plan' : 'Assign Plan'}
                     </>
                   )}
                 </button>

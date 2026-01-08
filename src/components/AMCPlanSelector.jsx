@@ -227,31 +227,91 @@ const AMCPlanSelector = ({ user, onClose, onPlanSelect }) => {
                         )}
                       </ul>
 
-                      <div className="space-y-2">
-                        <motion.button
-                          onClick={() => handlePayNow(plan)}
-                          whileHover={{ scale: 1.02, y: -2 }}
-                          whileTap={{ scale: 0.98 }}
-                          className={`w-full py-3 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
-                            plan.highlight
-                              ? 'bg-gradient-to-r from-primary to-primary-dark text-white hover:from-primary-dark hover:to-primary shadow-lg'
-                              : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800'
-                          }`}
-                        >
-                          <FaCreditCard className="w-4 h-4" />
-                          Pay Now
-                        </motion.button>
-                        
-                        <motion.button
-                          onClick={() => handleWhatsAppClick(plan)}
-                          whileHover={{ scale: 1.02, y: -2 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="w-full py-2 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 bg-[#25D366] text-white hover:bg-[#20BA5A]"
-                        >
-                          <FaWhatsapp className="w-4 h-4" />
-                          Discuss on WhatsApp
-                        </motion.button>
-                      </div>
+                      {/* Display included and excluded services */}
+                      {((plan.includedServices && plan.includedServices.length > 0) || (plan.excludedServices && plan.excludedServices.length > 0)) && (
+                        <div className="mb-6 space-y-3">
+                          {/* Included Services */}
+                          {plan.includedServices && plan.includedServices.length > 0 && (
+                            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                              <h4 className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-2">
+                                <FaCheckCircle className="text-green-600 w-3 h-3" />
+                                Included ({plan.includedServices.length})
+                              </h4>
+                              <div className="space-y-1">
+                                {plan.includedServices.slice(0, 2).map((service, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <span className="text-green-700 font-medium">
+                                      {typeof service === 'object' ? service.name : service}
+                                    </span>
+                                    {plan.serviceFrequency && plan.serviceFrequency[service._id || service] && (
+                                      <span className="text-green-600 font-semibold">
+                                        {plan.serviceFrequency[service._id || service] === 'unlimited' 
+                                          ? 'Unlimited' 
+                                          : `${plan.serviceFrequency[service._id || service]}x/year`}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                                {plan.includedServices.length > 2 && (
+                                  <div className="text-xs text-green-600 font-medium">
+                                    +{plan.includedServices.length - 2} more
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Excluded Services */}
+                          {plan.excludedServices && plan.excludedServices.length > 0 && (
+                            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                              <h4 className="text-xs font-semibold text-red-800 mb-2 flex items-center gap-2">
+                                <FaTimes className="text-red-600 w-3 h-3" />
+                                Not Included ({plan.excludedServices.length})
+                              </h4>
+                              <div className="space-y-1">
+                                {plan.excludedServices.slice(0, 2).map((service, idx) => (
+                                  <div key={idx} className="flex items-center text-xs">
+                                    <span className="text-red-700 font-medium">
+                                      {typeof service === 'object' ? service.name : service}
+                                    </span>
+                                  </div>
+                                ))}
+                                {plan.excludedServices.length > 2 && (
+                                  <div className="text-xs text-red-600 font-medium">
+                                    +{plan.excludedServices.length - 2} more
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                          <div className="space-y-2 mb-6">
+                            <motion.button
+                              onClick={() => handlePayNow(plan)}
+                              whileHover={{ scale: 1.02, y: -2 }}
+                              whileTap={{ scale: 0.98 }}
+                              className={`w-full py-3 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
+                                plan.highlight
+                                  ? 'bg-gradient-to-r from-primary to-primary-dark text-white hover:from-primary-dark hover:to-primary shadow-lg'
+                                  : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800'
+                              }`}
+                            >
+                              <FaCreditCard className="w-4 h-4" />
+                              Pay Now
+                            </motion.button>
+                            
+                            <motion.button
+                              onClick={() => handleWhatsAppClick(plan)}
+                              whileHover={{ scale: 1.02, y: -2 }}
+                              whileTap={{ scale: 0.98 }}
+                              className="w-full py-2 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 bg-[#25D366] text-white hover:bg-[#20BA5A]"
+                            >
+                              <FaWhatsapp className="w-4 h-4" />
+                              Discuss on WhatsApp
+                            </motion.button>
+                          </div>
                     </div>
                   </motion.div>
                 ))}

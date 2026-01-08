@@ -347,6 +347,26 @@ export const partnerApi = {
     return handleResponse(response)
   },
 
+  // Initiate PayU Wallet Top-up
+  async initiatePayUWalletTopUp(token, amount) {
+    const response = await fetch(buildUrl('/wallet/initiate-payu-payment'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({
+        amount
+      })
+    })
+    return handleResponse(response)
+  },
+
+  // Check PayU Wallet Payment Status
+  async checkWalletPaymentStatus(token, txnid) {
+    const response = await fetch(buildUrl(`/wallet/payment-status/${txnid}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
   // Bookings/Jobs
   async getBookings(token) {
     const response = await fetch(buildUrl('/bookings'), {
@@ -699,23 +719,19 @@ export const partnerApi = {
   },
 
   async approveQuotation(token, quotationId) {
-    console.log('[PartnerAPI] Approving quotation:', quotationId)
     const response = await fetch(buildUrl(`/quotations/${quotationId}/approve`), {
       method: 'POST',
       headers: getDefaultHeaders(token)
     })
-    console.log('[PartnerAPI] Approve response status:', response.status)
     return handleResponse(response)
   },
 
   async rejectQuotation(token, quotationId, rejectionReason) {
-    console.log('[PartnerAPI] Rejecting quotation:', quotationId, 'reason:', rejectionReason)
     const response = await fetch(buildUrl(`/quotations/${quotationId}/reject`), {
       method: 'POST',
       headers: getDefaultHeaders(token),
       body: JSON.stringify({ rejectionReason })
     })
-    console.log('[PartnerAPI] Reject response status:', response.status)
     return handleResponse(response)
   },
 
@@ -782,6 +798,38 @@ export const partnerApi = {
       method: 'POST',
       headers: getDefaultHeaders(token),
       body: JSON.stringify(paymentData)
+    })
+    return handleResponse(response)
+  },
+
+  // Lead Plans
+  async getLeadPlans(token) {
+    const response = await fetch(buildUrl('/lead-plans'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getCurrentLeadPlan(token) {
+    const response = await fetch(buildUrl('/lead-plans/current'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async subscribeToLeadPlan(token, planId) {
+    const response = await fetch(buildUrl('/lead-plans/subscribe'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ planId })
+    })
+    return handleResponse(response)
+  },
+
+  async renewLeadPlan(token) {
+    const response = await fetch(buildUrl('/lead-plans/renew'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
   }

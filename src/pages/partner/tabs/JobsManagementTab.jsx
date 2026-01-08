@@ -9,6 +9,7 @@ import SendQuotationModal from '../../../components/SendQuotationModal.jsx'
 import QuotationDetailsModal from '../../../components/QuotationDetailsModal.jsx'
 import JobPaymentModal from '../../../components/JobPaymentModal.jsx'
 import { exportToExcel } from '../../../utils/excelExport.js'
+import '../../../styles/media-modal.css'
 
 const JobsManagementTab = () => {
   const { token } = usePartnerAuth()
@@ -26,6 +27,8 @@ const JobsManagementTab = () => {
   const [quotations, setQuotations] = useState({}) // Store quotations by bookingId
   const [quotationsLoading, setQuotationsLoading] = useState(false) // Loading state for quotations
   const [paymentModal, setPaymentModal] = useState(null) // Payment modal state
+  const [selectedBookingMedia, setSelectedBookingMedia] = useState(null) // For media modal
+  const [showMediaModal, setShowMediaModal] = useState(false)
 
   // Helper function to retry failed requests
   const retryWithDelay = async (fn, retries = 2, delay = 1000) => {
@@ -584,6 +587,8 @@ const JobsManagementTab = () => {
                 'Customer Rating': b.review?.rating || 'No Rating',
                 'Review Comment': b.review?.comment || 'No Review',
                 'Review Date': b.review?.createdAt ? new Date(b.review.createdAt).toLocaleDateString('en-IN') : 'N/A',
+                'Photos Count': b.photos ? b.photos.length : 0,
+                'Videos Count': b.videos ? b.videos.length : 0,
                 'Created At': b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : 'N/A'
               }))
               exportToExcel(exportData, [
@@ -605,9 +610,11 @@ const JobsManagementTab = () => {
                 { header: 'Customer Rating', accessor: 'Customer Rating' },
                 { header: 'Review Comment', accessor: 'Review Comment' },
                 { header: 'Review Date', accessor: 'Review Date' },
+                { header: 'Photos Count', accessor: 'Photos Count' },
+                { header: 'Videos Count', accessor: 'Videos Count' },
                 { header: 'Created At', accessor: 'Created At' }
               ], 'Jobs_Management', 'Jobs', {
-                columnWidths: [15, 20, 15, 25, 15, 15, 15, 12, 12, 15, 12, 30, 20, 20, 20, 12, 30, 15, 20]
+                columnWidths: [15, 20, 15, 25, 15, 15, 15, 12, 12, 15, 12, 30, 20, 20, 20, 12, 30, 15, 10, 10, 20]
               })
             }}
             disabled={filteredBookings.length === 0}
@@ -931,6 +938,125 @@ const JobsManagementTab = () => {
                     </p>
                   </div>
                 )}
+                
+                {/* Photos & Videos Section */}
+                {((booking.photos && booking.photos.length > 0) || (booking.videos && booking.videos.length > 0)) && (
+                  <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-purple-800 flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Photos & Videos
+                      </h4>
+                      <button
+                        onClick={() => {
+                          setSelectedBookingMedia({
+                            booking,
+                            photos: booking.photos || [],
+                            videos: booking.videos || []
+                          })
+                          setShowMediaModal(true)
+                        }}
+                        className="text-xs text-purple-600 hover:text-purple-800 underline font-medium"
+                      >
+                        View All
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      {/* Photos Preview */}
+                      {booking.photos && booking.photos.length > 0 && (
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-sm text-purple-700 font-medium">
+                              {booking.photos.length} Photo{booking.photos.length > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <div className="flex -space-x-2">
+                            {booking.photos.slice(0, 4).map((photo, index) => (
+                              <img
+                                key={index}
+                                src={photo}
+                                alt={`Job photo ${index + 1}`}
+                                className="w-10 h-10 rounded-full border-2 border-white object-cover cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                onClick={() => {
+                                  setSelectedBookingMedia({
+                                    booking,
+                                    photos: booking.photos,
+                                    videos: booking.videos || []
+                                  })
+                                  setShowMediaModal(true)
+                                }}
+                              />
+                            ))}
+                            {booking.photos.length > 4 && (
+                              <div className="w-10 h-10 rounded-full border-2 border-white bg-purple-100 flex items-center justify-center text-xs font-semibold text-purple-600 cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                   onClick={() => {
+                                     setSelectedBookingMedia({
+                                       booking,
+                                       photos: booking.photos,
+                                       videos: booking.videos || []
+                                     })
+                                     setShowMediaModal(true)
+                                   }}>
+                                +{booking.photos.length - 4}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Videos Preview */}
+                      {booking.videos && booking.videos.length > 0 && (
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                            </svg>
+                            <span className="text-sm text-purple-700 font-medium">
+                              {booking.videos.length} Video{booking.videos.length > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            {booking.videos.slice(0, 3).map((video, index) => (
+                              <div
+                                key={index}
+                                className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center cursor-pointer hover:bg-purple-200 transition-colors shadow-sm border border-purple-200"
+                                onClick={() => {
+                                  setSelectedBookingMedia({
+                                    booking,
+                                    photos: booking.photos || [],
+                                    videos: booking.videos
+                                  })
+                                  setShowMediaModal(true)
+                                }}
+                              >
+                                <FiPlay className="w-4 h-4 text-purple-600" />
+                              </div>
+                            ))}
+                            {booking.videos.length > 3 && (
+                              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center cursor-pointer hover:bg-purple-200 transition-colors shadow-sm border border-purple-200 text-xs font-semibold text-purple-600"
+                                   onClick={() => {
+                                     setSelectedBookingMedia({
+                                       booking,
+                                       photos: booking.photos || [],
+                                       videos: booking.videos
+                                     })
+                                     setShowMediaModal(true)
+                                   }}>
+                                +{booking.videos.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {/* Quotations Section */}
                 {quotations[booking._id || booking.bookingId] && quotations[booking._id || booking.bookingId].length > 0 && (
                   <div className="mt-4 p-3 bg-blue-50 rounded-lg">
@@ -1080,6 +1206,158 @@ const JobsManagementTab = () => {
           onPaymentComplete={handlePaymentComplete}
           token={token}
         />
+      )}
+
+      {/* Media Modal */}
+      {showMediaModal && selectedBookingMedia && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 media-modal-overlay flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto media-modal-content">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Job Photos & Videos - {selectedBookingMedia.booking.service?.name || selectedBookingMedia.booking.subService?.name || selectedBookingMedia.booking.popularService?.name || selectedBookingMedia.booking.serviceName || 'Service'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowMediaModal(false)
+                  setSelectedBookingMedia(null)
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <FiX className="text-xl" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {/* Job Info */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Customer: <span className="font-medium">{selectedBookingMedia.booking.user?.name || selectedBookingMedia.booking.userName || 'N/A'}</span></p>
+                    <p className="text-sm text-gray-600">Service: <span className="font-medium">{selectedBookingMedia.booking.service?.name || selectedBookingMedia.booking.subService?.name || selectedBookingMedia.booking.popularService?.name || selectedBookingMedia.booking.serviceName || 'Service'}</span></p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Date: <span className="font-medium">{selectedBookingMedia.booking.scheduledDate ? new Date(selectedBookingMedia.booking.scheduledDate).toLocaleDateString() : 'N/A'}</span></p>
+                    <p className="text-sm text-gray-600">Status: <span className="font-medium capitalize">{selectedBookingMedia.booking.status}</span></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Photos Section */}
+              {selectedBookingMedia.photos && selectedBookingMedia.photos.length > 0 && (
+                <div className="mb-8">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Job Photos ({selectedBookingMedia.photos.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 media-grid">
+                    {selectedBookingMedia.photos.map((photo, index) => (
+                      <div key={index} className="relative group media-grid-item">
+                        <img
+                          src={photo}
+                          alt={`Job photo ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => window.open(photo, '_blank')}
+                          onError={(e) => {
+                            e.target.classList.add('media-error');
+                            e.target.alt = 'Failed to load image';
+                          }}
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center photo-overlay">
+                          <button
+                            onClick={() => window.open(photo, '_blank')}
+                            className="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-full text-sm font-medium transition-opacity hover:bg-gray-100"
+                          >
+                            View Full Size
+                          </button>
+                        </div>
+                        <div className="absolute top-2 right-2 media-counter text-white px-2 py-1 rounded text-xs">
+                          {index + 1} / {selectedBookingMedia.photos.length}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Videos Section */}
+              {selectedBookingMedia.videos && selectedBookingMedia.videos.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                    </svg>
+                    Job Videos ({selectedBookingMedia.videos.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 video-grid">
+                    {selectedBookingMedia.videos.map((video, index) => (
+                      <div key={index} className="relative">
+                        <video
+                          src={video}
+                          controls
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 video-player"
+                          preload="metadata"
+                          onError={(e) => {
+                            e.target.classList.add('media-error');
+                            e.target.style.display = 'none';
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'w-full h-48 flex items-center justify-center bg-red-50 border border-red-200 rounded-lg media-error';
+                            errorDiv.innerHTML = '<span>Failed to load video</span>';
+                            e.target.parentNode.appendChild(errorDiv);
+                          }}
+                        >
+                          Your browser does not support the video tag.
+                        </video>
+                        <div className="absolute top-2 right-2 media-counter text-white px-2 py-1 rounded text-xs">
+                          Video {index + 1} / {selectedBookingMedia.videos.length}
+                        </div>
+                        <div className="mt-2 flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Video {index + 1}</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                const videoElement = document.createElement('video');
+                                videoElement.src = video;
+                                videoElement.controls = true;
+                                videoElement.style.width = '100%';
+                                videoElement.style.height = 'auto';
+                                const newWindow = window.open('', '_blank');
+                                newWindow.document.body.appendChild(videoElement);
+                              }}
+                              className="text-sm text-blue-600 hover:text-blue-800 underline"
+                            >
+                              Full Screen
+                            </button>
+                            <button
+                              onClick={() => window.open(video, '_blank')}
+                              className="text-sm text-blue-600 hover:text-blue-800 underline"
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No Media Message */}
+              {(!selectedBookingMedia.photos || selectedBookingMedia.photos.length === 0) && 
+               (!selectedBookingMedia.videos || selectedBookingMedia.videos.length === 0) && (
+                <div className="text-center py-12">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No media available</h3>
+                  <p className="mt-1 text-sm text-gray-500">This job doesn't have any photos or videos yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

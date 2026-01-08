@@ -505,6 +505,14 @@ const PartnerControl = () => {
                             const leadsGuaranteed = mgPlan?.leads || partner.mgPlanLeadQuota || 0
                             const leadsUsed = partner.mgPlanLeadsUsed || 0
                             const leadsRemaining = Math.max(leadsGuaranteed - leadsUsed, 0)
+                            
+                            // Lead Plan data
+                            const leadPlan = partner.leadPlan
+                            const leadPlanLeadsGuaranteed = partner.leadPlanLeadQuota || 0
+                            const leadPlanLeadsUsed = partner.leadPlanLeadsUsed || 0
+                            const leadPlanLeadsRemaining = Math.max(leadPlanLeadsGuaranteed - leadPlanLeadsUsed, 0)
+                            const leadPlanName = partner.leadPlanHistory?.length > 0 ? partner.leadPlanHistory[partner.leadPlanHistory.length - 1].planName : 'No Plan'
+                            
                             return {
                               'Partner ID': partner.Profile?.id || partner._id || partner.id || 'N/A',
                               'Name': partner.Profile?.name || partner.profile?.name || 'N/A',
@@ -522,10 +530,15 @@ const PartnerControl = () => {
                               'Pay ID': partner.payId || 'N/A',
                               'Paid By': partner.paidBy || 'N/A',
                               'MG Plan': mgPlan?.name || 'No Plan',
-                              'Leads Guaranteed': leadsGuaranteed,
-                              'Leads Used': leadsUsed,
-                              'Leads Remaining': leadsRemaining,
-                              'Plan Expires': partner.mgPlanExpiresAt ? new Date(partner.mgPlanExpiresAt).toLocaleDateString('en-IN') : 'N/A'
+                              'MG Leads Guaranteed': leadsGuaranteed,
+                              'MG Leads Used': leadsUsed,
+                              'MG Leads Remaining': leadsRemaining,
+                              'MG Plan Expires': partner.mgPlanExpiresAt ? new Date(partner.mgPlanExpiresAt).toLocaleDateString('en-IN') : 'N/A',
+                              'Lead Plan': leadPlan ? leadPlanName : 'No Plan',
+                              'Lead Plan Leads Guaranteed': leadPlanLeadsGuaranteed,
+                              'Lead Plan Leads Used': leadPlanLeadsUsed,
+                              'Lead Plan Leads Remaining': leadPlanLeadsRemaining,
+                              'Lead Plan Expires': partner.leadPlanExpiresAt ? new Date(partner.leadPlanExpiresAt).toLocaleDateString('en-IN') : 'N/A'
                             }
                           })
                           exportToExcel(exportData, [
@@ -545,12 +558,17 @@ const PartnerControl = () => {
                             { header: 'Pay ID', accessor: 'Pay ID' },
                             { header: 'Paid By', accessor: 'Paid By' },
                             { header: 'MG Plan', accessor: 'MG Plan' },
-                            { header: 'Leads Guaranteed', accessor: 'Leads Guaranteed' },
-                            { header: 'Leads Used', accessor: 'Leads Used' },
-                            { header: 'Leads Remaining', accessor: 'Leads Remaining' },
-                            { header: 'Plan Expires', accessor: 'Plan Expires' }
+                            { header: 'MG Leads Guaranteed', accessor: 'MG Leads Guaranteed' },
+                            { header: 'MG Leads Used', accessor: 'MG Leads Used' },
+                            { header: 'MG Leads Remaining', accessor: 'MG Leads Remaining' },
+                            { header: 'MG Plan Expires', accessor: 'MG Plan Expires' },
+                            { header: 'Lead Plan', accessor: 'Lead Plan' },
+                            { header: 'Lead Plan Leads Guaranteed', accessor: 'Lead Plan Leads Guaranteed' },
+                            { header: 'Lead Plan Leads Used', accessor: 'Lead Plan Leads Used' },
+                            { header: 'Lead Plan Leads Remaining', accessor: 'Lead Plan Leads Remaining' },
+                            { header: 'Lead Plan Expires', accessor: 'Lead Plan Expires' }
                           ], 'Partners_List', 'Partners', {
-                            columnWidths: [15, 25, 25, 15, 15, 20, 18, 15, 15, 20, 18, 18, 15, 15, 15, 15, 15, 15, 15, 15]
+                            columnWidths: [15, 25, 25, 15, 15, 20, 18, 15, 15, 20, 18, 18, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]
                           })
                         } catch (err) {
                           console.error('Export error:', err)
@@ -591,6 +609,19 @@ const PartnerControl = () => {
                   : 0
                 const needsRenewal = isExpired || daysUntilRenewal <= 7
                 const planStatus = !mgPlan ? 'No Plan' : isExpired ? 'Expired' : needsRenewal ? 'Needs Renewal' : 'Active'
+                
+                // Calculate Lead Plan status
+                const leadPlan = partner.leadPlan
+                const leadPlanLeadsGuaranteed = partner.leadPlanLeadQuota || 0
+                const leadPlanLeadsUsed = partner.leadPlanLeadsUsed || 0
+                const leadPlanLeadsRemaining = Math.max(leadPlanLeadsGuaranteed - leadPlanLeadsUsed, 0)
+                const leadPlanExpiresAt = partner.leadPlanExpiresAt
+                const leadPlanIsExpired = leadPlanExpiresAt ? now > new Date(leadPlanExpiresAt) : false
+                const leadPlanDaysUntilRenewal = leadPlanExpiresAt 
+                  ? Math.ceil((new Date(leadPlanExpiresAt) - now) / (1000 * 60 * 60 * 24))
+                  : 0
+                const leadPlanNeedsRenewal = leadPlanIsExpired || leadPlanDaysUntilRenewal <= 7
+                const leadPlanStatus = !leadPlan ? 'No Plan' : leadPlanIsExpired ? 'Expired' : leadPlanNeedsRenewal ? 'Needs Renewal' : 'Active'
                 
                   // Debug: Log partner structure to find partnerType location
                   if (!partner._partnerTypeLogged) {
@@ -634,6 +665,15 @@ const PartnerControl = () => {
                     leadsCarryForward: leadsRemaining > 0 ? leadsRemaining : 0,
                     isExpired,
                     daysUntilRenewal: daysUntilRenewal > 0 ? daysUntilRenewal : 0
+                  } : null,
+                  leadPlan: leadPlan ? {
+                    name: partner.leadPlanHistory?.length > 0 ? partner.leadPlanHistory[partner.leadPlanHistory.length - 1].planName : 'Lead Plan',
+                    status: leadPlanStatus,
+                    leadsGuaranteed: leadPlanLeadsGuaranteed,
+                    leadsUsed: leadPlanLeadsUsed,
+                    leadsRemaining: leadPlanLeadsRemaining,
+                    isExpired: leadPlanIsExpired,
+                    daysUntilRenewal: leadPlanDaysUntilRenewal > 0 ? leadPlanDaysUntilRenewal : 0
                   } : null
                 }
 
@@ -710,6 +750,24 @@ const PartnerControl = () => {
                       >
                         <FiAward className="w-3 h-3" />
                             {partnerData.mgPlan.name} {partnerData.mgPlan.status !== 'No Plan' && `(${partnerData.mgPlan.leadsRemaining} left)`}
+                      </span>
+                    )}
+                    {/* Lead Plan Display */}
+                    {partnerData.leadPlan && (
+                      <span
+                        className={`px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${
+                              partnerData.leadPlan.status === 'Active'
+                            ? 'bg-indigo-500/10 text-indigo-600'
+                                : partnerData.leadPlan.status === 'Needs Renewal'
+                            ? 'bg-amber-500/10 text-amber-600'
+                                : partnerData.leadPlan.status === 'Expired'
+                            ? 'bg-rose-500/10 text-rose-600'
+                            : 'bg-slate-500/10 text-slate-600'
+                        }`}
+                            title={`${partnerData.leadPlan.name} - ${partnerData.leadPlan.leadsUsed}/${partnerData.leadPlan.leadsGuaranteed} leads used`}
+                      >
+                        <FiUsers className="w-3 h-3" />
+                            Lead: {partnerData.leadPlan.name} {partnerData.leadPlan.status !== 'No Plan' && `(${partnerData.leadPlan.leadsRemaining} left)`}
                       </span>
                     )}
                     {/* Payment Status and Actions */}

@@ -41,7 +41,9 @@ import Notifications from './pages/admin/Notifications.jsx'
 import AdminNotifications from './pages/admin/AdminNotifications.jsx'
 import RefundManagement from './pages/admin/RefundManagement.jsx'
 import MGPlanManagement from './pages/admin/MGPlanManagement.jsx'
+import LeadPlanManagement from './pages/admin/LeadPlanManagement.jsx'
 import FeeManagement from './pages/admin/FeeManagement.jsx'
+import TaxManagement from './pages/admin/TaxManagement.jsx'
 import FeeTransactions from './pages/admin/FeeTransactions.jsx'
 import CategoryManagement from './pages/admin/CategoryManagement.jsx'
 import HubManagement from './pages/admin/HubManagement.jsx'
@@ -69,8 +71,10 @@ import UserLogin from './pages/UserLogin.jsx'
 import UserRegister from './pages/UserRegister.jsx'
 import PaymentResult from './pages/PaymentResult.jsx'
 import TestPayment from './pages/TestPayment.jsx'
+import TestPartnerWalletPayment from './pages/TestPartnerWalletPayment.jsx'
 import InvoicePage from './pages/InvoicePage.jsx'
 import InvoiceViewer from './components/InvoiceViewer.jsx'
+import AdminInvoiceViewer from './components/AdminInvoiceViewer.jsx'
 
 function App() {
   return (
@@ -90,11 +94,12 @@ function App() {
           <Route path="/payment" element={<PaymentResult />} />
           <Route path="/payment-result" element={<PaymentResult />} />
           <Route path="/test-payment" element={<TestPayment />} />
+          <Route path="/test-partner-wallet-payment" element={<TestPartnerWalletPayment />} />
           <Route path="/invoice" element={<InvoiceViewer />} />
           <Route path="/invoice/sample" element={<InvoicePage />} />
           <Route path="/partner" element={<PartnerOnboarding />} />
           <Route path="/leads" element={<LeadMarketplace />} />
-          <Route path="/materials" element={<MaterialStore />} />
+          {/* <Route path="/materials" element={<MaterialStore />} /> */}
           <Route path="/emergency" element={<EmergencyServices />} />
           <Route path="/amc" element={<CorporateAMC />} />
           <Route path="/brand-partnerships" element={<BrandPartnerships />} />
@@ -135,7 +140,9 @@ function App() {
             <Route path="/admin/notification-templates" element={<Notifications />} />
             <Route path="/admin/refunds" element={<RefundManagement />} />
             <Route path="/admin/mg-plans" element={<MGPlanManagement />} />
+            <Route path="/admin/lead-plans" element={<LeadPlanManagement />} />
             <Route path="/admin/fees" element={<FeeManagement />} />
+            <Route path="/admin/tax-management" element={<TaxManagement />} />
             <Route path="/admin/fee-transactions" element={<FeeTransactions />} />
             <Route path="/admin/categories" element={<CategoryManagement />} />
             <Route path="/admin/hubs" element={<HubManagement />} />
@@ -145,6 +152,7 @@ function App() {
             <Route path="/admin/featured-reviews" element={<FeaturedReviewsManagement />} />
             <Route path="/admin/support" element={<SupportManagement />} />
             <Route path="/admin/whatsapp-settings" element={<WhatsAppSettings />} />
+            <Route path="/admin/invoice" element={<AdminInvoiceViewer />} />
           </Route>
         </Route>
 

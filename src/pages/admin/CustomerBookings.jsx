@@ -25,9 +25,11 @@ import { FaBolt } from 'react-icons/fa'
 import { adminApi } from '../../services/adminApi'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
 import { CompactInvoiceButton } from '../../components/InvoiceButton'
+import { CompactAdminInvoiceButton } from '../../components/AdminInvoiceButton'
 import QuotationDetailsModal from '../../components/QuotationDetailsModal'
 import { exportToExcel } from '../../utils/excelExport'
 import { supportApi } from '../../services/supportApi'
+import '../../styles/media-modal.css'
 
 const CustomerBookings = () => {
   const { token } = useAdminAuth()
@@ -55,9 +57,10 @@ const CustomerBookings = () => {
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assigningPartner, setAssigningPartner] = useState(null)
-  const [quotations, setQuotations] = useState({}) // Store quotations by booking ID
-  const [quotationsLoading, setQuotationsLoading] = useState(false)
+  const [quotations, setQuotations] = useState({}) // Store quotations by booking ID (now populated from booking response)
   const [selectedQuotation, setSelectedQuotation] = useState(null)
+  const [selectedBookingMedia, setSelectedBookingMedia] = useState(null) // For media modal
+  const [showMediaModal, setShowMediaModal] = useState(false)
   const [partnerFilters, setPartnerFilters] = useState({
     search: '',
     sortBy: 'name', // name, leads, mgPlan, leadUsage
@@ -83,60 +86,62 @@ const CustomerBookings = () => {
     }
   }
 
-  useEffect(() => {
-    // Fetch quotations for all bookings
-    if (bookings.length > 0 && token) {
-      fetchQuotationsForBookings()
-    }
-  }, [bookings, token])
+  // Remove the separate quotations fetching since quotations are now included in the booking response
+  // useEffect(() => {
+  //   // Fetch quotations for all bookings
+  //   if (bookings.length > 0 && token) {
+  //     fetchQuotationsForBookings()
+  //   }
+  // }, [bookings, token])
 
-  const fetchQuotationsForBookings = async () => {
-    setQuotationsLoading(true)
-    try {
-      const quotationPromises = bookings.map(async (booking) => {
-        try {
-          const bookingId = booking._id || booking.bookingId
-          if (!bookingId) return null
+  // This function is no longer needed as quotations are included in the booking response
+  // const fetchQuotationsForBookings = async () => {
+  //   setQuotationsLoading(true)
+  //   try {
+  //     const quotationPromises = bookings.map(async (booking) => {
+  //       try {
+  //         const bookingId = booking._id || booking.bookingId
+  //         if (!bookingId) return null
 
-          const response = await adminApi.getQuotationsByBooking ? 
-            await adminApi.getQuotationsByBooking(token, bookingId) :
-            await fetch(`${import.meta.env.VITE_API_URL || 'https://nexo.works'}/api/admin/bookings/${bookingId}/quotations`, {
-              headers: { Authorization: `Bearer ${token}` }
-            }).then(res => res.json())
+  //         const response = await adminApi.getQuotationsByBooking ? 
+  //           await adminApi.getQuotationsByBooking(token, bookingId) :
+  //           await fetch(`${import.meta.env.VITE_API_URL || 'https://nexo.works'}/api/admin/bookings/${bookingId}/quotations`, {
+  //             headers: { Authorization: `Bearer ${token}` }
+  //           }).then(res => res.json())
           
-          if (response && response.success && response.data) {
-            return { bookingId, quotations: response.data }
-          }
-          return null
-        } catch (err) {
-          console.error(`Failed to fetch quotations for booking ${booking._id}:`, err)
-          return null
-        }
-      })
+  //         if (response && response.success && response.data) {
+  //           return { bookingId, quotations: response.data }
+  //         }
+  //         return null
+  //       } catch (err) {
+  //         console.error(`Failed to fetch quotations for booking ${booking._id}:`, err)
+  //         return null
+  //       }
+  //     })
 
-      const results = await Promise.allSettled(quotationPromises)
-      const newQuotations = {}
+  //     const results = await Promise.allSettled(quotationPromises)
+  //     const newQuotations = {}
       
-      results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value) {
-          const { bookingId, quotations } = result.value
-          newQuotations[bookingId] = quotations
-        }
-      })
+  //     results.forEach((result) => {
+  //       if (result.status === 'fulfilled' && result.value) {
+  //         const { bookingId, quotations } = result.value
+  //         newQuotations[bookingId] = quotations
+  //       }
+  //     })
 
-      setQuotations(newQuotations)
-    } catch (err) {
-      console.error('Error fetching quotations:', err)
-    } finally {
-      setQuotationsLoading(false)
-    }
-  }
+  //     setQuotations(newQuotations)
+  //   } catch (err) {
+  //     console.error('Error fetching quotations:', err)
+  //   } finally {
+  //     setQuotationsLoading(false)
+  //   }
+  // }
 
   const handleApproveQuotation = async (quotationId) => {
     try {
       const response = await adminApi.approveQuotation(token, quotationId)
       if (response.success) {
-        await fetchQuotationsForBookings() // Refresh quotations
+        await fetchBookings(pagination.currentPage) // Refresh bookings which now includes quotations
         alert('Quotation approved successfully!')
       }
     } catch (error) {
@@ -149,7 +154,7 @@ const CustomerBookings = () => {
     try {
       const response = await adminApi.rejectQuotation(token, quotationId, rejectionReason)
       if (response.success) {
-        await fetchQuotationsForBookings() // Refresh quotations
+        await fetchBookings(pagination.currentPage) // Refresh bookings which now includes quotations
         alert('Quotation rejected successfully!')
       }
     } catch (error) {
@@ -186,6 +191,15 @@ const CustomerBookings = () => {
       }
 
       setBookings(bookingsData)
+      
+      // Extract quotations from bookings and organize them by booking ID
+      const newQuotations = {}
+      bookingsData.forEach(booking => {
+        if (booking.quotations && booking.quotations.length > 0) {
+          newQuotations[booking._id] = booking.quotations
+        }
+      })
+      setQuotations(newQuotations)
       
       // Filter emergency bookings (assuming emergency bookings have a specific field or service type)
       const emergencyBookingsData = bookingsData.filter(booking => 
@@ -561,6 +575,8 @@ const CustomerBookings = () => {
                 'Review Comment': b.review?.comment || 'No Review',
                 'Review Date': b.review?.createdAt ? new Date(b.review.createdAt).toLocaleDateString('en-IN') : 'N/A',
                 'Has Video Review': b.review?.video ? 'Yes' : 'No',
+                'Photos Count': b.photos ? b.photos.length : 0,
+                'Videos Count': b.videos ? b.videos.length : 0,
                 'Created At': b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : 'N/A'
               }))
               
@@ -583,9 +599,11 @@ const CustomerBookings = () => {
                 { header: 'Review Comment', accessor: 'Review Comment' },
                 { header: 'Review Date', accessor: 'Review Date' },
                 { header: 'Has Video Review', accessor: 'Has Video Review' },
+                { header: 'Photos Count', accessor: 'Photos Count' },
+                { header: 'Videos Count', accessor: 'Videos Count' },
                 { header: 'Created At', accessor: 'Created At' }
               ], 'Customer_Bookings', 'Customer Bookings', {
-                columnWidths: [15, 20, 15, 25, 15, 15, 15, 12, 12, 15, 12, 30, 20, 20, 12, 30, 15, 12, 20]
+                columnWidths: [15, 20, 15, 25, 15, 15, 15, 12, 12, 15, 12, 30, 20, 20, 12, 30, 15, 12, 10, 10, 20]
               })
             }}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
@@ -813,6 +831,9 @@ const CustomerBookings = () => {
                   Customer Review
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Photos & Videos
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -929,12 +950,7 @@ const CustomerBookings = () => {
 
                     {/* Quotations Column */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {quotationsLoading ? (
-                        <div className="flex items-center gap-2">
-                          <FiRefreshCw className="animate-spin text-sm text-gray-400" />
-                          <span className="text-sm text-gray-400">Loading...</span>
-                        </div>
-                      ) : quotations[booking._id] && quotations[booking._id].length > 0 ? (
+                      {quotations[booking._id] && quotations[booking._id].length > 0 ? (
                         <div className="space-y-1">
                           {quotations[booking._id].slice(0, 2).map((quotation) => (
                             <div
@@ -1034,6 +1050,81 @@ const CustomerBookings = () => {
                       )}
                     </td>
                     
+                    {/* Photos & Videos Column */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {(booking.photos && booking.photos.length > 0) || (booking.videos && booking.videos.length > 0) ? (
+                        <div className="flex flex-col gap-2">
+                          {/* Photos */}
+                          {booking.photos && booking.photos.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <div className="flex -space-x-2">
+                                {booking.photos.slice(0, 3).map((photo, index) => (
+                                  <img
+                                    key={index}
+                                    src={photo}
+                                    alt={`Booking photo ${index + 1}`}
+                                    className="w-8 h-8 rounded-full border-2 border-white object-cover cursor-pointer hover:scale-110 transition-transform"
+                                    onClick={() => {
+                                      setSelectedBookingMedia({
+                                        booking,
+                                        photos: booking.photos,
+                                        videos: booking.videos || []
+                                      })
+                                      setShowMediaModal(true)
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-xs text-gray-600">
+                                {booking.photos.length} photo{booking.photos.length > 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Videos */}
+                          {booking.videos && booking.videos.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-200 transition-colors"
+                                     onClick={() => {
+                                       setSelectedBookingMedia({
+                                         booking,
+                                         photos: booking.photos || [],
+                                         videos: booking.videos
+                                       })
+                                       setShowMediaModal(true)
+                                     }}>
+                                  <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M8 5v10l8-5-8-5z"/>
+                                  </svg>
+                                </div>
+                              </div>
+                              <span className="text-xs text-gray-600">
+                                {booking.videos.length} video{booking.videos.length > 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* View All Button */}
+                          <button
+                            onClick={() => {
+                              setSelectedBookingMedia({
+                                booking,
+                                photos: booking.photos || [],
+                                videos: booking.videos || []
+                              })
+                              setShowMediaModal(true)
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline"
+                          >
+                            View All
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">No media</span>
+                      )}
+                    </td>
+                    
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
                         {booking.partnerName === 'Still not assigned' ? (
@@ -1055,7 +1146,7 @@ const CustomerBookings = () => {
                         )}
                         
                         {/* Invoice Button */}
-                        <CompactInvoiceButton 
+                        <CompactAdminInvoiceButton 
                           booking={booking}
                           className="ml-2"
                         />
@@ -1559,6 +1650,158 @@ const CustomerBookings = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Media Modal */}
+      {showMediaModal && selectedBookingMedia && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 media-modal-overlay flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto media-modal-content">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Photos & Videos - {selectedBookingMedia.booking.serviceName}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowMediaModal(false)
+                  setSelectedBookingMedia(null)
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <FiXCircle className="text-xl" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {/* Booking Info */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Customer: <span className="font-medium">{selectedBookingMedia.booking.customerName}</span></p>
+                    <p className="text-sm text-gray-600">Service: <span className="font-medium">{selectedBookingMedia.booking.serviceName}</span></p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Date: <span className="font-medium">{new Date(selectedBookingMedia.booking.scheduledDate).toLocaleDateString()}</span></p>
+                    <p className="text-sm text-gray-600">Status: <span className="font-medium capitalize">{selectedBookingMedia.booking.status}</span></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Photos Section */}
+              {selectedBookingMedia.photos && selectedBookingMedia.photos.length > 0 && (
+                <div className="mb-8">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Photos ({selectedBookingMedia.photos.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 media-grid">
+                    {selectedBookingMedia.photos.map((photo, index) => (
+                      <div key={index} className="relative group media-grid-item">
+                        <img
+                          src={photo}
+                          alt={`Booking photo ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => window.open(photo, '_blank')}
+                          onError={(e) => {
+                            e.target.classList.add('media-error');
+                            e.target.alt = 'Failed to load image';
+                          }}
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center photo-overlay">
+                          <button
+                            onClick={() => window.open(photo, '_blank')}
+                            className="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-full text-sm font-medium transition-opacity hover:bg-gray-100"
+                          >
+                            View Full Size
+                          </button>
+                        </div>
+                        <div className="absolute top-2 right-2 media-counter text-white px-2 py-1 rounded text-xs">
+                          {index + 1} / {selectedBookingMedia.photos.length}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Videos Section */}
+              {selectedBookingMedia.videos && selectedBookingMedia.videos.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                    </svg>
+                    Videos ({selectedBookingMedia.videos.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 video-grid">
+                    {selectedBookingMedia.videos.map((video, index) => (
+                      <div key={index} className="relative">
+                        <video
+                          src={video}
+                          controls
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 video-player"
+                          preload="metadata"
+                          onError={(e) => {
+                            e.target.classList.add('media-error');
+                            e.target.style.display = 'none';
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'w-full h-48 flex items-center justify-center bg-red-50 border border-red-200 rounded-lg media-error';
+                            errorDiv.innerHTML = '<span>Failed to load video</span>';
+                            e.target.parentNode.appendChild(errorDiv);
+                          }}
+                        >
+                          Your browser does not support the video tag.
+                        </video>
+                        <div className="absolute top-2 right-2 media-counter text-white px-2 py-1 rounded text-xs">
+                          Video {index + 1} / {selectedBookingMedia.videos.length}
+                        </div>
+                        <div className="mt-2 flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Video {index + 1}</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                const video = document.createElement('video');
+                                video.src = video;
+                                video.controls = true;
+                                video.style.width = '100%';
+                                video.style.height = 'auto';
+                                const newWindow = window.open('', '_blank');
+                                newWindow.document.body.appendChild(video);
+                              }}
+                              className="text-sm text-blue-600 hover:text-blue-800 underline"
+                            >
+                              Full Screen
+                            </button>
+                            <button
+                              onClick={() => window.open(video, '_blank')}
+                              className="text-sm text-blue-600 hover:text-blue-800 underline"
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No Media Message */}
+              {(!selectedBookingMedia.photos || selectedBookingMedia.photos.length === 0) && 
+               (!selectedBookingMedia.videos || selectedBookingMedia.videos.length === 0) && (
+                <div className="text-center py-12">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No media available</h3>
+                  <p className="mt-1 text-sm text-gray-500">This booking doesn't have any photos or videos.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

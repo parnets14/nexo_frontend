@@ -79,7 +79,6 @@ const Home = () => {
           
           // If city not found or disabled, clear it
           if (!currentCity || !currentCity.isEnabled) {
-            console.log('Selected city is no longer available, clearing selection');
             localStorage.removeItem('selectedCity');
             setSelectedCity(null);
             setShowCityModal(true);
@@ -115,7 +114,6 @@ const Home = () => {
         
         // If city is disabled, clear selection and show modal
         if (!isEnabled) {
-          console.log('Selected city has been disabled, clearing selection');
           localStorage.removeItem('selectedCity');
           setSelectedCity(null);
           alert('The selected city is no longer available. Please select another city.');

@@ -30,7 +30,7 @@ const Footer = () => {
     ],
     resources: [
       { name: 'Lead Marketplace', path: '/leads' },
-      { name: 'Material Store', path: '/materials' },
+      // { name: 'Material Store', path: '/materials' },
       { name: 'Emergency Service', path: '/emergency' },
       { name: 'Brand Partnerships', path: '/brand-partnerships' },
     ],

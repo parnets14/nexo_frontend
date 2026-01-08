@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ProfessionalInvoice from './ProfessionalInvoice';
 import { generateInvoiceFromBooking } from '../utils/invoiceGenerator';
-import { userApi } from '../services/userApi';
+import { adminApi } from '../services/adminApi';
+import { useAdminAuth } from '../context/AdminAuthContext';
 import '../styles/professional-invoice-print.css';
 
-const InvoiceViewer = () => {
+const AdminInvoiceViewer = () => {
   const [searchParams] = useSearchParams();
   const [invoiceData, setInvoiceData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { token, isAuthenticated } = useAdminAuth();
 
   const bookingId = searchParams.get('bookingId');
 
@@ -22,19 +24,23 @@ const InvoiceViewer = () => {
       }
 
       try {
-        // Get user token from localStorage
-        const token = localStorage.getItem('userToken');
-        
-        if (!token) {
-          throw new Error('No authentication token found. Please login again.');
+        // Check if admin is authenticated
+        if (!isAuthenticated || !token) {
+          throw new Error('No admin authentication found. Please login again.');
         }
 
-        // Fetch booking data using userApi service
-        const result = await userApi.getBookingDetails(token, bookingId);
-        console.log('📋 Full API Response:', result);
+        // Use the new getBookingDetails function
+        const response = await adminApi.getBookingDetails(token, bookingId);
+
+        console.log('📋 Admin API Response:', response);
         
-        const bookingData = result.booking || result.data || result;
-        console.log('📋 Extracted Booking Data:', bookingData);
+        const bookingData = response.booking || response.data || response;
+        
+        if (!bookingData) {
+          throw new Error('Booking not found');
+        }
+
+        console.log('📋 Found Booking Data:', bookingData);
         console.log('📋 Booking Data keys:', Object.keys(bookingData || {}));
         
         // Log specific fields we're looking for
@@ -48,7 +54,7 @@ const InvoiceViewer = () => {
         console.log('  - serviceName:', bookingData?.serviceName);
         console.log('  - totalAmount:', bookingData?.totalAmount);
         
-        // Generate invoice from actual booking data only
+        // Generate invoice from actual booking data
         const invoice = generateInvoiceFromBooking(bookingData);
         setInvoiceData(invoice);
       } catch (err) {
@@ -63,7 +69,7 @@ const InvoiceViewer = () => {
   }, [bookingId]);
 
   const handlePrint = () => {
-    console.log('Invoice printed for booking:', bookingId);
+    console.log('Admin invoice printed for booking:', bookingId);
   };
 
   if (loading) {
@@ -107,4 +113,4 @@ const InvoiceViewer = () => {
   );
 };
 
-export default InvoiceViewer;
+export default AdminInvoiceViewer;

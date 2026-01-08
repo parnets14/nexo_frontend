@@ -1223,7 +1223,7 @@ const isCancellationAllowed = (bookingData) => {
                         
                         {(invoiceBooking.gstAmount && invoiceBooking.gstAmount > 0) && (
                           <div className="total-row subtotal">
-                            <span>GST (18%)</span>
+                            <span>GST</span>
                             <span>₹{invoiceBooking.gstAmount}</span>
                           </div>
                         )}

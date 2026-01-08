@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiClock, FiPhone, FiMapPin, FiArrowRight, FiAlertTriangle, FiShield, FiZap, FiRefreshCw } from 'react-icons/fi'
+import { FiClock, FiMapPin, FiArrowRight, FiAlertTriangle, FiShield, FiZap, FiRefreshCw, FiHeadphones } from 'react-icons/fi'
 import { 
   FaSnowflake, FaBolt, FaTint, FaBroom, FaPaintRoller, 
   FaTools, FaHammer, FaFilter, FaPlug, FaWrench,
   FaCheckCircle, FaRupeeSign, FaCreditCard, FaMobileAlt,
-  FaUserCheck, FaCommentDots, FaTimesCircle, FaHeadset,
+  FaUserCheck, FaCommentDots, FaTimesCircle,
   FaClock, FaStar, FaAward
 } from 'react-icons/fa'
 import { userApi } from '../services/userApi'
@@ -64,7 +64,7 @@ const EmergencyServices = () => {
   }
 
   const calculateEmergencyPrice = (service) => {
-    if (!service.basePrice || service.basePrice <= 0) return 'Contact for pricing'
+    if (!service.basePrice || service.basePrice <= 0) return null
     
     let total = service.basePrice || 0
     
@@ -106,6 +106,17 @@ const EmergencyServices = () => {
     navigate(`/service/${service.slug}?emergency=true`)
   }
 
+  const handleSupportClick = () => {
+    const token = localStorage.getItem('userToken')
+    if (!token) {
+      // Store the intended destination and redirect to login
+      localStorage.setItem('redirectAfterLogin', '/user/dashboard/support')
+      navigate('/user/login')
+    } else {
+      navigate('/user/dashboard/support')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center">
@@ -137,15 +148,13 @@ const EmergencyServices = () => {
                 <FiRefreshCw className="w-4 h-4 mr-2" />
                 Try Again
               </button>
-              {supportSettings?.emergencyContact && (
-                <a
-                  href={`tel:${supportSettings.emergencyContact}`}
-                  className="w-full px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-semibold flex items-center justify-center"
-                >
-                  <FiPhone className="w-4 h-4 mr-2" />
-                  Call Emergency: {supportSettings.emergencyContact}
-                </a>
-              )}
+              <button
+                onClick={handleSupportClick}
+                className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-semibold flex items-center justify-center"
+              >
+                <FiHeadphones className="w-4 h-4 mr-2" />
+                Get Support
+              </button>
             </div>
           </div>
         </div>
@@ -202,22 +211,20 @@ const EmergencyServices = () => {
               </div>
             </div>
 
-            {/* Emergency hotline */}
-            {supportSettings?.emergencyContact && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 max-w-md mx-auto border border-white/20">
-                <div className="flex items-center justify-center mb-2">
-                  <FaHeadset className="w-6 h-6 text-yellow-300 mr-2" />
-                  <span className="text-lg font-semibold">Emergency Hotline</span>
-                </div>
-                <a
-                  href={`tel:${supportSettings.emergencyContact}`}
-                  className="text-3xl font-bold text-yellow-300 hover:text-yellow-200 transition-colors"
-                >
-                  {supportSettings.emergencyContact}
-                </a>
-                <p className="text-sm text-red-200 mt-2">Call now for immediate assistance</p>
-              </div>
-            )}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 max-w-md mx-auto border border-white/20">
+              {/* <div className="flex items-center justify-center mb-4">
+                <FiHeadphones className="w-6 h-6 text-yellow-300 mr-2" />
+                <span className="text-lg font-semibold">Need Help?</span>
+              </div> */}
+              <button
+                onClick={handleSupportClick}
+                className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-red-800 font-bold py-3 px-6 rounded-xl hover:from-yellow-300 hover:to-yellow-400 transition-all duration-300 flex items-center justify-center"
+              >
+                <FiHeadphones className="w-5 h-5 mr-2" />
+                Get Support
+              </button>
+              <p className="text-sm text-red-200 mt-3 text-center">Click to access our support center</p>
+            </div>
           </div>
         </div>
       </div>
@@ -230,15 +237,13 @@ const EmergencyServices = () => {
               <FiAlertTriangle className="w-20 h-20 text-gray-400 mx-auto mb-6" />
               <h3 className="text-2xl font-bold text-gray-800 mb-4">No Emergency Services Available</h3>
               <p className="text-gray-600 leading-relaxed">Emergency services are currently not available. Please check back later or contact our support team.</p>
-              {supportSettings?.supportPhone && (
-                <a
-                  href={`tel:${supportSettings.supportPhone}`}
-                  className="inline-flex items-center mt-6 px-6 py-3 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors font-semibold"
-                >
-                  <FiPhone className="w-4 h-4 mr-2" />
-                  Call Support: {supportSettings.supportPhone}
-                </a>
-              )}
+              <button
+                onClick={handleSupportClick}
+                className="inline-flex items-center mt-6 px-6 py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors font-semibold"
+              >
+                <FiHeadphones className="w-4 h-4 mr-2" />
+                Get Support
+              </button>
             </div>
           </div>
         ) : (
@@ -313,21 +318,23 @@ const EmergencyServices = () => {
                         </p>
                       )}
 
-                      {/* Emergency Pricing Card */}
-                      <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-2xl p-6 mb-6 border border-red-100">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm font-bold text-red-700 flex items-center">
-                            <FaRupeeSign className="w-3 h-3 mr-1" />
-                            Emergency Price:
-                          </span>
-                          <span className="text-2xl font-bold text-red-600">{emergencyPrice}</span>
-                        </div>
-                        {service.emergencyService?.extraAmount > 0 && (
-                          <div className="text-xs text-red-600 bg-red-100 rounded-lg px-3 py-1">
-                            Includes +₹{service.emergencyService.extraAmount} emergency charge
+                      {/* Emergency Pricing Card - Only show if price exists */}
+                      {emergencyPrice && (
+                        <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-2xl p-6 mb-6 border border-red-100">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-bold text-red-700 flex items-center">
+                              <FaRupeeSign className="w-3 h-3 mr-1" />
+                              Emergency Price:
+                            </span>
+                            <span className="text-2xl font-bold text-red-600">{emergencyPrice}</span>
                           </div>
-                        )}
-                      </div>
+                          {service.emergencyService?.extraAmount > 0 && (
+                            <div className="text-xs text-red-600 bg-red-100 rounded-lg px-3 py-1">
+                              Includes +₹{service.emergencyService.extraAmount} emergency charge
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Features */}
                       {service.included && service.included.length > 0 && (
@@ -383,7 +390,7 @@ const EmergencyServices = () => {
         )}
       </div>
 
-      {/* Enhanced Emergency Contact Section */}
+      {/* Enhanced Support Section */}
       <div className="relative bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white overflow-hidden">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
@@ -394,55 +401,36 @@ const EmergencyServices = () => {
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
-            <div className="mb-8">
-              <FiPhone className="w-16 h-16 text-yellow-300 mx-auto mb-4 animate-pulse" />
+            {/* <div className="mb-8">
+              <FiHeadphones className="w-16 h-16 text-yellow-300 mx-auto mb-4 animate-pulse" />
               <h3 className="text-4xl font-bold mb-4">Need Immediate Help?</h3>
               <p className="text-xl text-red-100 mb-8 max-w-2xl mx-auto leading-relaxed">
-                For urgent emergencies, call our 24/7 helpline for immediate assistance. Our expert team is always ready to help you.
+                For urgent emergencies or any assistance, access our comprehensive support center. Our expert team is always ready to help you.
               </p>
+            </div> */}
+
+            <div className="max-w-2xl mx-auto">
+              {/* Support Center Button */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300">
+                <FiHeadphones className="w-12 h-12 text-yellow-300 mx-auto mb-4" />
+                <h4 className="text-2xl font-bold mb-4">Support Center</h4>
+                <p className="text-red-200 text-lg mb-6">Get help with bookings, services, and emergency assistance</p>
+                <button
+                  onClick={handleSupportClick}
+                  className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-red-800 font-bold py-4 px-8 rounded-2xl hover:from-yellow-300 hover:to-yellow-400 transition-all duration-300 flex items-center justify-center mx-auto text-lg"
+                >
+                  <FiHeadphones className="w-5 h-5 mr-2" />
+                  Access Support Center
+                  <FiArrowRight className="w-5 h-5 ml-2" />
+                </button>
+                <div className="mt-4 flex items-center justify-center text-sm text-red-200">
+                  <FaClock className="w-4 h-4 mr-2" />
+                  <span>Available 24/7 for your convenience</span>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              {/* Emergency Hotline */}
-              {supportSettings?.emergencyContact && (
-                <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300">
-                  <FaHeadset className="w-12 h-12 text-yellow-300 mx-auto mb-4" />
-                  <h4 className="text-2xl font-bold mb-2">Emergency Hotline</h4>
-                  <a
-                    href={`tel:${supportSettings.emergencyContact}`}
-                    className="block text-3xl font-bold text-yellow-300 hover:text-yellow-200 transition-colors mb-2"
-                  >
-                    {supportSettings.emergencyContact}
-                  </a>
-                  <p className="text-red-200 text-sm">Available 24/7 for emergencies</p>
-                  <div className="mt-4 flex items-center justify-center text-sm text-red-200">
-                    <FaClock className="w-4 h-4 mr-2" />
-                    <span>Average response time: 30 minutes</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Regular Support */}
-              {supportSettings?.supportPhone && (
-                <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300">
-                  <FiPhone className="w-12 h-12 text-yellow-300 mx-auto mb-4" />
-                  <h4 className="text-2xl font-bold mb-2">General Support</h4>
-                  <a
-                    href={`tel:${supportSettings.supportPhone}`}
-                    className="block text-3xl font-bold text-yellow-300 hover:text-yellow-200 transition-colors mb-2"
-                  >
-                    {supportSettings.supportPhone}
-                  </a>
-                  <p className="text-red-200 text-sm">For general inquiries and bookings</p>
-                  <div className="mt-4 flex items-center justify-center text-sm text-red-200">
-                    <FaClock className="w-4 h-4 mr-2" />
-                    <span>Mon-Sun: 6:00 AM - 10:00 PM</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Additional contact options */}
+            {/* Additional support features */}
             <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
               <div className="text-center">
                 <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -455,8 +443,8 @@ const EmergencyServices = () => {
                 <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
                   <FaUserCheck className="w-6 h-6 text-yellow-300" />
                 </div>
-                <h5 className="font-semibold mb-1">Verified Experts</h5>
-                <p className="text-sm text-red-200">All technicians are background verified</p>
+                <h5 className="font-semibold mb-1">Expert Support</h5>
+                <p className="text-sm text-red-200">Trained support specialists ready to help</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiPhone, FiLock, FiMail, FiArrowRight, FiRefreshCw, FiUser } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa';
 import { userApi } from '../services/userApi.js';
 import { useUserAuth } from '../context/UserAuthContext';
 
@@ -19,7 +20,6 @@ const UserLogin = () => {
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState(null);
   const [otpTimer, setOtpTimer] = useState(0);
-  const [displayedOtp, setDisplayedOtp] = useState(null);
 
   // OTP Timer
   React.useEffect(() => {
@@ -49,10 +49,6 @@ const UserLogin = () => {
       const response = await userApi.sendLoginOTP(formData.phone);
       console.log('OTP Response:', response);
       if (response.success) {
-        // Display OTP on screen for testing
-        if (response.otp) {
-          setDisplayedOtp(response.otp);
-        }
         setStep(2);
         setOtpTimer(60);
       } else {
@@ -74,10 +70,6 @@ const UserLogin = () => {
     try {
       const response = await userApi.sendLoginOTP(formData.phone);
       if (response.success) {
-        // Display OTP on screen for testing
-        if (response.otp) {
-          setDisplayedOtp(response.otp);
-        }
         setOtpTimer(60);
       } else {
         setLocalError(response.message || 'Failed to resend OTP');
@@ -104,7 +96,15 @@ const UserLogin = () => {
       if (response.token) {
         localStorage.setItem('userToken', response.token);
         await checkAuth(); // Update auth context
-        navigate('/user/dashboard', { replace: true });
+        
+        // Check for redirect URL
+        const redirectUrl = localStorage.getItem('redirectAfterLogin');
+        if (redirectUrl) {
+          localStorage.removeItem('redirectAfterLogin');
+          navigate(redirectUrl, { replace: true });
+        } else {
+          navigate('/user/dashboard', { replace: true });
+        }
       } else {
         setLocalError('Invalid OTP. Please try again.');
       }
@@ -125,7 +125,15 @@ const UserLogin = () => {
       if (response.token) {
         localStorage.setItem('userToken', response.token);
         await checkAuth(); // Update auth context
-        navigate('/user/dashboard', { replace: true });
+        
+        // Check for redirect URL
+        const redirectUrl = localStorage.getItem('redirectAfterLogin');
+        if (redirectUrl) {
+          localStorage.removeItem('redirectAfterLogin');
+          navigate(redirectUrl, { replace: true });
+        } else {
+          navigate('/user/dashboard', { replace: true });
+        }
       } else {
         setLocalError('Invalid credentials');
       }
@@ -374,16 +382,12 @@ const UserLogin = () => {
                   />
                 </div>
                 <p className="mt-2 text-sm text-white/80 text-center font-medium">
-                  OTP sent to +91 {formData.phone}
-                </p>
-                {displayedOtp && (
-                  <div className="mt-3 p-3 bg-green-500/20 border border-green-500/50 rounded-xl">
-                    <p className="text-xs text-white/70 text-center mb-1">Testing OTP:</p>
-                    <p className="text-2xl font-bold text-white text-center tracking-widest">
-                      {displayedOtp}
-                    </p>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <FaWhatsapp className="text-green-400 text-lg" />
+                    <span>OTP sent to your WhatsApp</span>
                   </div>
-                )}
+                  <span className="text-white/70">+91 {formData.phone}</span>
+                </p>
               </div>
 
               <div className="flex items-center justify-between text-sm">

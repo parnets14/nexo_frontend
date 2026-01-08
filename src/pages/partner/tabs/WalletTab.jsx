@@ -3,6 +3,7 @@ import { usePartnerAuth } from '../../../context/PartnerAuthContext.jsx'
 import { partnerApi } from '../../../services/partnerApi.js'
 import { FiDollarSign, FiTrendingUp, FiTrendingDown, FiRefreshCw, FiPlus, FiX, FiDownload } from 'react-icons/fi'
 import { exportToExcel } from '../../../utils/excelExport.js'
+import PartnerWalletPayment from '../../../components/PartnerWalletPayment.jsx'
 
 const WalletTab = () => {
   const { token } = usePartnerAuth()
@@ -10,11 +11,72 @@ const WalletTab = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showTopUpModal, setShowTopUpModal] = useState(false)
+  const [showPayUPayment, setShowPayUPayment] = useState(false)
   const [topUpAmount, setTopUpAmount] = useState('')
   const [topUpDescription, setTopUpDescription] = useState('')
   const [topUpLoading, setTopUpLoading] = useState(false)
   const [quickAmounts] = useState([500, 1000, 2000, 5000, 10000])
   const [lastRefresh, setLastRefresh] = useState(null)
+
+  // Check for payment success/failure from URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const amount = urlParams.get('amount');
+    const txnid = urlParams.get('txnid');
+    const reason = urlParams.get('reason');
+
+    if (paymentStatus === 'success' && amount) {
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-50';
+      notification.innerHTML = `
+        <div class="flex items-center gap-2">
+          <div class="text-lg">✅</div>
+          <div>
+            <div class="font-semibold">Payment Successful!</div>
+            <div class="text-sm opacity-90">₹${parseFloat(amount).toLocaleString('en-IN')} added to wallet</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 5000);
+
+      // Refresh wallet data
+      fetchWallet();
+      
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'failed') {
+      // Show failure notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg z-50';
+      notification.innerHTML = `
+        <div class="flex items-center gap-2">
+          <div class="text-lg">❌</div>
+          <div>
+            <div class="font-semibold">Payment Failed</div>
+            <div class="text-sm opacity-90">${reason || 'Please try again'}</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 5000);
+      
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     fetchWallet()
@@ -90,31 +152,82 @@ const WalletTab = () => {
       return
     }
 
-    setTopUpLoading(true)
-    try {
-      const response = await partnerApi.topUpWallet(
-        token,
-        parseFloat(topUpAmount),
-        topUpDescription || 'Topup',
-        `TOPUP-${Date.now()}`
-      )
-      
-      if (response.success || response.message) {
-        alert('Wallet topped up successfully!')
-        setShowTopUpModal(false)
-        setTopUpAmount('')
-        setTopUpDescription('')
-        await fetchWallet() // Refresh wallet data
-      } else {
-        alert(response.message || 'Failed to top up wallet')
-      }
-    } catch (err) {
-      console.error('Top-up error:', err)
-      alert(err.message || 'Failed to top up wallet')
-    } finally {
-      setTopUpLoading(false)
+    const amount = parseFloat(topUpAmount);
+    
+    // Validation
+    if (amount < 10) {
+      alert('Minimum top-up amount is ₹10');
+      return;
     }
+    
+    if (amount > 100000) {
+      alert('Maximum top-up amount is ₹1,00,000');
+      return;
+    }
+
+    // Close modal and show PayU payment
+    setShowTopUpModal(false);
+    setShowPayUPayment(true);
   }
+
+  const handlePaymentSuccess = (paymentData) => {
+    setShowPayUPayment(false);
+    setTopUpAmount('');
+    setTopUpDescription('');
+    
+    // Show success message
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-50';
+    notification.innerHTML = `
+      <div class="flex items-center gap-2">
+        <div class="text-lg">✅</div>
+        <div>
+          <div class="font-semibold">Payment Successful!</div>
+          <div class="text-sm opacity-90">Wallet will be updated shortly</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 5000);
+
+    // Refresh wallet data after a short delay
+    setTimeout(() => {
+      fetchWallet();
+    }, 2000);
+  };
+
+  const handlePaymentFailure = (error) => {
+    setShowPayUPayment(false);
+    
+    // Show error message
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg z-50';
+    notification.innerHTML = `
+      <div class="flex items-center gap-2">
+        <div class="text-lg">❌</div>
+        <div>
+          <div class="font-semibold">Payment Failed</div>
+          <div class="text-sm opacity-90">${error?.message || 'Please try again'}</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 5000);
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPayUPayment(false);
+  };
 
   if (loading) {
     return (
@@ -434,7 +547,7 @@ const WalletTab = () => {
                   disabled={topUpLoading || !topUpAmount || parseFloat(topUpAmount) <= 0}
                   className="flex-1 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {topUpLoading ? 'Processing...' : 'Top Up'}
+                  {topUpLoading ? 'Processing...' : 'Proceed to Payment'}
                 </button>
                 <button
                   onClick={() => {
@@ -450,6 +563,18 @@ const WalletTab = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* PayU Payment Modal */}
+      {showPayUPayment && (
+        <PartnerWalletPayment
+          amount={parseFloat(topUpAmount)}
+          onSuccess={handlePaymentSuccess}
+          onFailure={handlePaymentFailure}
+          onCancel={handlePaymentCancel}
+          title="Wallet Top-up"
+          description={`Add ₹${parseFloat(topUpAmount).toLocaleString('en-IN')} to your wallet`}
+        />
       )}
     </div>
   )

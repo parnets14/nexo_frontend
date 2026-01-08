@@ -17,11 +17,15 @@ import {
   FaCog,
   FaHome,
   FaUsers,
-  FaFilter
+  FaFilter,
+  FaTimes,
+  FaChevronDown,
+  FaChevronUp
 } from 'react-icons/fa';
 import SEO from '../components/SEO';
 import PaymentGateway from '../components/PaymentGateway';
 import { useUserAuth } from '../context/UserAuthContext';
+import { getIconComponent } from '../utils/iconMapper';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
   (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
@@ -29,10 +33,14 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
 const CorporateAMC = () => {
   const [amcPlans, setAmcPlans] = useState([]);
   const [filteredPlans, setFilteredPlans] = useState([]);
+  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [servicesLoading, setServicesLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [selectedServices, setSelectedServices] = useState([]);
+  const [expandedCards, setExpandedCards] = useState({});
   const whatsappNumber = "919590926068";
   const navigate = useNavigate();
   const { isAuthenticated, user } = useUserAuth();
@@ -44,6 +52,33 @@ const CorporateAMC = () => {
     { id: 'business', label: 'Business', icon: FaUsers, color: 'bg-blue-100 text-blue-700' },
     { id: 'corporate', label: 'Corporate', icon: FaBuilding, color: 'bg-purple-100 text-purple-700' }
   ];
+
+  // Fetch services from backend
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        setServicesLoading(true);
+        console.log('Fetching services from:', `${API_BASE_URL}/api/public/popular-services`);
+        const response = await fetch(`${API_BASE_URL}/api/public/popular-services`);
+        const result = await response.json();
+        
+        console.log('Services API response:', result);
+        
+        if (result.success && result.data) {
+          console.log('Services loaded:', result.data.length, 'services');
+          setServices(result.data);
+        } else {
+          console.log('No services found or API error:', result);
+        }
+      } catch (error) {
+        console.error('Error fetching services:', error);
+      } finally {
+        setServicesLoading(false);
+      }
+    };
+
+    fetchServices();
+  }, []);
 
   // Fetch AMC plans from backend
   useEffect(() => {
@@ -66,21 +101,60 @@ const CorporateAMC = () => {
     fetchAMCPlans();
   }, []);
 
-  // Filter plans based on selected filter
+  // Filter plans based on selected filter and services
   useEffect(() => {
-    if (selectedFilter === 'all') {
-      setFilteredPlans(amcPlans);
-    } else {
-      const filtered = amcPlans.filter(plan => 
+    let filtered = amcPlans;
+
+    // Filter by plan type
+    if (selectedFilter !== 'all') {
+      filtered = filtered.filter(plan => 
         plan.planType?.toLowerCase() === selectedFilter.toLowerCase()
       );
-      setFilteredPlans(filtered);
     }
-  }, [selectedFilter, amcPlans]);
+
+    // Filter by selected services
+    if (selectedServices.length > 0) {
+      filtered = filtered.filter(plan => {
+        if (!plan.includedServices || plan.includedServices.length === 0) return false;
+        
+        return selectedServices.some(serviceId => 
+          plan.includedServices.some(includedService => 
+            (typeof includedService === 'object' ? includedService._id : includedService) === serviceId
+          )
+        );
+      });
+    }
+
+    setFilteredPlans(filtered);
+  }, [selectedFilter, amcPlans, selectedServices]);
 
   // Handle filter change
   const handleFilterChange = (filterId) => {
     setSelectedFilter(filterId);
+  };
+
+  // Handle service filter change
+  const handleServiceFilterChange = (serviceId) => {
+    setSelectedServices(prev => {
+      if (prev.includes(serviceId)) {
+        return prev.filter(id => id !== serviceId);
+      } else {
+        return [...prev, serviceId];
+      }
+    });
+  };
+
+  // Clear service filters
+  const clearServiceFilters = () => {
+    setSelectedServices([]);
+  };
+
+  // Toggle card expansion
+  const toggleCardExpansion = (planId) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [planId]: !prev[planId]
+    }));
   };
 
   const handlePlanClick = (plan) => {
@@ -166,7 +240,7 @@ const CorporateAMC = () => {
     }
   ];
 
-  const services = [
+  const serviceTypes = [
     {
       icon: FaCog,
       title: "AC Maintenance",
@@ -380,7 +454,7 @@ const CorporateAMC = () => {
             </motion.div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {services.map((service, index) => {
+              {serviceTypes.map((service, index) => {
                 const IconComponent = service.icon;
                 return (
                   <motion.div
@@ -421,7 +495,7 @@ const CorporateAMC = () => {
                 Flexible plans designed to meet different business needs and budgets
               </p>
 
-              {/* Filter Options */}
+              {/* Plan Type Filter Options */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -466,22 +540,129 @@ const CorporateAMC = () => {
                 })}
               </motion.div>
 
+              {/* Services Filter Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                className="mb-8"
+              >
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Filter by Services</h3>
+                  <p className="text-gray-600">Select services to find AMC plans that include them</p>
+                </div>
+
+                {servicesLoading ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p className="mt-2 text-gray-600">Loading services...</p>
+                  </div>
+                ) : services.length === 0 ? (
+                  <div className="text-center py-8">
+                    <FaTools className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h4 className="text-lg font-semibold text-gray-700 mb-2">No Services Available</h4>
+                    <p className="text-gray-600 mb-4">Services will be displayed here once they are added to the system.</p>
+                    <div className="text-xs text-gray-500 bg-gray-100 rounded-lg p-3 max-w-md mx-auto">
+                      <p><strong>Debug Info:</strong></p>
+                      <p>API Endpoint: {API_BASE_URL}/api/public/popular-services</p>
+                      <p>Services Loading: {servicesLoading ? 'Yes' : 'No'}</p>
+                      <p>Services Array Length: {services.length}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Services Button Grid */}
+                    <div className="flex flex-wrap justify-center gap-3">
+                      {services.map((service, index) => {
+                        const isSelected = selectedServices.includes(service._id);
+                        const IconComponent = getIconComponent(service.icon);
+                        
+                        return (
+                          <motion.button
+                            key={service._id}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                            whileHover={{ scale: 1.05, y: -2 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleServiceFilterChange(service._id)}
+                            className={`relative flex items-center gap-3 px-4 py-3 rounded-full font-medium transition-all duration-300 shadow-md hover:shadow-lg ${
+                              isSelected
+                                ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-primary/30'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:border-primary/30 hover:bg-primary/5'
+                            }`}
+                          >
+                            {/* Selection Indicator */}
+                            {isSelected && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"
+                              >
+                                <FaCheckCircle className="w-3 h-3 text-white" />
+                              </motion.div>
+                            )}
+                            
+                            {/* Service Icon */}
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              isSelected ? 'bg-white/20' : 'bg-gray-100'
+                            }`}>
+                              <IconComponent className={`w-4 h-4 ${
+                                isSelected ? 'text-white' : 'text-primary'
+                              }`} />
+                            </div>
+                            
+                            {/* Service Name */}
+                            <span className="text-sm font-semibold">
+                              {service.name}
+                            </span>
+                            
+                            {/* Service Price (if available) */}
+                            {service.price && (
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                isSelected 
+                                  ? 'bg-white/20 text-white' 
+                                  : 'bg-primary/10 text-primary'
+                              }`}>
+                                {service.price}
+                              </span>
+                            )}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+
               {/* Filter Results Info */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-sm text-gray-600 mb-4"
+                className="text-sm text-gray-600 mb-4 text-center"
               >
-                {selectedFilter === 'all' ? (
-                  <span>Showing all {filteredPlans.length} AMC plans</span>
-                ) : (
-                  <span>
-                    Showing {filteredPlans.length} {selectedFilter} plan{filteredPlans.length !== 1 ? 's' : ''}
-                    {filteredPlans.length === 0 && (
-                      <span className="text-amber-600 font-medium"> - No plans available for this category</span>
-                    )}
-                  </span>
-                )}
+                <div className="space-y-1">
+                  {selectedFilter === 'all' ? (
+                    <span>Showing all {filteredPlans.length} AMC plans</span>
+                  ) : (
+                    <span>
+                      Showing {filteredPlans.length} {selectedFilter} plan{filteredPlans.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  
+                  {selectedServices.length > 0 && (
+                    <div className="text-xs text-primary font-medium">
+                      Filtered by {selectedServices.length} selected service{selectedServices.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  
+                  {filteredPlans.length === 0 && (
+                    <div className="text-amber-600 font-medium text-sm mt-2">
+                      No plans match your current filters. Try adjusting your selection.
+                    </div>
+                  )}
+                </div>
               </motion.div>
             </motion.div>
 
@@ -510,7 +691,18 @@ const CorporateAMC = () => {
                       whileTap={{ scale: 0.95 }}
                       className="bg-gray-200 text-gray-700 px-6 py-3 rounded-full font-semibold hover:bg-gray-300 transition-all duration-300"
                     >
-                      View All Plans
+                      View All Plan Types
+                    </motion.button>
+                  )}
+                  {selectedServices.length > 0 && (
+                    <motion.button
+                      onClick={clearServiceFilters}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="bg-blue-200 text-blue-700 px-6 py-3 rounded-full font-semibold hover:bg-blue-300 transition-all duration-300 flex items-center gap-2"
+                    >
+                      <FaTimes className="w-4 h-4" />
+                      Clear Service Filters
                     </motion.button>
                   )}
                   <motion.button
@@ -525,132 +717,211 @@ const CorporateAMC = () => {
                 </div>
               </div>
             ) : (
-              <motion.div 
-                layout
-                className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
-              >
-                {filteredPlans.map((plan, index) => (
-                  <motion.div
-                    key={plan._id || index}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: index * 0.2 }}
-                    whileHover={{ y: -10, scale: 1.02 }}
-                    className={`bg-white rounded-2xl shadow-xl border-2 transition-all duration-300 overflow-hidden ${
-                      plan.highlight 
-                        ? 'border-primary scale-105 shadow-2xl shadow-primary/20' 
-                        : 'border-gray-200 hover:border-primary/30 hover:shadow-2xl'
-                    }`}
-                  >
-                    {plan.highlight && (
-                      <div className="bg-gradient-to-r from-primary to-primary-dark text-white text-center py-2 px-4">
-                        <span className="text-sm font-bold">
-                          {plan.highlightText || 'MOST POPULAR'}
-                        </span>
-                      </div>
-                    )}
-                    
-                    <div className="p-8">
-                      <div className="text-center mb-6">
-                        {/* Plan Type Badge */}
-                        {plan.planType && (
-                          <div className="mb-3">
-                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-                              plan.planType.toLowerCase() === 'individual' 
-                                ? 'bg-green-100 text-green-700'
-                                : plan.planType.toLowerCase() === 'business'
-                                ? 'bg-blue-100 text-blue-700'
-                                : plan.planType.toLowerCase() === 'corporate'
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}>
-                              {plan.planType.toLowerCase() === 'individual' && <FaHome className="w-3 h-3" />}
-                              {plan.planType.toLowerCase() === 'business' && <FaUsers className="w-3 h-3" />}
-                              {plan.planType.toLowerCase() === 'corporate' && <FaBuilding className="w-3 h-3" />}
-                              {plan.planType.charAt(0).toUpperCase() + plan.planType.slice(1)} Plan
-                            </span>
-                          </div>
-                        )}
-                        
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
-                        <div className="mb-4">
-                          <span className="text-4xl font-bold text-primary">
-                            {plan.priceDisplay || `₹${plan.price.toLocaleString('en-IN')}`}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredPlans.map((plan, index) => {
+                  const isExpanded = expandedCards[plan._id || index];
+                  
+                  return (
+                    <motion.div
+                      key={plan._id || index}
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6, delay: index * 0.1 }}
+                      whileHover={{ y: -5, scale: 1.02 }}
+                      layout
+                      className={`bg-white rounded-2xl shadow-lg border-2 transition-all duration-300 ${
+                        plan.highlight 
+                          ? 'border-primary shadow-xl shadow-primary/20' 
+                          : 'border-gray-200 hover:border-primary/30 hover:shadow-xl'
+                      }`}
+                    >
+                      {/* Highlight Badge */}
+                      {plan.highlight && (
+                        <div className="bg-gradient-to-r from-primary to-primary-dark text-white text-center py-2 px-4 rounded-t-2xl">
+                          <span className="text-sm font-bold flex items-center justify-center gap-1">
+                            <FaAward className="w-4 h-4" />
+                            {plan.highlightText || 'MOST POPULAR'}
                           </span>
-                          <span className="text-gray-600">/year</span>
                         </div>
-                        {plan.description && (
-                          <p className="text-gray-600 text-sm">{plan.description}</p>
-                        )}
-                      </div>
+                      )}
+                      
+                      <div className="p-6">
+                        {/* Header Section */}
+                        <div className="text-center mb-6">
+                          {/* Plan Type Badge */}
+                          {plan.planType && (
+                            <div className="mb-3">
+                              <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${
+                                plan.planType.toLowerCase() === 'individual' 
+                                  ? 'bg-green-100 text-green-700 border border-green-300'
+                                  : plan.planType.toLowerCase() === 'business'
+                                  ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                  : plan.planType.toLowerCase() === 'corporate'
+                                  ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                                  : 'bg-gray-100 text-gray-700 border border-gray-300'
+                              }`}>
+                                {plan.planType.toLowerCase() === 'individual' && <FaHome className="w-4 h-4" />}
+                                {plan.planType.toLowerCase() === 'business' && <FaUsers className="w-4 h-4" />}
+                                {plan.planType.toLowerCase() === 'corporate' && <FaBuilding className="w-4 h-4" />}
+                                {plan.planType.charAt(0).toUpperCase() + plan.planType.slice(1)} Plan
+                              </span>
+                            </div>
+                          )}
+                          
+                          <h3 className="text-xl font-bold text-gray-900 mb-3">{plan.name}</h3>
+                          <div className="mb-4">
+                            <span className="text-3xl font-bold text-primary">
+                              {plan.priceDisplay || `₹${plan.price.toLocaleString('en-IN')}`}
+                            </span>
+                            <span className="text-gray-600 text-lg">/year</span>
+                          </div>
+                          {plan.description && (
+                            <p className="text-gray-600 text-sm leading-relaxed">{plan.description}</p>
+                          )}
+                        </div>
 
-                      <ul className="space-y-3 mb-6">
-                        {plan.features.map((feature, idx) => (
-                          <li key={idx} className="flex items-start gap-3">
-                            <FaCheckCircle className="text-green-500 mt-0.5 flex-shrink-0" />
-                            <span className="text-gray-700 text-sm">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      {/* Display included services if available */}
-                      {plan.includedServices && plan.includedServices.length > 0 && (
-                        <div className="mb-6 p-4 bg-gray-50 rounded-xl">
+                        {/* Features Section */}
+                        <div className="mb-6">
                           <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                            <FaTools className="text-primary" />
-                            Included Services ({plan.includedServices.length})
+                            <FaCheckCircle className="text-green-500 w-4 h-4" />
+                            Key Features
                           </h4>
-                          <div className="grid grid-cols-1 gap-2">
-                            {plan.includedServices.slice(0, 4).map((service, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-xs">
-                                <span className="text-gray-700 font-medium">
-                                  {typeof service === 'object' ? service.name : service}
-                                </span>
-                                {plan.serviceFrequency && plan.serviceFrequency[service._id || service] && (
-                                  <span className="text-primary font-semibold">
-                                    {plan.serviceFrequency[service._id || service] === 'unlimited' 
-                                      ? 'Unlimited' 
-                                      : `${plan.serviceFrequency[service._id || service]}x/year`}
-                                  </span>
-                                )}
+                          <div className="space-y-2">
+                            {plan.features.slice(0, isExpanded ? plan.features.length : 3).map((feature, idx) => (
+                              <div key={idx} className="flex items-start gap-2">
+                                <FaCheckCircle className="text-green-500 mt-1 flex-shrink-0 w-3 h-3" />
+                                <span className="text-gray-700 text-sm">{feature}</span>
                               </div>
                             ))}
-                            {plan.includedServices.length > 4 && (
-                              <div className="text-xs text-gray-500 font-medium">
-                                +{plan.includedServices.length - 4} more services
+                            {!isExpanded && plan.features.length > 3 && (
+                              <div className="text-sm text-primary font-medium">
+                                +{plan.features.length - 3} more features
                               </div>
                             )}
                           </div>
                         </div>
-                      )}
 
-                      {/* Plan duration */}
-                      {plan.duration && (
-                        <div className="mb-6 text-center">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                            <FaClock className="mr-1" />
-                            {plan.duration} {plan.durationUnit || 'months'} plan
-                          </span>
-                        </div>
-                      )}
+                        {/* Expandable Content */}
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="mb-6 space-y-4"
+                          >
+                            {/* Services Section */}
+                            {((plan.includedServices && plan.includedServices.length > 0) || (plan.excludedServices && plan.excludedServices.length > 0)) && (
+                              <div className="space-y-3">
+                                {/* Included Services */}
+                                {plan.includedServices && plan.includedServices.length > 0 && (
+                                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                                    <h4 className="text-sm font-semibold text-green-800 mb-2 flex items-center gap-1">
+                                      <FaCheckCircle className="text-green-600 w-3 h-3" />
+                                      Included ({plan.includedServices.length})
+                                    </h4>
+                                    <div className="space-y-1">
+                                      {plan.includedServices.slice(0, 4).map((service, idx) => (
+                                        <div key={idx} className="flex items-center justify-between text-xs bg-white rounded p-2 border border-green-100">
+                                          <div className="flex items-center gap-2">
+                                            <FaTools className="w-3 h-3 text-green-600" />
+                                            <span className="text-green-700 font-medium">
+                                              {typeof service === 'object' ? service.name : service}
+                                            </span>
+                                          </div>
+                                          {plan.serviceFrequency && plan.serviceFrequency[service._id || service] && (
+                                            <span className="text-green-600 font-semibold text-xs bg-green-100 px-2 py-1 rounded-full">
+                                              {plan.serviceFrequency[service._id || service] === 'unlimited' 
+                                                ? 'Unlimited' 
+                                                : `${plan.serviceFrequency[service._id || service]}x/yr`}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                      {plan.includedServices.length > 4 && (
+                                        <div className="text-xs text-green-600 font-medium text-center py-1 bg-white rounded border border-green-100">
+                                          +{plan.includedServices.length - 4} more services
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
 
-                      <motion.button
-                        onClick={() => handlePlanClick(plan)}
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                        className={`w-full py-4 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
-                          plan.highlight
-                            ? 'bg-gradient-to-r from-primary to-primary-dark text-white hover:from-primary-dark hover:to-primary shadow-lg'
-                            : 'bg-gradient-to-r from-gray-100 to-gray-200 text-primary hover:from-gray-200 hover:to-gray-300'
-                        }`}
-                      >
-                        Buy {plan.name} Plan
-                      </motion.button>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
+                                {/* Excluded Services */}
+                                {plan.excludedServices && plan.excludedServices.length > 0 && (
+                                  <div className="p-2 bg-red-50 rounded-lg border border-red-200">
+                                    <h4 className="text-xs font-semibold text-red-800 mb-1 flex items-center gap-1">
+                                      <FaTimes className="text-red-600 w-2.5 h-2.5" />
+                                      Not Included ({plan.excludedServices.length})
+                                    </h4>
+                                    <div className="space-y-0.5">
+                                      {plan.excludedServices.slice(0, 3).map((service, idx) => (
+                                        <div key={idx} className="text-xs text-red-700">
+                                          • {typeof service === 'object' ? service.name : service}
+                                        </div>
+                                      ))}
+                                      {plan.excludedServices.length > 3 && (
+                                        <div className="text-xs text-red-600 font-medium">
+                                          +{plan.excludedServices.length - 3} more
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Plan Duration */}
+                            {plan.duration && (
+                              <div className="text-center">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                                  <FaClock className="mr-1 w-3 h-3" />
+                                  {plan.duration} {plan.durationUnit || 'months'} Contract
+                                </span>
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+
+                        {/* Read More Button */}
+                        <motion.button
+                          onClick={() => toggleCardExpansion(plan._id || index)}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="w-full py-2 mb-4 text-sm font-semibold text-primary hover:text-white bg-primary/10 hover:bg-primary rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+                        >
+                          {isExpanded ? (
+                            <>
+                              <FaChevronUp className="w-3 h-3" />
+                              <span>Show Less</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>View Details</span>
+                              <FaChevronDown className="w-3 h-3" />
+                            </>
+                          )}
+                        </motion.button>
+
+                        {/* Action Button */}
+                        <motion.button
+                          onClick={() => handlePlanClick(plan)}
+                          whileHover={{ scale: 1.02, y: -2 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`w-full py-3 rounded-lg font-bold text-sm transition-all duration-300 shadow-md hover:shadow-lg ${
+                            plan.highlight
+                              ? 'bg-gradient-to-r from-primary to-primary-dark text-white'
+                              : 'bg-gradient-to-r from-gray-800 to-gray-900 text-white'
+                          }`}
+                        >
+                          Choose {plan.name}
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </section>
