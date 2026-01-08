@@ -1,13 +1,15 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { useComingSoon } from '../contexts/ComingSoonContext'
 
 const WhatsAppButton = ({ message = "Hi, I need help with your services.", className = "" }) => {
-  const { openDialog } = useComingSoon()
-
   const handleClick = (e) => {
     e.preventDefault()
-    openDialog()
+    
+    // WhatsApp URL with the specified number
+    const whatsappUrl = `https://wa.aisensy.com/+15558136145?text=${encodeURIComponent(message)}`
+    
+    // Open WhatsApp in a new tab/window
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
   }
 
   return (

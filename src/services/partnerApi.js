@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin)
 
 const buildUrl = (path) => {
   if (path.startsWith('/api/')) {
@@ -829,6 +829,40 @@ export const partnerApi = {
   async renewLeadPlan(token) {
     const response = await fetch(buildUrl('/lead-plans/renew'), {
       method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // PayU Payment for MG Plans
+  async initiateMGPlanPayment(token, planId) {
+    const response = await fetch(buildUrl('/mg-plans/initiate-payment'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ planId })
+    })
+    return handleResponse(response)
+  },
+
+  async checkMGPlanPaymentStatus(token, txnid) {
+    const response = await fetch(buildUrl(`/mg-plans/payment-status/${txnid}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // PayU Payment for Lead Plans
+  async initiateLeadPlanPayment(token, planId) {
+    const response = await fetch(buildUrl('/lead-plans/initiate-payment'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify({ planId })
+    })
+    return handleResponse(response)
+  },
+
+  async checkLeadPlanPaymentStatus(token, txnid) {
+    const response = await fetch(buildUrl(`/lead-plans/check-payment-status/${txnid}`), {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)

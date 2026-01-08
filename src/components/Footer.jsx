@@ -7,7 +7,7 @@ import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 import { useHashNavigation } from '../utils/hashNavigation'
 
 const Footer = () => {
-  const whatsappNumber = "919590926068"
+  const whatsappNumber = "+15558136145"
   const handleWhatsAppClick = useWhatsAppClick()
   const { handleHashClick } = useHashNavigation()
 

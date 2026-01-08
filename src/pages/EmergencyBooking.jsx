@@ -5,7 +5,7 @@ import SEO from '../components/SEO'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 
 const EmergencyBooking = () => {
-  const whatsappNumber = "919590926068"
+  const whatsappNumber = "+15558136145"
   const handleWhatsAppClick = useWhatsAppClick()
   const features = [
     { icon: '⚡', text: 'Service in 20–40 minutes' },

@@ -53,7 +53,7 @@ const PaymentResult = () => {
   const handleContactSupport = () => {
     const message = `Hi! I need help with my payment. ${type === 'quotation' ? `Quotation ID: ${quotationId || 'N/A'}. ` : ''}Transaction ID: ${txnid || 'N/A'}. Status: ${status}. ${reason || error ? `Reason: ${reason || error}` : ''}`;
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/919590926068?text=${encodedMessage}`;
+    const whatsappUrl = `https://wa.aisensy.com/+15558136145?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
   };
 

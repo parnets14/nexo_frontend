@@ -442,7 +442,7 @@ const ManualPartnerRegistration = () => {
       })
 
       console.log('Submitting partner registration...')
-      const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'https://nexo.works'
+      const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'https://nexo-backend-testing.onrender.com'
       console.log('API URL:', apiUrl)
       
       const response = await fetch(`${apiUrl}/api/admin/partners/manual-register`, {

@@ -21,7 +21,7 @@ import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 const NotFound = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const whatsappNumber = "919590926068"
+  const whatsappNumber = "+15558136145"
   const handleWhatsAppClick = useWhatsAppClick()
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [timeOnPage, setTimeOnPage] = useState(0)

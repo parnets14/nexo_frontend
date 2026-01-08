@@ -15,7 +15,7 @@ const Navbar = () => {
   const navigate = useNavigate()
   const { handleHashClick } = useHashNavigation()
   const { user, isAuthenticated, logout } = useUserAuth()
-  const whatsappNumber = "919590926068"
+  const whatsappNumber = "+15558136145"
 
   // Debug: Log user state changes
   useEffect(() => {

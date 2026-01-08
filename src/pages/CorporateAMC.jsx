@@ -28,7 +28,7 @@ import { useUserAuth } from '../context/UserAuthContext';
 import { getIconComponent } from '../utils/iconMapper';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
+  (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin);
 
 const CorporateAMC = () => {
   const [amcPlans, setAmcPlans] = useState([]);
@@ -41,7 +41,7 @@ const CorporateAMC = () => {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [selectedServices, setSelectedServices] = useState([]);
   const [expandedCards, setExpandedCards] = useState({});
-  const whatsappNumber = "919590926068";
+  const whatsappNumber = "+15558136145";
   const navigate = useNavigate();
   const { isAuthenticated, user } = useUserAuth();
 
@@ -180,7 +180,7 @@ const CorporateAMC = () => {
     }
     
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+    const whatsappUrl = `https://wa.aisensy.com/${whatsappNumber}?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
   };
 

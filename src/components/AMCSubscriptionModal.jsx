@@ -24,7 +24,7 @@ import { useUserAuth } from '../context/UserAuthContext';
 import '../styles/modal-layers.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
+  (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin);
 
 const AMCSubscriptionModal = ({ 
   isOpen, 
@@ -41,7 +41,7 @@ const AMCSubscriptionModal = ({
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentPlan, setPaymentPlan] = useState(null);
-  const whatsappNumber = "919590926068";
+  const whatsappNumber = "+15558136145";
 
   // Fetch AMC plans from backend
   useEffect(() => {
@@ -148,7 +148,7 @@ const AMCSubscriptionModal = ({
     message += `\n\nPlease provide more details about this plan and help me get started.`;
     
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+    const whatsappUrl = `https://wa.aisensy.com/${whatsappNumber}?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
   };
 

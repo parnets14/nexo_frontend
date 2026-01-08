@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin)
 
 const buildUrl = (path) => {
   if (path.startsWith('/api/')) {
@@ -128,6 +128,15 @@ export const userApi = {
       method: 'PUT',
       headers,
       body: formData
+    })
+    return handleResponse(response)
+  },
+
+  async updateProfileData(token, profileData) {
+    const response = await fetch(buildUrl('/profile'), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(profileData)
     })
     return handleResponse(response)
   },

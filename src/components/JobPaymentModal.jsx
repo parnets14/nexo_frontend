@@ -57,7 +57,7 @@ const JobPaymentModal = ({
   const fetchWalletBalance = async () => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-        (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
+        (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin);
       
       const response = await fetch(`${API_BASE_URL}/api/partner/getWalletbypartner`, {
         headers: {
@@ -89,7 +89,7 @@ const JobPaymentModal = ({
 
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-        (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
+        (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin);
 
       const response = await fetch(`${API_BASE_URL}/api/partner/jobs/${booking._id || booking.bookingId}/complete-payment`, {
         method: 'POST',

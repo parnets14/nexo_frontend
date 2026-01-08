@@ -6,7 +6,7 @@ import { useUserAuth } from '../../context/UserAuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CustomAlert from '../../components/CustomAlert';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://nexo.works';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://nexo-backend-testing.onrender.com';
 
 const MySubscriptions = () => {
   const { user } = useUserAuth();

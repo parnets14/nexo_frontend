@@ -97,13 +97,21 @@ const UserLogin = () => {
         localStorage.setItem('userToken', response.token);
         await checkAuth(); // Update auth context
         
-        // Check for redirect URL
-        const redirectUrl = localStorage.getItem('redirectAfterLogin');
-        if (redirectUrl) {
-          localStorage.removeItem('redirectAfterLogin');
-          navigate(redirectUrl, { replace: true });
+        // Check if profile is complete
+        if (response.isProfileComplete === false) {
+          // Show a brief message before redirecting
+          setLocalError(null);
+          // Redirect to profile completion page for new users
+          navigate('/user/complete-profile', { replace: true });
         } else {
-          navigate('/user/dashboard', { replace: true });
+          // Check for redirect URL
+          const redirectUrl = localStorage.getItem('redirectAfterLogin');
+          if (redirectUrl) {
+            localStorage.removeItem('redirectAfterLogin');
+            navigate(redirectUrl, { replace: true });
+          } else {
+            navigate('/user/dashboard', { replace: true });
+          }
         }
       } else {
         setLocalError('Invalid OTP. Please try again.');

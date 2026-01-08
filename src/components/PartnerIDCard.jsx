@@ -247,7 +247,7 @@ const PartnerIDCard = ({ profile, partner, onClose }) => {
   const partnerEmail = profile?.email || partner?.profile?.email || 'N/A'
   const profilePicture = profile?.profilePicture || partner?.profilePicture || null
   const profileImageUrl = profilePicture 
-    ? (profilePicture.startsWith('http') ? profilePicture : `https://nexo.works/uploads/profiles/${profilePicture}`)
+    ? (profilePicture.startsWith('http') ? profilePicture : `https://nexo-backend-testing.onrender.com/uploads/profiles/${profilePicture}`)
     : null
   const isVerified = profile?.kyc?.status === 'approved' || profile?.kyc?.status === 'verified'
 

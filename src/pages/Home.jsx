@@ -53,10 +53,10 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin)
 
 const Home = () => {
-  const whatsappNumber = "919590926068"
+  const whatsappNumber = "+15558136145"
   const handleWhatsAppClick = useWhatsAppClick()
   const navigate = useNavigate()
   const { isAuthenticated, user } = useUserAuth()
@@ -220,7 +220,7 @@ const Home = () => {
   useEffect(() => {
     const fetchFeaturedReviews = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo-backend-testing.onrender.com'
         const response = await fetch(`${apiUrl}/api/public/featured-reviews`)
         const data = await response.json()
         

@@ -5,7 +5,7 @@ import SEO from '../components/SEO'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 
 const MaterialStore = () => {
-  const whatsappNumber = "919590926068"
+  const whatsappNumber = "+15558136145"
   const handleWhatsAppClick = useWhatsAppClick()
   const [materialCategories, setMaterialCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -14,7 +14,7 @@ const MaterialStore = () => {
   useEffect(() => {
     const fetchMaterialCategories = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo-backend-testing.onrender.com'
         const response = await fetch(`${apiUrl}/api/public/material-categories`)
         const data = await response.json()
         

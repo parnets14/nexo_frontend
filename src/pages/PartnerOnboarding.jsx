@@ -37,7 +37,7 @@ const PartnerOnboarding = () => {
     const fetchPlans = async () => {
       try {
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-          (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+          (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin)
         const response = await fetch(`${API_BASE_URL}/api/partner/mg-plans/public`, {
           method: 'GET',
           headers: {

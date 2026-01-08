@@ -69,6 +69,7 @@ import UserLayout from './layouts/user/UserLayout.jsx'
 import RequireUserAuth from './layouts/user/RequireUserAuth.jsx'
 import UserLogin from './pages/UserLogin.jsx'
 import UserRegister from './pages/UserRegister.jsx'
+import CompleteProfile from './pages/CompleteProfile.jsx'
 import PaymentResult from './pages/PaymentResult.jsx'
 import TestPayment from './pages/TestPayment.jsx'
 import TestPartnerWalletPayment from './pages/TestPartnerWalletPayment.jsx'
@@ -120,6 +121,7 @@ function App() {
         <Route path="/user/login" element={<UserLogin />} />
         <Route path="/user-login" element={<UserLogin />} />
         <Route path="/user/register" element={<UserRegister />} />
+        <Route path="/user/complete-profile" element={<CompleteProfile />} />
 
         <Route element={<RequireAdminAuth />}>
           <Route element={<AdminLayout />}>

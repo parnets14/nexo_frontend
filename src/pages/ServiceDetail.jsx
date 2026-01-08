@@ -99,14 +99,14 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin)
 
 const ServiceDetail = () => {
   const { serviceName } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const isEmergency = searchParams.get('emergency') === 'true'
-  const whatsappNumber = "919590926068"
+  const whatsappNumber = "+15558136145"
   const handleWhatsAppClick = useWhatsAppClick()
   const { isAuthenticated, loading: authLoading, user } = useUserAuth()
 

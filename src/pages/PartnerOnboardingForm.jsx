@@ -27,7 +27,6 @@ import {
 import SEO from '../components/SEO'
 import { partnerApi } from '../services/partnerApi'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
-import { useComingSoon } from '../contexts/ComingSoonContext'
 import PayUPayment from '../components/PayUPayment'
 
 const trades = [
@@ -646,9 +645,8 @@ const PartnerOnboardingForm = () => {
   const [showCamera, setShowCamera] = useState(false) // Show/hide camera
   const [stream, setStream] = useState(null) // Camera stream
   const [videoReady, setVideoReady] = useState(false) // Track if video is ready
-  const whatsappNumber = '919590926068'
+  const whatsappNumber = '+15558136145'
   const handleWhatsAppClick = useWhatsAppClick()
-  const { openDialog: openComingSoon } = useComingSoon()
   const [payuPaymentData, setPayuPaymentData] = useState(null) // PayU payment data
   const [processingPayment, setProcessingPayment] = useState(false) // Payment processing state
 
@@ -773,7 +771,7 @@ const PartnerOnboardingForm = () => {
           setError(null)
           
           // Verify payment status with backend
-          const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo.works'
+          const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo-backend-testing.onrender.com'
           console.log('🔍 Verifying payment with:', `${apiUrl}/api/payu/payment-status/${txnid}`)
           
           const response = await fetch(`${apiUrl}/api/payu/payment-status/${txnid}`, {
@@ -1343,7 +1341,7 @@ const PartnerOnboardingForm = () => {
           setLoadingLeadPlans(true)
           try {
             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-              (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+              (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin)
             
             // First check if partner already has an active lead plan
             if (token) {
@@ -1947,8 +1945,10 @@ const PartnerOnboardingForm = () => {
   }
 
   const handlePayment = () => {
-    // Show coming soon dialog instead of opening WhatsApp
-    openComingSoon()
+    // Redirect to WhatsApp for payment assistance
+    const message = "Hi, I need help with partner registration payment."
+    const whatsappUrl = `https://wa.aisensy.com/+15558136145?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
   }
 
   const handleCompletePayment = async () => {
@@ -2238,7 +2238,7 @@ const PartnerOnboardingForm = () => {
       const totalAmount = formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)
       
       // Call backend to initiate PayU payment
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo.works'
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo-backend-testing.onrender.com'
       console.log('Calling PayU API:', `${apiUrl}/api/payu/initiate-payment`)
       const response = await fetch(`${apiUrl}/api/payu/initiate-payment`, {
         method: 'POST',
@@ -4788,9 +4788,11 @@ const PartnerOnboardingForm = () => {
                         }
                       }
                       
-                      // Show coming soon dialog for payment (if not from leads)
+                      // Redirect to WhatsApp for payment assistance (if not from leads)
                       if (!fromLeads) {
-                        openComingSoon()
+                        const message = "Hi, I need help with partner plan subscription payment."
+                        const whatsappUrl = `https://wa.aisensy.com/+15558136145?text=${encodeURIComponent(message)}`
+                        window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
                       }
                       
                       // Stay on same step to show success message
@@ -5116,7 +5118,7 @@ const PartnerOnboardingForm = () => {
                           
                           try {
                             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-                              (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+                              (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin)
                             
                             const response = await fetch(`${API_BASE_URL}/api/partner/lead-plans/subscribe`, {
                               method: 'POST',
@@ -5665,7 +5667,7 @@ const PartnerOnboardingForm = () => {
                           
                           try {
                             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-                              (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+                              (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin)
                             
                             const response = await fetch(`${API_BASE_URL}/api/partner/lead-plans/subscribe`, {
                               method: 'POST',

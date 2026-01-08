@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { usePartnerAuth } from '../../../context/PartnerAuthContext.jsx'
 import { partnerApi } from '../../../services/partnerApi.js'
 import { FiCreditCard, FiCheck, FiX, FiRefreshCw, FiCalendar, FiTarget, FiTrendingUp } from 'react-icons/fi'
+import PayUPayment from '../../../components/PayUPayment.jsx'
 
 const SubscriptionPlanTab = () => {
   const { token, partner } = usePartnerAuth()
@@ -11,10 +12,53 @@ const SubscriptionPlanTab = () => {
   const [availableLeadPlans, setAvailableLeadPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [paymentData, setPaymentData] = useState(null)
+  const [showPayment, setShowPayment] = useState(false)
 
   useEffect(() => {
     fetchPlans()
   }, [token])
+
+  // Listen for payment completion when user returns from PayU
+  useEffect(() => {
+    const handlePaymentReturn = () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const paymentStatus = urlParams.get('payment')
+      const paymentType = urlParams.get('type')
+      const paymentAction = urlParams.get('action')
+      const tab = urlParams.get('tab')
+      
+      if (paymentStatus && paymentType && tab === 'subscription') {
+        if (paymentStatus === 'success') {
+          if (paymentType === 'mgplan') {
+            if (paymentAction === 'renewal') {
+              alert('MG Plan renewal successful! Your plan has been extended.')
+            } else {
+              alert('MG Plan subscription successful! Your plan is now active.')
+            }
+          } else if (paymentType === 'leadplan') {
+            if (paymentAction === 'renewal') {
+              alert('Lead Plan renewal successful! Your plan has been extended.')
+            } else {
+              alert('Lead Plan subscription successful! Your plan is now active.')
+            }
+          }
+          // Clear URL parameters
+          window.history.replaceState({}, document.title, window.location.pathname)
+          // Refresh plans
+          fetchPlans()
+        } else if (paymentStatus === 'failed') {
+          const reason = urlParams.get('reason')
+          const actionText = paymentAction === 'renewal' ? 'renewal' : 'subscription'
+          setError(`Payment failed for ${paymentType} ${actionText}: ${reason || 'Unknown error'}. Please try again.`)
+          // Clear URL parameters
+          window.history.replaceState({}, document.title, window.location.pathname)
+        }
+      }
+    }
+
+    handlePaymentReturn()
+  }, [])
 
   const fetchPlans = async () => {
     if (!token) return
@@ -65,13 +109,24 @@ const SubscriptionPlanTab = () => {
     if (!token) return
 
     try {
-      const response = await partnerApi.subscribeToPlan(token, planId)
-      if (response.success) {
-        alert('Successfully subscribed to plan!')
-        fetchPlans()
+      setLoading(true)
+      setError(null)
+      
+      // Initiate PayU payment for MG plan
+      const response = await partnerApi.initiateMGPlanPayment(token, planId)
+      
+      if (response.success && response.data) {
+        console.log('PayU payment data received:', response.data)
+        setPaymentData(response.data)
+        setShowPayment(true)
+      } else {
+        throw new Error(response.message || 'Failed to initiate payment')
       }
     } catch (err) {
-      alert(err.message || 'Failed to subscribe to plan')
+      console.error('Subscribe error:', err)
+      setError(err.message || 'Failed to initiate payment. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -79,13 +134,24 @@ const SubscriptionPlanTab = () => {
     if (!token) return
 
     try {
+      setLoading(true)
+      setError(null)
+      
+      // Initiate PayU payment for MG plan renewal
       const response = await partnerApi.renewPlan(token)
-      if (response.success) {
-        alert('Plan renewed successfully!')
-        fetchPlans()
+      
+      if (response.success && response.data) {
+        console.log('PayU renewal payment data received:', response.data)
+        setPaymentData(response.data)
+        setShowPayment(true)
+      } else {
+        throw new Error(response.message || 'Failed to initiate renewal payment')
       }
     } catch (err) {
-      alert(err.message || 'Failed to renew plan')
+      console.error('Renew error:', err)
+      setError(err.message || 'Failed to initiate renewal payment. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -93,13 +159,24 @@ const SubscriptionPlanTab = () => {
     if (!token) return
 
     try {
-      const response = await partnerApi.subscribeToLeadPlan(token, planId)
-      if (response.success) {
-        alert('Successfully subscribed to lead plan!')
-        fetchPlans()
+      setLoading(true)
+      setError(null)
+      
+      // Initiate PayU payment for Lead plan
+      const response = await partnerApi.initiateLeadPlanPayment(token, planId)
+      
+      if (response.success && response.data) {
+        console.log('PayU payment data received:', response.data)
+        setPaymentData(response.data)
+        setShowPayment(true)
+      } else {
+        throw new Error(response.message || 'Failed to initiate payment')
       }
     } catch (err) {
-      alert(err.message || 'Failed to subscribe to lead plan')
+      console.error('Subscribe to lead plan error:', err)
+      setError(err.message || 'Failed to initiate payment. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -107,14 +184,40 @@ const SubscriptionPlanTab = () => {
     if (!token) return
 
     try {
+      setLoading(true)
+      setError(null)
+      
+      // Initiate PayU payment for Lead plan renewal
       const response = await partnerApi.renewLeadPlan(token)
-      if (response.success) {
-        alert('Lead plan renewed successfully!')
-        fetchPlans()
+      
+      if (response.success && response.data) {
+        console.log('PayU lead plan renewal payment data received:', response.data)
+        setPaymentData(response.data)
+        setShowPayment(true)
+      } else {
+        throw new Error(response.message || 'Failed to initiate lead plan renewal payment')
       }
     } catch (err) {
-      alert(err.message || 'Failed to renew lead plan')
+      console.error('Renew lead plan error:', err)
+      setError(err.message || 'Failed to initiate lead plan renewal payment. Please try again.')
+    } finally {
+      setLoading(false)
     }
+  }
+
+  const handlePaymentSuccess = () => {
+    setShowPayment(false)
+    setPaymentData(null)
+    // Refresh plans to show updated subscription
+    setTimeout(() => {
+      fetchPlans()
+    }, 2000) // Wait a bit for payment processing
+  }
+
+  const handlePaymentFailure = () => {
+    setShowPayment(false)
+    setPaymentData(null)
+    setError('Payment was cancelled or failed. Please try again.')
   }
 
   if (loading) {
@@ -211,9 +314,17 @@ const SubscriptionPlanTab = () => {
               {currentPlan.daysUntilRenewal !== undefined && currentPlan.daysUntilRenewal <= 7 && (
                 <button
                   onClick={handleRenew}
-                  className="mt-3 sm:mt-4 w-full py-2 bg-white text-primary rounded-lg text-sm sm:text-base font-semibold hover:bg-white/90 transition"
+                  disabled={loading}
+                  className="mt-3 sm:mt-4 w-full py-2 bg-white text-primary rounded-lg text-sm sm:text-base font-semibold hover:bg-white/90 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Renew Plan
+                  {loading ? (
+                    <>
+                      <FiRefreshCw className="animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Renew Plan'
+                  )}
                 </button>
               )}
             </div>
@@ -227,50 +338,66 @@ const SubscriptionPlanTab = () => {
         </div>
       )}
 
-      {/* Available Plans */}
-      {!currentPlan && (
-        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-800">Available Plans</h2>
-            {partner?.partnerType && (
-              <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
-                partner.partnerType === 'individual' 
-                  ? 'bg-slate-100 text-slate-700' 
-                  : 'bg-purple-100 text-purple-700'
-              }`}>
-                {partner.partnerType === 'individual' ? '👤 Individual' : '🏢 Franchise'}
-              </span>
-            )}
+      {/* Available Plans - Show always, not just when no current plan */}
+      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800">
+            {currentPlan ? 'Upgrade/Change Plan' : 'Available Plans'}
+          </h2>
+          {partner?.partnerType && (
+            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
+              partner.partnerType === 'individual' 
+                ? 'bg-slate-100 text-slate-700' 
+                : 'bg-purple-100 text-purple-700'
+            }`}>
+              {partner.partnerType === 'individual' ? '👤 Individual' : '🏢 Franchise'}
+            </span>
+          )}
+        </div>
+        {error ? (
+          <div className="text-center text-red-600 py-8">{error}</div>
+        ) : availablePlans.length === 0 ? (
+          <div className="text-center text-slate-500 py-8">
+            <FiCreditCard className="text-4xl mx-auto mb-2 opacity-50" />
+            <p>No plans available for your partner type</p>
           </div>
-          {error ? (
-            <div className="text-center text-red-600 py-8">{error}</div>
-          ) : availablePlans.length === 0 ? (
-            <div className="text-center text-slate-500 py-8">
-              <FiCreditCard className="text-4xl mx-auto mb-2 opacity-50" />
-              <p>No plans available</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {availablePlans.map((plan, index) => (
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {availablePlans.map((plan, index) => {
+              const isCurrentPlan = currentPlan && currentPlan.plan && 
+                (currentPlan.plan._id === plan._id || currentPlan.plan._id === plan.id);
+              
+              return (
                 <div
                   key={index}
-                  className="border-2 border-slate-200 rounded-xl p-4 sm:p-6 hover:border-primary transition"
+                  className={`border-2 rounded-xl p-4 sm:p-6 transition ${
+                    isCurrentPlan 
+                      ? 'border-primary bg-primary/5' 
+                      : 'border-slate-200 hover:border-primary'
+                  }`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="text-lg sm:text-xl font-bold text-slate-800">{plan.name || 'Plan'}</h3>
-                    {plan.partnerType && (
-                      <span className={`text-xs px-2 py-1 rounded-full font-semibold flex-shrink-0 ${
-                        plan.partnerType === 'individual' 
-                          ? 'bg-slate-100 text-slate-700' 
-                          : plan.partnerType === 'franchise' 
-                          ? 'bg-purple-100 text-purple-700' 
-                          : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {plan.partnerType === 'individual' ? '👤 Individual' : 
-                         plan.partnerType === 'franchise' ? '🏢 Franchise' : 
-                         '👥 Both'}
-                      </span>
-                    )}
+                    <div className="flex flex-col gap-1">
+                      {plan.partnerType && (
+                        <span className={`text-xs px-2 py-1 rounded-full font-semibold flex-shrink-0 ${
+                          plan.partnerType === 'individual' 
+                            ? 'bg-slate-100 text-slate-700' 
+                            : plan.partnerType === 'franchise' 
+                            ? 'bg-purple-100 text-purple-700' 
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {plan.partnerType === 'individual' ? '👤 Individual' : 
+                           plan.partnerType === 'franchise' ? '🏢 Franchise' : 
+                           '👥 Both'}
+                        </span>
+                      )}
+                      {isCurrentPlan && (
+                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-semibold">
+                          Current
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-2xl sm:text-3xl font-bold text-primary mb-3 sm:mb-4">
                     ₹{plan.price?.toLocaleString('en-IN') || 0}
@@ -288,19 +415,49 @@ const SubscriptionPlanTab = () => {
                       <FiCheck className="text-green-600 flex-shrink-0" />
                       Commission: {plan.commission || 0}%
                     </li>
+                    {plan.validityMonths && (
+                      <li className="flex items-center gap-2 text-sm sm:text-base text-slate-600">
+                        <FiCheck className="text-green-600 flex-shrink-0" />
+                        Valid for {plan.validityMonths} month{plan.validityMonths > 1 ? 's' : ''}
+                      </li>
+                    )}
+                    {plan.features && plan.features.length > 0 && (
+                      plan.features.slice(0, 2).map((feature, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-sm sm:text-base text-slate-600">
+                          <FiCheck className="text-green-600 flex-shrink-0" />
+                          {feature}
+                        </li>
+                      ))
+                    )}
                   </ul>
                   <button
                     onClick={() => handleSubscribe(plan._id || plan.id)}
-                    className="w-full py-2.5 sm:py-3 bg-primary text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-primary-dark transition"
+                    disabled={isCurrentPlan || loading}
+                    className={`w-full py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold transition flex items-center justify-center gap-2 ${
+                      isCurrentPlan
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        : loading
+                        ? 'bg-primary/70 text-white cursor-not-allowed'
+                        : 'bg-primary text-white hover:bg-primary-dark'
+                    }`}
                   >
-                    Subscribe Now
+                    {loading ? (
+                      <>
+                        <FiRefreshCw className="animate-spin" />
+                        Processing...
+                      </>
+                    ) : isCurrentPlan ? (
+                      'Current Plan'
+                    ) : (
+                      'Subscribe Now'
+                    )}
                   </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
       </div>
 
       {/* Lead Plan Section */}
@@ -393,9 +550,17 @@ const SubscriptionPlanTab = () => {
                 {currentLeadPlan.subscription?.isExpired === false && currentLeadPlan.subscription?.expiresAt && (
                   <button
                     onClick={handleRenewLeadPlan}
-                    className="mt-3 sm:mt-4 w-full py-2 bg-white text-green-600 rounded-lg text-sm sm:text-base font-semibold hover:bg-white/90 transition"
+                    disabled={loading}
+                    className="mt-3 sm:mt-4 w-full py-2 bg-white text-green-600 rounded-lg text-sm sm:text-base font-semibold hover:bg-white/90 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Renew Lead Plan
+                    {loading ? (
+                      <>
+                        <FiRefreshCw className="animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Renew Lead Plan'
+                    )}
                   </button>
                 )}
               </div>
@@ -409,31 +574,47 @@ const SubscriptionPlanTab = () => {
           </div>
         )}
 
-        {/* Available Lead Plans */}
-        {(!currentLeadPlan || !currentLeadPlan.currentPlan) && (
-          <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <h3 className="text-lg sm:text-xl font-bold text-slate-800">Available Lead Plans</h3>
+        {/* Available Lead Plans - Show always, not just when no current plan */}
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-slate-200">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-800">
+              {currentLeadPlan && currentLeadPlan.currentPlan ? 'Upgrade/Change Lead Plan' : 'Available Lead Plans'}
+            </h3>
+          </div>
+          {error ? (
+            <div className="text-center text-red-600 py-8">{error}</div>
+          ) : availableLeadPlans.length === 0 ? (
+            <div className="text-center text-slate-500 py-8">
+              <FiTarget className="text-4xl mx-auto mb-2 opacity-50" />
+              <p>No lead plans available</p>
             </div>
-            {error ? (
-              <div className="text-center text-red-600 py-8">{error}</div>
-            ) : availableLeadPlans.length === 0 ? (
-              <div className="text-center text-slate-500 py-8">
-                <FiTarget className="text-4xl mx-auto mb-2 opacity-50" />
-                <p>No lead plans available</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {availableLeadPlans.map((plan, index) => (
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {availableLeadPlans.map((plan, index) => {
+                const isCurrentLeadPlan = currentLeadPlan && currentLeadPlan.currentPlan && 
+                  (currentLeadPlan.currentPlan._id === plan._id || currentLeadPlan.currentPlan._id === plan.id);
+                
+                return (
                   <div
                     key={index}
-                    className="border-2 border-slate-200 rounded-xl p-4 sm:p-6 hover:border-green-500 transition"
+                    className={`border-2 rounded-xl p-4 sm:p-6 transition ${
+                      isCurrentLeadPlan 
+                        ? 'border-green-500 bg-green-50' 
+                        : 'border-slate-200 hover:border-green-500'
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="text-lg sm:text-xl font-bold text-slate-800">{plan.name || 'Lead Plan'}</h4>
-                      <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-semibold flex-shrink-0">
-                        Leads
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-semibold flex-shrink-0">
+                          Leads
+                        </span>
+                        {isCurrentLeadPlan && (
+                          <span className="text-xs px-2 py-1 bg-green-200 text-green-800 rounded-full font-semibold">
+                            Current
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-2xl sm:text-3xl font-bold text-green-600 mb-3 sm:mb-4">
                       ₹{plan.price?.toLocaleString('en-IN') || 0}
@@ -451,20 +632,53 @@ const SubscriptionPlanTab = () => {
                         <FiCheck className="text-green-600 flex-shrink-0" />
                         {plan.leadQuality || 'Premium'} lead quality
                       </li>
+                      {plan.features && plan.features.length > 0 && (
+                        plan.features.slice(0, 2).map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-sm sm:text-base text-slate-600">
+                            <FiCheck className="text-green-600 flex-shrink-0" />
+                            {feature}
+                          </li>
+                        ))
+                      )}
                     </ul>
                     <button
                       onClick={() => handleSubscribeToLeadPlan(plan._id || plan.id)}
-                      className="w-full py-2.5 sm:py-3 bg-green-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-green-700 transition"
+                      disabled={isCurrentLeadPlan || loading}
+                      className={`w-full py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold transition flex items-center justify-center gap-2 ${
+                        isCurrentLeadPlan
+                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                          : loading
+                          ? 'bg-green-600/70 text-white cursor-not-allowed'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
                     >
-                      Subscribe Now
+                      {loading ? (
+                        <>
+                          <FiRefreshCw className="animate-spin" />
+                          Processing...
+                        </>
+                      ) : isCurrentLeadPlan ? (
+                        'Current Plan'
+                      ) : (
+                        'Subscribe Now'
+                      )}
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
+      
+      {/* PayU Payment Modal */}
+      {showPayment && paymentData && (
+        <PayUPayment
+          paymentData={paymentData}
+          onSuccess={handlePaymentSuccess}
+          onFailure={handlePaymentFailure}
+        />
+      )}
     </div>
   )
 }

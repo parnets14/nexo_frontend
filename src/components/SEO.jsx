@@ -10,7 +10,7 @@ const SEO = ({
   type = "website"
 }) => {
   const fullTitle = title.includes("Nexo") ? title : `${title} | Nexo`
-  const siteUrl = "https://nexo.works" // Updated domain
+  const siteUrl = "https://nexo-backend-testing.onrender.com" // Updated domain
   const fullUrl = url ? `${siteUrl}${url}` : siteUrl
   const fullImage = image.startsWith("http") ? image : `${siteUrl}${image}`
 
