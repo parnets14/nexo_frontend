@@ -64,7 +64,7 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
             <NotificationBell />
             {partner?.profilePicture ? (
               <img
-                src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo-backend-testing.onrender.com/uploads/profiles/${partner.profilePicture}`}
+                src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo.works/uploads/profiles/${partner.profilePicture}`}
                 alt={partnerName}
                 className="w-10 h-10 rounded-full object-cover border-2 border-primary/20"
               />
@@ -90,7 +90,7 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
             <div className="flex items-center gap-3">
               {partner?.profilePicture ? (
                 <img
-                  src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo-backend-testing.onrender.com/uploads/profiles/${partner.profilePicture}`}
+                  src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo.works/uploads/profiles/${partner.profilePicture}`}
                   alt={partnerName}
                   className="w-12 h-12 rounded-full object-cover border-2 border-primary/20"
                 />
@@ -153,7 +153,7 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
                 <div className="flex items-center gap-3 bg-gradient-to-br from-primary/5 to-primary/10 p-3 rounded-lg">
                   {partner?.profilePicture ? (
                     <img
-                      src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo-backend-testing.onrender.com/uploads/profiles/${partner.profilePicture}`}
+                      src={partner.profilePicture.startsWith('http') ? partner.profilePicture : `https://nexo.works/uploads/profiles/${partner.profilePicture}`}
                       alt={partnerName}
                       className="w-10 h-10 rounded-full object-cover border-2 border-primary/20"
                     />

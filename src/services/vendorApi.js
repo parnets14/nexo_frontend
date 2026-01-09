@@ -1,7 +1,7 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   import.meta.env.VITE_VENDOR_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo-backend-testing.onrender.com' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const buildUrl = (path) => {
   if (path.startsWith('/api/')) {

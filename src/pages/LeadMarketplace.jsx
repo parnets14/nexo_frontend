@@ -33,7 +33,7 @@ const LeadMarketplace = () => {
     const fetchCategories = async () => {
       setLoadingCategories(true)
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo-backend-testing.onrender.com'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
         const response = await fetch(`${apiUrl}/api/public/service-hierarchy`)
         const data = await response.json()
         
@@ -116,7 +116,7 @@ const LeadMarketplace = () => {
 
     setSubmitting(true)
     try {
-      const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo-backend-testing.onrender.com'
+      const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
       const response = await fetch(`${apiUrl}/api/public/submit-service-enquiry`, {
         method: 'POST',
         headers: {

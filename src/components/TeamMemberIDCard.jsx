@@ -325,7 +325,7 @@ const TeamMemberIDCard = ({ member, partner, onClose }) => {
   const profilePicture = member.profilePicture 
     ? (member.profilePicture.startsWith('http') 
         ? member.profilePicture 
-        : `https://nexo-backend-testing.onrender.com/${member.profilePicture}`)
+        : `https://nexo.works/${member.profilePicture}`)
     : null
   const isVerified = member.kyc?.status === 'approved' || member.status === 'active'
 

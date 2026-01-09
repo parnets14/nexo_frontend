@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://nexo-backend-testing.onrender.com',
+        target: 'https://nexo.works',
         changeOrigin: true,
         secure: false
       }
