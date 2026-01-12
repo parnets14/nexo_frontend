@@ -170,7 +170,7 @@ const CompactInvoice = ({ invoiceData, onPrint }) => {
           <div className="text-xs text-gray-600 space-y-0.5">
             <p>
               For queries: <span className="text-blue-600">{companyDetails?.email || 'support@nexo.works'}</span> | 
-              <span className="text-blue-600"> {companyDetails?.phone || '+91-9740016068'}</span> | 
+              {/* <span className="text-blue-600"> {companyDetails?.phone || '+91-9740016068'}</span> |  */}
               <span className="text-blue-600"> {companyDetails?.website || 'www.nexo.works'}</span>
             </p>
             <p className="text-xs text-gray-500">

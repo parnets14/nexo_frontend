@@ -138,7 +138,7 @@ const SinglePageInvoice = ({ invoiceData, onPrint }) => {
         <div className="text-center border-t pt-1">
           <h3 className="font-semibold text-xs mb-1">Thank You for Choosing Our Services!</h3>
           <div className="text-xs text-gray-600">
-            <p>For queries: <span className="text-blue-600">{companyDetails?.email || 'support@nexo.works'}</span> | <span className="text-blue-600">{companyDetails?.phone || '+91-9740016068'}</span></p>
+            <p>For queries: <span className="text-blue-600">{companyDetails?.email || 'support@nexo.works'}</span> </p>
             <p className="text-xs text-gray-500 mt-0.5">Computer-generated invoice. No signature required. Subject to Bengaluru jurisdiction.</p>
           </div>
         </div>

@@ -59,9 +59,14 @@ const InvoicePage = () => {
         console.log('  - scheduledTime:', bookingData?.scheduledTime);
         console.log('  - serviceName:', bookingData?.serviceName);
         console.log('  - totalAmount:', bookingData?.totalAmount);
+        console.log('  - quotations:', bookingData?.quotations);
+        console.log('  - acceptedQuotation:', bookingData?.acceptedQuotation);
         
         // Generate invoice from actual booking data only
         const invoice = generateInvoiceFromBooking(bookingData);
+        console.log('📋 Generated Invoice Data:', invoice);
+        console.log('📋 Invoice quotationDetails:', invoice?.quotationDetails);
+        console.log('📋 Invoice services:', invoice?.services);
         setInvoiceData(invoice);
       } catch (err) {
         setError('Failed to load booking data. Please check the booking ID and try again.');

@@ -256,20 +256,32 @@ const JobItemsTab = () => {
       <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Job</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {jobs.map((job) => (
+          {jobs.map((job) => {
+            const isEmergency = job.isEmergency === true;
+            return (
             <div
               key={job._id}
               onClick={() => setSelectedJob(job)}
               className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                 selectedJob?._id === job._id
                   ? 'border-blue-500 bg-blue-50'
+                  : isEmergency
+                  ? 'border-red-500 bg-red-50 border-l-4'
                   : 'border-slate-200 hover:border-slate-300'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-slate-900">
-                  {job.serviceType || 'Service'}
-                </span>
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="font-medium text-slate-900">
+                    {job.serviceType || 'Service'}
+                  </span>
+                  {isEmergency && (
+                    <span className="bg-red-600 text-white px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
+                      <FiAlertCircle className="w-3 h-3" />
+                      URGENT
+                    </span>
+                  )}
+                </div>
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                   job.status === 'accepted' ? 'bg-green-100 text-green-800' :
                   job.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
@@ -286,7 +298,7 @@ const JobItemsTab = () => {
                 {new Date(job.createdAt).toLocaleDateString()}
               </p>
             </div>
-          ))}
+          )})}
         </div>
       </div>
 

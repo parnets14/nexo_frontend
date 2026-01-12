@@ -65,6 +65,8 @@ export const generateInvoiceFromBooking = (booking) => {
   }
 
   console.log('📋 Processing booking data:', booking);
+  console.log('📋 Quotations in booking:', booking.quotations);
+  console.log('📋 Accepted quotation:', booking.acceptedQuotation);
 
   // Try multiple possible ID fields
   const possibleIds = [
@@ -122,6 +124,95 @@ export const generateInvoiceFromBooking = (booking) => {
     return fallback;
   };
 
+  // Check for accepted quotation
+  const quotation = booking.acceptedQuotation || 
+                    (booking.quotations && booking.quotations.find(q => q.customerStatus === 'accepted'));
+
+  // Build services array - include both booking service and quotation items
+  let services = [];
+  
+  // Add main booking service if exists
+  if (booking.serviceName || booking.service || booking.subService) {
+    services.push({
+      description: extractField(booking, [
+        'serviceName', 'service.name', 'subService.name', 'serviceType', 'category', 'title'
+      ], 'Service'),
+      quantity: 1,
+      rate: booking.amount || 0,
+      amount: booking.amount || 0,
+      type: 'service'
+    });
+  }
+
+  // Add quotation items if quotation exists and is accepted
+  if (quotation && quotation.customerStatus === 'accepted' && quotation.items) {
+    console.log('📋 Adding quotation items to invoice:', quotation.items.length);
+    quotation.items.forEach(item => {
+      services.push({
+        description: item.name,
+        details: item.description || 'Quotation item',
+        quantity: item.quantity || 1,
+        rate: item.unitPrice || 0,
+        amount: (item.quantity || 1) * (item.unitPrice || 0),
+        type: 'quotation_item',
+        category: item.category
+      });
+    });
+  }
+
+  // If no services were added, add a default service
+  if (services.length === 0) {
+    services = booking.services?.map(service => ({
+      description: safeString(service.name || service.description || service.serviceName || service.title, 'Service'),
+      quantity: service.quantity || 1,
+      rate: service.price || service.rate || service.amount || service.cost || 0,
+      amount: (service.quantity || 1) * (service.price || service.rate || service.amount || service.cost || 0)
+    })) || [
+      {
+        description: extractField(booking, [
+          'serviceName', 'service.name', 'serviceType', 'category', 'title'
+        ], 'Service'),
+        quantity: 1,
+        rate: booking.totalAmount || booking.amount || booking.price || booking.cost || 0,
+        amount: booking.totalAmount || booking.amount || booking.price || booking.cost || 0
+      }
+    ];
+  }
+
+  // Calculate totals and breakdown
+  const bookingAmount = booking.amount || 0;
+  const quotationAmount = quotation?.totalAmount || 0;
+  const totalAmount = booking.totalAmount || (bookingAmount + quotationAmount);
+  
+  // Extract price breakdown fields - check multiple possible locations
+  // First check direct booking fields, then check nested booking.booking
+  const bookingData = booking.booking || booking;
+  
+  const visitingCharge = bookingData.visitingCharge !== undefined ? bookingData.visitingCharge : 0;
+  const serviceCharge = bookingData.serviceCharge !== undefined ? bookingData.serviceCharge : 0;
+  let emergencyCharge = bookingData.emergencyCharge !== undefined ? bookingData.emergencyCharge : 0;
+  
+  // If booking is emergency but emergencyCharge is not set, try to extract from amount
+  // This is a fallback for bookings created before emergencyCharge field was added
+  if (bookingData.isEmergency && emergencyCharge === 0) {
+    // Check if there's an emergency service with extra amount
+    if (bookingData.popularService?.emergencyService?.extraAmount) {
+      emergencyCharge = bookingData.popularService.emergencyService.extraAmount;
+    } else if (bookingData.serviceData?.emergencyService?.extraAmount) {
+      emergencyCharge = bookingData.serviceData.emergencyService.extraAmount;
+    }
+    // If still 0, we'll show it as 0 but the field will be present
+  }
+  
+  const cgst = bookingData.cgst !== undefined ? bookingData.cgst : 9; // Default 9%
+  const sgst = bookingData.sgst !== undefined ? bookingData.sgst : 9; // Default 9%
+  const cgstAmount = bookingData.cgstAmount !== undefined ? bookingData.cgstAmount : 0;
+  const sgstAmount = bookingData.sgstAmount !== undefined ? bookingData.sgstAmount : 0;
+  const gstAmount = bookingData.gstAmount !== undefined ? bookingData.gstAmount : (cgstAmount + sgstAmount);
+  const subtotalBeforeTax = bookingData.subtotalBeforeTax !== undefined ? bookingData.subtotalBeforeTax : (booking.amount || 0)
+
+
+
   return {
     invoiceNumber: cleanInvoiceNumber,
     date: booking.createdAt || booking.bookingDate || booking.date || new Date().toISOString(),
@@ -163,21 +254,36 @@ export const generateInvoiceFromBooking = (booking) => {
         'postalCode', 'zip'
       ]) || '' // Empty string if not available
     },
-    services: booking.services?.map(service => ({
-      description: safeString(service.name || service.description || service.serviceName || service.title, 'Service'),
-      quantity: service.quantity || 1,
-      rate: service.price || service.rate || service.amount || service.cost || 0,
-      amount: (service.quantity || 1) * (service.price || service.rate || service.amount || service.cost || 0)
-    })) || [
-      {
-        description: extractField(booking, [
-          'serviceName', 'service.name', 'serviceType', 'category', 'title'
-        ], 'Service'),
-        quantity: 1,
-        rate: booking.totalAmount || booking.amount || booking.price || booking.cost || 0,
-        amount: booking.totalAmount || booking.amount || booking.price || booking.cost || 0
-      }
-    ],
+    partner: booking.partner ? {
+      name: extractField(booking, [
+        'partnerName', 'partner.profile.name', 'partner.name'
+      ], 'Partner Not Assigned'),
+      phone: extractField(booking, [
+        'partnerPhone', 'partner.profile.phone', 'partner.phone'
+      ], ''),
+      email: extractField(booking, [
+        'partner.profile.email', 'partner.email'
+      ], '')
+    } : null,
+    teamMember: booking.teamMember ? {
+      name: extractField(booking, [
+        'teamMember.name'
+      ], ''),
+      phone: extractField(booking, [
+        'teamMember.phone'
+      ], ''),
+      role: extractField(booking, [
+        'teamMember.role'
+      ], 'Technician')
+    } : null,
+    services: services,
+    quotationDetails: quotation ? {
+      quotationNumber: quotation.quotationNumber,
+      quotationDate: quotation.createdAt,
+      quotationAmount: quotation.totalAmount,
+      itemCount: quotation.items?.length || 0,
+      status: quotation.customerStatus
+    } : null,
     paymentDetails: {
       bookingId: cleanBookingId,
       serviceDate: booking.scheduledDate || booking.serviceDate || booking.appointmentDate || booking.date || new Date().toISOString(),
@@ -194,7 +300,21 @@ export const generateInvoiceFromBooking = (booking) => {
         'txnid', 'transactionId', 'paymentId', 'razorpayPaymentId', 
         'paymentDetails.transactionId', 'paymentDetails.txnid',
         'paymentTransactionId', 'orderId', 'referenceId'
-      ]) || '' // Empty string if not available
+      ]) || '', // Empty string if not available
+      amount: totalAmount,
+      bookingAmount: Number(bookingAmount),
+      quotationAmount: Number(quotationAmount),
+      totalAmount: Number(totalAmount),
+      // Price breakdown
+      visitingCharge: Number(visitingCharge),
+      serviceCharge: Number(serviceCharge),
+      emergencyCharge: Number(emergencyCharge),
+      subtotalBeforeTax: Number(subtotalBeforeTax),
+      cgst: Number(cgst),
+      sgst: Number(sgst),
+      cgstAmount: Number(cgstAmount),
+      sgstAmount: Number(sgstAmount),
+      gstAmount: Number(gstAmount)
     },
     companyDetails: {
       name: 'ParNets Software India PVT LTD',

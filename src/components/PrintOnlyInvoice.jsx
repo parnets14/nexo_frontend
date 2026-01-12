@@ -413,7 +413,7 @@ const PrintOnlyInvoice = ({ invoiceData }) => {
             <div className="footer-text">
               For any queries regarding this invoice, please contact us at{' '}
               <span className="footer-links">{companyDetails?.email || 'support@nexo.works'}</span>{' '}
-              or call <span className="footer-links">{companyDetails?.phone || '+91-9740016068'}</span>
+              {/* or call <span className="footer-links">{companyDetails?.phone || '+91-9740016068'}</span> */}
             </div>
             <div className="footer-text">
               Visit our website at{' '}

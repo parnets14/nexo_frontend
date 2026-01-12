@@ -20,6 +20,7 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
     status = 'CONFIRMED',
     customer = {},
     services = [],
+    quotationDetails = null,
     paymentDetails = {},
     companyDetails = {}
   } = invoiceData;
@@ -36,8 +37,69 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
     return String(value);
   };
 
+  // Helper function to format currency with 2 decimal places
+  const formatCurrency = (amount) => {
+    const num = Number(amount) || 0;
+    return num.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
   const subtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
-  const totalAmount = subtotal;
+  
+  // Debug logging for emergency bookings
+  if (invoiceData?.booking?.isEmergency) {
+    console.log('🚨 INVOICE COMPONENT - Emergency booking data:', {
+      isEmergency: invoiceData.booking.isEmergency,
+      emergencyType: invoiceData.booking.emergencyType,
+      emergencyCharge: paymentDetails?.emergencyCharge,
+      visitingCharge: paymentDetails?.visitingCharge,
+      serviceCharge: paymentDetails?.serviceCharge,
+      subtotalBeforeTax: paymentDetails?.subtotalBeforeTax,
+      paymentDetails: paymentDetails
+    });
+  }
+  
+  // Calculate the correct total amount
+  let totalAmount = subtotal;
+  
+  // If quotation exists, calculate total as booking amount + quotation amount
+  if (quotationDetails) {
+    const bookingAmt = Number(paymentDetails?.bookingAmount) || 0;
+    const quotationAmt = Number(paymentDetails?.quotationAmount) || 0;
+    
+    // If we have explicit amounts, use them
+    if (bookingAmt > 0 || quotationAmt > 0) {
+      totalAmount = bookingAmt + quotationAmt;
+      console.log('ProfessionalInvoice Total Calculation (with quotation):', {
+        bookingAmount: bookingAmt,
+        quotationAmount: quotationAmt,
+        calculatedTotal: totalAmount
+      });
+    } else {
+      // Fallback to paymentDetails.totalAmount or subtotal
+      if (paymentDetails?.totalAmount !== undefined && paymentDetails?.totalAmount !== null) {
+        totalAmount = Number(paymentDetails.totalAmount);
+      }
+    }
+  } else {
+    // No quotation - use paymentDetails.totalAmount or calculated subtotal
+    if (paymentDetails?.totalAmount !== undefined && paymentDetails?.totalAmount !== null) {
+      totalAmount = Number(paymentDetails.totalAmount);
+    }
+    
+    console.log('ProfessionalInvoice Total Calculation (no quotation):', {
+      paymentDetailsTotalAmount: paymentDetails?.totalAmount,
+      subtotal,
+      finalTotal: totalAmount
+    });
+  }
+  
+  // Ensure totalAmount is a valid number
+  if (isNaN(totalAmount) || totalAmount === 0) {
+    totalAmount = subtotal;
+  }
 
   return (
     <div className="w-full max-w-4xl mx-auto bg-white">
@@ -93,11 +155,11 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
           </div>
         </div>
 
-        {/* Bill To and Service Details Section */}
+        {/* Bill To, Partner, and Service Details Section */}
         <div className="grid grid-cols-2 gap-12 mb-8">
           {/* Bill To */}
           <div>
-            <h3 className="font-bold text-gray-800 mb-4 text-sm">BILL TO</h3>
+            <h3 className="font-bold text-gray-800 mb-4 text-sm">BILL TO (CUSTOMER)</h3>
             <div className="space-y-3">
               <div>
                 <p className="font-bold text-lg text-gray-800">{safeRender(customer?.name)}</p>
@@ -153,9 +215,64 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
           </div>
         </div>
 
+        {/* Partner Details Section */}
+        {invoiceData?.partner && (
+          <div className="mb-8 border-t-2 border-gray-200 pt-6">
+            <h3 className="font-bold text-gray-800 mb-4 text-sm">SERVICE PARTNER</h3>
+            <div className="grid grid-cols-2 gap-12">
+              <div className="space-y-2 text-sm text-gray-700">
+                <p><span className="font-medium">Partner Name:</span> {safeRender(invoiceData.partner.name)}</p>
+                <p><span className="font-medium">Phone:</span> {safeRender(invoiceData.partner.phone)}</p>
+                {invoiceData.partner.email && (
+                  <p><span className="font-medium">Email:</span> {safeRender(invoiceData.partner.email)}</p>
+                )}
+              </div>
+              {invoiceData?.teamMember && (
+                <div className="space-y-2 text-sm text-gray-700">
+                  <p><span className="font-medium">Team Member:</span> {safeRender(invoiceData.teamMember.name)}</p>
+                  <p><span className="font-medium">Role:</span> {safeRender(invoiceData.teamMember.role, 'Technician')}</p>
+                  {invoiceData.teamMember.phone && (
+                    <p><span className="font-medium">Phone:</span> {safeRender(invoiceData.teamMember.phone)}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Services Table */}
         <div className="mb-8">
           <h3 className="font-bold text-gray-800 mb-4">Services & Items</h3>
+          
+          {/* Quotation Summary if exists */}
+          {quotationDetails && (
+            <div className="mb-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-bold text-blue-800">Quotation Summary</h4>
+                <span className="text-sm text-blue-600 font-semibold">#{quotationDetails.quotationNumber}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-blue-700 font-medium">Quotation Date:</span>
+                  <span className="ml-2">{quotationDetails.quotationDate ? format(new Date(quotationDetails.quotationDate), 'dd MMM yyyy') : 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700 font-medium">Items Count:</span>
+                  <span className="ml-2 font-semibold">{quotationDetails.itemCount}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700 font-medium">Quotation Amount:</span>
+                  <span className="ml-2 font-bold">₹{formatCurrency(quotationDetails.quotationAmount || 0)}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700 font-medium">Status:</span>
+                  <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full capitalize font-semibold">
+                    {quotationDetails.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
           
           <table className="w-full">
             <thead>
@@ -168,31 +285,127 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
             </thead>
             <tbody>
               {services?.map((service, index) => (
-                <tr key={index} className="border-b border-gray-200">
-                  <td className="py-3 px-4 text-sm text-gray-800">{service.description}</td>
+                <tr key={index} className={`border-b border-gray-200 ${service.type === 'quotation_item' ? 'bg-blue-50' : ''}`}>
+                  <td className="py-3 px-4 text-sm text-gray-800">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{service.description}</span>
+                        {service.type === 'quotation_item' && (
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold">
+                            Quotation Item
+                          </span>
+                        )}
+                        {service.type === 'service' && (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-semibold">
+                            Main Service
+                          </span>
+                        )}
+                      </div>
+                      {service.details && <p className="text-gray-600 text-xs mt-1">{service.details}</p>}
+                      {service.category && <p className="text-gray-500 text-xs mt-0.5">Category: {service.category}</p>}
+                    </div>
+                  </td>
                   <td className="py-3 px-4 text-center text-sm text-gray-800">{service.quantity}</td>
-                  <td className="py-3 px-4 text-center text-sm text-gray-800">₹{service.rate}</td>
-                  <td className="py-3 px-4 text-right text-sm text-gray-800">₹{service.quantity * service.rate}</td>
+                  <td className="py-3 px-4 text-center text-sm text-gray-800">₹{formatCurrency(service.rate)}</td>
+                  <td className="py-3 px-4 text-right text-sm text-gray-800">₹{formatCurrency(service.quantity * service.rate)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* Total Section */}
+        {/* Total Section with Price Breakdown */}
         <div className="flex justify-end mb-8">
-          <div className="w-80">
+          <div className="w-96">
             <div className="space-y-2">
-              <div className="flex justify-between py-2 text-sm">
-                <span className="text-gray-600">Subtotal:</span>
-                <span className="font-bold">₹{subtotal}</span>
-              </div>
-              <div className="flex justify-between items-center">
+              {/* Show detailed breakdown if any breakdown field exists */}
+              {(paymentDetails?.subtotalBeforeTax !== undefined || 
+                paymentDetails?.visitingCharge !== undefined || 
+                paymentDetails?.serviceCharge !== undefined || 
+                (paymentDetails?.emergencyCharge !== undefined && paymentDetails?.emergencyCharge > 0) ||
+                paymentDetails?.gstAmount !== undefined) ? (
+                <>
+                  {/* Visiting Charge */}
+                  {(paymentDetails?.visitingCharge !== undefined && paymentDetails?.visitingCharge > 0) && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                      <span className="text-gray-600">Visiting Charge:</span>
+                      <span className="font-medium">₹{formatCurrency(paymentDetails.visitingCharge)}</span>
+                    </div>
+                  )}
+                  
+                  {/* Service Charge */}
+                  {(paymentDetails?.serviceCharge !== undefined && paymentDetails?.serviceCharge > 0) && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                      <span className="text-gray-600">Service Charge:</span>
+                      <span className="font-medium">₹{formatCurrency(paymentDetails.serviceCharge)}</span>
+                    </div>
+                  )}
+                  
+                  {/* Emergency Charge - Only show if greater than 0 */}
+                  {(paymentDetails?.emergencyCharge !== undefined && paymentDetails?.emergencyCharge > 0) && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-red-50">
+                      <span className="text-red-700 font-medium">🚨 Emergency Charge:</span>
+                      <span className="font-bold text-red-700">₹{formatCurrency(paymentDetails.emergencyCharge)}</span>
+                    </div>
+                  )}
+                  
+                  {/* Subtotal Before Tax */}
+                  {(paymentDetails?.subtotalBeforeTax !== undefined || subtotal > 0) && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-300">
+                      <span className="text-gray-700 font-medium">Subtotal (Before Tax):</span>
+                      <span className="font-bold">₹{formatCurrency(paymentDetails.subtotalBeforeTax || subtotal)}</span>
+                    </div>
+                  )}
+                  
+                  {/* CGST - Always show if gstAmount exists */}
+                  {(paymentDetails?.cgstAmount !== undefined || paymentDetails?.gstAmount > 0) && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                      <span className="text-gray-600">CGST ({paymentDetails.cgst || 9}%):</span>
+                      <span className="font-medium">₹{formatCurrency(paymentDetails.cgstAmount || 0)}</span>
+                    </div>
+                  )}
+                  
+                  {/* SGST - Always show if gstAmount exists */}
+                  {(paymentDetails?.sgstAmount !== undefined || paymentDetails?.gstAmount > 0) && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                      <span className="text-gray-600">SGST ({paymentDetails.sgst || 9}%):</span>
+                      <span className="font-medium">₹{formatCurrency(paymentDetails.sgstAmount || 0)}</span>
+                    </div>
+                  )}
+                  
+                  {/* Total GST */}
+                  {paymentDetails?.gstAmount !== undefined && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-300 bg-gray-50">
+                      <span className="text-gray-700 font-medium">Total GST ({(paymentDetails.cgst || 9) + (paymentDetails.sgst || 9)}%):</span>
+                      <span className="font-bold">₹{formatCurrency(paymentDetails.gstAmount || 0)}</span>
+                    </div>
+                  )}
+                </>
+              ) : quotationDetails && (paymentDetails?.bookingAmount !== undefined || paymentDetails?.quotationAmount !== undefined) ? (
+                <>
+                  <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                    <span className="text-gray-600">Service Amount:</span>
+                    <span className="font-medium">₹{formatCurrency(paymentDetails.bookingAmount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                    <span className="text-gray-600">Quotation Amount:</span>
+                    <span className="font-medium">₹{formatCurrency(paymentDetails.quotationAmount || 0)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between py-2 text-sm border-b border-gray-300">
+                  <span className="text-gray-700 font-medium">Subtotal:</span>
+                  <span className="font-bold">₹{formatCurrency(subtotal)}</span>
+                </div>
+              )}
+              
+              {/* Grand Total */}
+              <div className="flex justify-between items-center mt-4">
                 <div className="bg-gray-800 text-white px-4 py-3 font-bold text-sm">
                   TOTAL AMOUNT:
                 </div>
                 <div className="bg-gray-600 text-white px-4 py-3 font-bold text-lg">
-                  ₹{totalAmount}
+                  ₹{formatCurrency(totalAmount)}
                 </div>
               </div>
             </div>
@@ -206,7 +419,7 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
             <p>
               For any queries regarding this invoice, please contact us at{' '}
               <span className="text-blue-600 font-medium">{companyDetails?.email || 'support@nexo.works'}</span>{' '}
-              or call <span className="text-blue-600 font-medium">{companyDetails?.phone || '+91-9740016068'}</span>
+              {/* or call <span className="text-blue-600 font-medium">{companyDetails?.phone || '+91-9740016068'}</span> */}
             </p>
             <p>
               Visit our website at{' '}

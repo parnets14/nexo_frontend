@@ -824,23 +824,40 @@ const isCancellationAllowed = (bookingData) => {
         <div className="grid grid-cols-1 gap-6">
           {filteredBookings.map((booking) => {
             const bookingData = getBookingData(booking);
+            const isEmergency = booking.isEmergency === true;
             
             return (
               <div
                 key={bookingData.id}
-                className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-primary/30 overflow-hidden"
+                className={`group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border overflow-hidden ${
+                  isEmergency 
+                    ? 'border-red-500 border-l-4 bg-red-50' 
+                    : 'border-gray-100 hover:border-primary/30'
+                }`}
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
                       <div className="flex items-start gap-3 mb-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-primary/10 to-primary-light/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                          <FiPackage className="text-primary" size={20} />
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          isEmergency 
+                            ? 'bg-gradient-to-br from-red-500 to-red-600' 
+                            : 'bg-gradient-to-br from-primary/10 to-primary-light/10'
+                        }`}>
+                          <FiPackage className={isEmergency ? 'text-white' : 'text-primary'} size={20} />
                         </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-800 mb-1">
-                            {bookingData.serviceName}
-                          </h3>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-lg font-bold text-gray-800 mb-1">
+                              {bookingData.serviceName}
+                            </h3>
+                            {isEmergency && (
+                              <span className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                                <FiAlertCircle className="w-3 h-3" />
+                                EMERGENCY
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500">Booking ID: #{bookingData.id?.slice(-8)}</p>
                         </div>
                       </div>
@@ -1216,36 +1233,61 @@ const isCancellationAllowed = (bookingData) => {
                     {/* Totals Section */}
                     <div className="totals-section">
                       <div className="totals-table">
-                        <div className="total-row subtotal">
-                          <span>Subtotal</span>
-                          <span>₹{invoiceBooking.amount || invoiceBooking.totalAmount || 0}</span>
-                        </div>
-                        
-                        {(invoiceBooking.gstAmount && invoiceBooking.gstAmount > 0) && (
-                          <div className="total-row subtotal">
-                            <span>GST</span>
-                            <span>₹{invoiceBooking.gstAmount}</span>
-                          </div>
-                        )}
-                        
-                        {(invoiceBooking.discount && invoiceBooking.discount > 0) && (
-                          <div className="total-row subtotal" style={{ color: '#10b981' }}>
-                            <span>Discount</span>
-                            <span>-₹{invoiceBooking.discount}</span>
-                          </div>
-                        )}
-                        
-                        {(invoiceBooking.usewallet && invoiceBooking.usewallet > 0) && (
-                          <div className="total-row subtotal" style={{ color: '#10b981' }}>
-                            <span>Wallet Used</span>
-                            <span>-₹{invoiceBooking.usewallet}</span>
-                          </div>
-                        )}
-                        
-                        <div className="total-row final">
-                          <span>Total Amount</span>
-                          <span className="amount">₹{invoiceBooking.totalAmount || invoiceBooking.amount || 0}</span>
-                        </div>
+                        {(() => {
+                          const quotation = invoiceBooking.acceptedQuotation || 
+                                           (invoiceBooking.quotations && invoiceBooking.quotations.find(q => q.customerStatus === 'accepted'));
+                          const bookingAmount = Number(invoiceBooking.amount) || 0;
+                          const quotationAmount = quotation ? Number(quotation.totalAmount) || 0 : 0;
+                          const calculatedTotal = quotation ? bookingAmount + quotationAmount : (invoiceBooking.totalAmount || bookingAmount);
+                          
+                          return (
+                            <>
+                              {quotation ? (
+                                <>
+                                  <div className="total-row subtotal">
+                                    <span>Service Amount</span>
+                                    <span>₹{bookingAmount.toLocaleString('en-IN')}</span>
+                                  </div>
+                                  <div className="total-row subtotal">
+                                    <span>Quotation Amount</span>
+                                    <span>₹{quotationAmount.toLocaleString('en-IN')}</span>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="total-row subtotal">
+                                  <span>Subtotal</span>
+                                  <span>₹{bookingAmount.toLocaleString('en-IN')}</span>
+                                </div>
+                              )}
+                              
+                              {(invoiceBooking.gstAmount && invoiceBooking.gstAmount > 0) && (
+                                <div className="total-row subtotal">
+                                  <span>GST</span>
+                                  <span>₹{invoiceBooking.gstAmount}</span>
+                                </div>
+                              )}
+                              
+                              {(invoiceBooking.discount && invoiceBooking.discount > 0) && (
+                                <div className="total-row subtotal" style={{ color: '#10b981' }}>
+                                  <span>Discount</span>
+                                  <span>-₹{invoiceBooking.discount}</span>
+                                </div>
+                              )}
+                              
+                              {(invoiceBooking.usewallet && invoiceBooking.usewallet > 0) && (
+                                <div className="total-row subtotal" style={{ color: '#10b981' }}>
+                                  <span>Wallet Used</span>
+                                  <span>-₹{invoiceBooking.usewallet}</span>
+                                </div>
+                              )}
+                              
+                              <div className="total-row final">
+                                <span>Total Amount</span>
+                                <span className="amount">₹{Number(calculatedTotal).toLocaleString('en-IN')}</span>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 

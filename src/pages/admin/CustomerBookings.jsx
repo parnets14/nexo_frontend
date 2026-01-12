@@ -183,6 +183,14 @@ const CustomerBookings = () => {
       const bookingsData = response.data || []
       console.log(`[CustomerBookings] Received ${bookingsData.length} bookings`)
       
+      // Debug: Check for emergency bookings
+      const emergencyCount = bookingsData.filter(b => b.isEmergency === true).length
+      console.log(`[CustomerBookings] Found ${emergencyCount} emergency bookings`)
+      if (emergencyCount > 0) {
+        const emergencySample = bookingsData.find(b => b.isEmergency === true)
+        console.log('[CustomerBookings] Sample emergency booking:', emergencySample)
+      }
+      
       // Debug: Check for review data
       const bookingsWithReviews = bookingsData.filter(b => b.review)
       console.log(`[CustomerBookings] Found ${bookingsWithReviews.length} bookings with reviews`)
@@ -203,12 +211,7 @@ const CustomerBookings = () => {
       
       // Filter emergency bookings (assuming emergency bookings have a specific field or service type)
       const emergencyBookingsData = bookingsData.filter(booking => 
-        booking.isEmergency || 
-        booking.serviceName?.toLowerCase().includes('emergency') ||
-        booking.service?.name?.toLowerCase().includes('emergency') ||
-        booking.popularService?.name?.toLowerCase().includes('emergency') ||
-        booking.priority === 'urgent' ||
-        booking.status === 'emergency'
+        booking.isEmergency === true
       )
       setEmergencyBookings(emergencyBookingsData)
       
@@ -624,7 +627,7 @@ const CustomerBookings = () => {
                 {emergencyBookings.length} Emergency Booking{emergencyBookings.length > 1 ? 's' : ''} - Showing at top of list
               </p>
               <p className="text-xs text-red-600">
-                Emergency Contact: {supportSettings?.emergencyContact || 'Not configured'}
+                {/* Emergency Contact: {supportSettings?.emergencyContact || 'Not configured'} */}
               </p>
             </div>
           </div>
@@ -803,11 +806,6 @@ const CustomerBookings = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
-                  {emergencyBookings.length > 0 && (
-                    <span className="ml-2 text-red-600 text-xs normal-case">
-                      (Emergency bookings shown first)
-                    </span>
-                  )}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Service
@@ -886,12 +884,24 @@ const CustomerBookings = () => {
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || 'Service Booking'}
-                      </div>
-                      <div className="text-sm text-gray-500 flex items-center gap-1">
-                        <FiMapPin className="text-xs" />
-                        {booking.location?.address?.substring(0, 30) || 'No address'}...
+                      <div className="flex items-start gap-2">
+                        {isEmergencyBooking && (
+                          <div className="flex-shrink-0 mt-0.5">
+                            <div className="bg-red-600 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                              <FaBolt className="w-3 h-3" />
+                              URGENT
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900">
+                            {booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || 'Service Booking'}
+                          </div>
+                          <div className="text-sm text-gray-500 flex items-center gap-1">
+                            <FiMapPin className="text-xs" />
+                            {booking.location?.address?.substring(0, 30) || 'No address'}...
+                          </div>
+                        </div>
                       </div>
                     </td>
                     

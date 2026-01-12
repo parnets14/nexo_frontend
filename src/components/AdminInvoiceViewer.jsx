@@ -53,6 +53,24 @@ const AdminInvoiceViewer = () => {
         console.log('  - scheduledTime:', bookingData?.scheduledTime);
         console.log('  - serviceName:', bookingData?.serviceName);
         console.log('  - totalAmount:', bookingData?.totalAmount);
+        console.log('  - isEmergency:', bookingData?.isEmergency);
+        console.log('  - emergencyType:', bookingData?.emergencyType);
+        console.log('  - emergencyCharge:', bookingData?.emergencyCharge);
+        console.log('  - visitingCharge:', bookingData?.visitingCharge);
+        console.log('  - serviceCharge:', bookingData?.serviceCharge);
+        console.log('  - cgst:', bookingData?.cgst);
+        console.log('  - sgst:', bookingData?.sgst);
+        console.log('  - cgstAmount:', bookingData?.cgstAmount);
+        console.log('  - sgstAmount:', bookingData?.sgstAmount);
+        console.log('  - gstAmount:', bookingData?.gstAmount);
+        console.log('  - subtotalBeforeTax:', bookingData?.subtotalBeforeTax);
+        
+        // Check if booking is nested
+        if (bookingData?.booking) {
+          console.log('🔍 Nested booking found:');
+          console.log('  - booking.emergencyCharge:', bookingData.booking.emergencyCharge);
+          console.log('  - booking.isEmergency:', bookingData.booking.isEmergency);
+        }
         
         // Generate invoice from actual booking data
         const invoice = generateInvoiceFromBooking(bookingData);
