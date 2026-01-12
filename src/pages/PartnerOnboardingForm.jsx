@@ -771,7 +771,7 @@ const PartnerOnboardingForm = () => {
           setError(null)
           
           // Verify payment status with backend
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:9088'
+          const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo.works'
           console.log('🔍 Verifying payment with:', `${apiUrl}/api/payu/payment-status/${txnid}`)
           
           const response = await fetch(`${apiUrl}/api/payu/payment-status/${txnid}`, {
@@ -1341,7 +1341,7 @@ const PartnerOnboardingForm = () => {
           setLoadingLeadPlans(true)
           try {
             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-              (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+              (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
             
             // First check if partner already has an active lead plan
             if (token) {
@@ -2238,7 +2238,7 @@ const PartnerOnboardingForm = () => {
       const totalAmount = formData.payment.total + (formData.toolkit.selected ? formData.toolkit.price : 0)
       
       // Call backend to initiate PayU payment
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:9088'
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://nexo.works'
       console.log('Calling PayU API:', `${apiUrl}/api/payu/initiate-payment`)
       const response = await fetch(`${apiUrl}/api/payu/initiate-payment`, {
         method: 'POST',
@@ -5118,7 +5118,7 @@ const PartnerOnboardingForm = () => {
                           
                           try {
                             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-                              (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+                              (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
                             
                             const response = await fetch(`${API_BASE_URL}/api/partner/lead-plans/subscribe`, {
                               method: 'POST',
@@ -5667,7 +5667,7 @@ const PartnerOnboardingForm = () => {
                           
                           try {
                             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-                              (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+                              (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
                             
                             const response = await fetch(`${API_BASE_URL}/api/partner/lead-plans/subscribe`, {
                               method: 'POST',

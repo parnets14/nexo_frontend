@@ -107,6 +107,15 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
         itemCount: quotation.items?.length || 0,
         status: quotation.customerStatus
       } : null,
+      // Price breakdown fields
+      visitingCharge: booking.visitingCharge || 0,
+      serviceCharge: booking.serviceCharge || 0,
+      emergencyCharge: booking.emergencyCharge || 0,
+      cgst: booking.cgst || 0,
+      sgst: booking.sgst || 0,
+      cgstAmount: booking.cgstAmount || 0,
+      sgstAmount: booking.sgstAmount || 0,
+      subtotalBeforeTax: booking.subtotalBeforeTax || booking.amount || 0,
       paymentDetails: {
         method: booking.paymentMethod || booking.paymentMode || 'Cash',
         status: booking.paymentStatus || 'Pending',
@@ -387,8 +396,71 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
         {/* Total Section */}
         <div className="flex justify-end mb-6">
           <div className="w-80">
+            {/* Service Subtotal (Cart Items) */}
+            <div className="flex justify-between py-1.5 text-sm border-b border-gray-200">
+              <span>Service Subtotal:</span>
+              <span>₹{Number(subtotal || 0).toLocaleString('en-IN')}</span>
+            </div>
+            
+            {/* Visiting Charge */}
+            {actualInvoiceData.visitingCharge > 0 && (
+              <div className="flex justify-between py-1.5 text-sm border-b border-gray-200">
+                <span>Visiting Charge:</span>
+                <span className="text-amber-600">+₹{Number(actualInvoiceData.visitingCharge || 0).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            
+            {/* Service/Platform Charge */}
+            {actualInvoiceData.serviceCharge > 0 && (
+              <div className="flex justify-between py-1.5 text-sm border-b border-gray-200">
+                <span>Platform Fee:</span>
+                <span className="text-blue-600">+₹{Number(actualInvoiceData.serviceCharge || 0).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            
+            {/* Emergency Charge */}
+            {actualInvoiceData.emergencyCharge > 0 && (
+              <div className="flex justify-between py-1.5 text-sm border-b border-gray-200">
+                <span className="flex items-center gap-1">
+                  <span className="text-red-500">🚨</span>
+                  Emergency Service Charge:
+                </span>
+                <span className="text-red-600">+₹{Number(actualInvoiceData.emergencyCharge || 0).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            
+            {/* Subtotal Before Tax */}
+            {(actualInvoiceData.visitingCharge > 0 || actualInvoiceData.serviceCharge > 0 || actualInvoiceData.emergencyCharge > 0) && (
+              <div className="flex justify-between py-1.5 text-sm font-medium border-b border-gray-200">
+                <span>Subtotal (Before Tax):</span>
+                <span>₹{Number(actualInvoiceData.subtotalBeforeTax || subtotal || 0).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            
+            {/* GST Breakdown */}
+            {(actualInvoiceData.cgstAmount > 0 || actualInvoiceData.sgstAmount > 0) && (
+              <div className="bg-gray-50 rounded-lg p-2 my-2 space-y-1">
+                {actualInvoiceData.cgstAmount > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">CGST ({actualInvoiceData.cgst || 9}%):</span>
+                    <span className="text-gray-700">₹{Number(actualInvoiceData.cgstAmount || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {actualInvoiceData.sgstAmount > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">SGST ({actualInvoiceData.sgst || 9}%):</span>
+                    <span className="text-gray-700">₹{Number(actualInvoiceData.sgstAmount || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm pt-1 border-t border-gray-200">
+                  <span className="text-gray-700 font-medium">Total GST:</span>
+                  <span className="font-semibold text-gray-900">₹{Number((actualInvoiceData.cgstAmount || 0) + (actualInvoiceData.sgstAmount || 0)).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            )}
+            
             {/* Show breakdown if quotation exists */}
-            {actualInvoiceData.quotationDetails && paymentDetails?.bookingAmount !== undefined && paymentDetails?.quotationAmount !== undefined ? (
+            {actualInvoiceData.quotationDetails && paymentDetails?.bookingAmount !== undefined && paymentDetails?.quotationAmount !== undefined && (
               <>
                 <div className="flex justify-between py-1.5 text-sm border-b border-gray-200">
                   <span>Service Amount:</span>
@@ -398,16 +470,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
                   <span>Quotation Amount:</span>
                   <span>₹{Number(paymentDetails.quotationAmount || 0).toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between py-1.5 text-sm">
-                  <span>Subtotal:</span>
-                  <span>₹{Number((paymentDetails.bookingAmount || 0) + (paymentDetails.quotationAmount || 0)).toLocaleString('en-IN')}</span>
-                </div>
               </>
-            ) : (
-              <div className="flex justify-between py-1.5 text-sm">
-                <span>Subtotal:</span>
-                <span>₹{Number(subtotal || 0).toLocaleString('en-IN')}</span>
-              </div>
             )}
             
             {/* Show paid amount if partial payment */}

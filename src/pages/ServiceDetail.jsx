@@ -99,7 +99,7 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const ServiceDetail = () => {
   const { serviceName } = useParams()
@@ -347,9 +347,16 @@ const ServiceDetail = () => {
   // Calculate total subservice price
   const calculateSubServiceTotal = () => {
     if (!currentService.subServices || currentService.subServices.length === 0) return 0
+    
+    // Check if this is AC service to exclude GST from pricing
+    const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
+    
     return currentService.subServices.reduce((total, subService) => {
       const quantity = selectedSubServices[subService._id] || 0
-      const price = subService.finalPrice || subService.basePrice || subService.price || 0
+      // For AC service, use basePrice (without GST), otherwise use finalPrice
+      const price = isACService 
+        ? (subService.basePrice || subService.price || 0)
+        : (subService.finalPrice || subService.basePrice || subService.price || 0)
       return total + (price * quantity)
     }, 0)
   }
@@ -361,11 +368,14 @@ const ServiceDetail = () => {
       console.warn('Invalid discount value detected:', addon.discount, 'for addon:', addon.name)
     }
 
+    // Check if this is AC service to exclude GST
+    const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
+
     // Ensure all values are valid numbers
     const basePrice = Math.max(0, parseFloat(addon.basePrice) || 0)
     const discount = Math.max(0, Math.min(100, parseFloat(addon.discount) || 0)) // Clamp between 0-100
-    const cgst = Math.max(0, parseFloat(addon.cgst) || 0)
-    const sgst = Math.max(0, parseFloat(addon.sgst) || 0)
+    const cgst = isACService ? 0 : Math.max(0, parseFloat(addon.cgst) || 0)
+    const sgst = isACService ? 0 : Math.max(0, parseFloat(addon.sgst) || 0)
     const serviceCharge = Math.max(0, parseFloat(addon.serviceCharge) || 0)
 
     // Calculate original total price (without discount)
@@ -439,8 +449,11 @@ const ServiceDetail = () => {
   const calculateCartTotal = () => {
     let total = calculateSubServiceTotal() + calculateAddOnTotal() + calculateAddOnSubServicesTotal()
     
-    // Add visiting charge if applicable and cart has items
-    if (getTotalItemCount() > 0 && currentService.visitingCharge && currentService.visitingCharge > 0) {
+    // Exclude visiting charge for AC service
+    const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
+    
+    // Add visiting charge if applicable and cart has items (but not for AC service)
+    if (!isACService && getTotalItemCount() > 0 && currentService.visitingCharge && currentService.visitingCharge > 0) {
       total += currentService.visitingCharge
     }
     
@@ -616,10 +629,16 @@ const ServiceDetail = () => {
 
     // Add subservices to cart
     if (currentService.subServices) {
+      // Check if this is AC service
+      const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
+      
       currentService.subServices.forEach(subService => {
         const quantity = selectedSubServices[subService._id]
         if (quantity > 0) {
-          const finalPrice = subService.finalPrice || subService.basePrice || subService.price || 0
+          // For AC service, use basePrice (without GST), otherwise use finalPrice
+          const finalPrice = isACService
+            ? (subService.basePrice || subService.price || 0)
+            : (subService.finalPrice || subService.basePrice || subService.price || 0)
           cartItems.push({
             type: 'subservice',
             id: subService._id,
@@ -680,6 +699,9 @@ const ServiceDetail = () => {
     }
 
     // Create serializable service data (remove icon component)
+    // Exclude GST for AC service but include visiting charge (it will be added in checkout)
+    const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
+    
     const serializableServiceData = {
       _id: currentService._id,
       name: currentService.name,
@@ -688,10 +710,14 @@ const ServiceDetail = () => {
       price: currentService.price,
       averageRating: currentService.averageRating,
       totalReviews: currentService.totalReviews,
-      cgst: currentService.cgst || 9, // Default CGST 9%
-      sgst: currentService.sgst || 9,  // Default SGST 9%
-      visitingCharge: currentService.visitingCharge || 0,
-      serviceCharge: currentService.serviceCharge || 0
+      cgst: isACService ? 0 : (currentService.cgst || 9), // No GST for AC service
+      sgst: isACService ? 0 : (currentService.sgst || 9), // No GST for AC service
+      visitingCharge: currentService.visitingCharge || 0, // Include visiting charge - will be added in checkout
+      serviceCharge: currentService.serviceCharge || 0,
+      isEmergency: isEmergency,
+      emergencyCharge: isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0 
+        ? service.emergencyService.extraAmount * getTotalItemCount() 
+        : 0
     }
 
     // Navigate directly to checkout
@@ -1366,7 +1392,11 @@ const ServiceDetail = () => {
                             >
                               {currentService.subServices.map((subService) => {
                                 const quantity = selectedSubServices[subService._id] || 0
-                                const finalPrice = subService.finalPrice || subService.basePrice || subService.price || 0
+                                // For AC service, use basePrice (without GST), otherwise use finalPrice
+                                const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
+                                const finalPrice = isACService
+                                  ? (subService.basePrice || subService.price || 0)
+                                  : (subService.finalPrice || subService.basePrice || subService.price || 0)
                                 const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
 
                                 return (
@@ -1421,16 +1451,19 @@ const ServiceDetail = () => {
                         </div>
                       )}
 
-                        {/* Visiting Charge Display */}
-                        {getTotalItemCount() > 0 && currentService.visitingCharge && currentService.visitingCharge > 0 && (
-                          <div className="flex items-center justify-between pt-2 pb-2 border-t border-gray-200">
-                            <div className="flex items-center gap-2">
-                              <FaRupeeSign className="text-amber-500 text-sm" />
-                              <span className="text-sm font-semibold text-gray-700">Visiting Charge</span>
+                        {/* Visiting Charge Display - Hidden for AC service */}
+                        {(() => {
+                          const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
+                          return !isACService && getTotalItemCount() > 0 && currentService.visitingCharge && currentService.visitingCharge > 0 && (
+                            <div className="flex items-center justify-between pt-2 pb-2 border-t border-gray-200">
+                              <div className="flex items-center gap-2">
+                                <FaRupeeSign className="text-amber-500 text-sm" />
+                                <span className="text-sm font-semibold text-gray-700">Visiting Charge</span>
+                              </div>
+                              <span className="text-sm font-bold text-amber-600">+₹{currentService.visitingCharge}</span>
                             </div>
-                            <span className="text-sm font-bold text-amber-600">+₹{currentService.visitingCharge}</span>
-                          </div>
-                        )}
+                          )
+                        })()}
 
                         <div className="flex items-center justify-between pt-3 sm:pt-4 border-t-2 border-gray-300 bg-gradient-to-r from-primary/5 to-transparent -mx-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg">
                           <span className="text-base sm:text-lg font-bold text-gray-900">Grand Total</span>
@@ -1730,7 +1763,11 @@ const ServiceDetail = () => {
                   {currentService.subServices.map((subService, index) => {
                     const quantity = selectedSubServices[subService._id] || 0
                     const isSelected = quantity > 0
-                    const finalPrice = subService.finalPrice || subService.basePrice || subService.price || 0
+                    // For AC service, use basePrice (without GST), otherwise use finalPrice
+                    const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
+                    const finalPrice = isACService
+                      ? (subService.basePrice || subService.price || 0)
+                      : (subService.finalPrice || subService.basePrice || subService.price || 0)
                     const originalPrice = subService.originalPrice || subService.price || 0
                     const hasDiscount = originalPrice > finalPrice
                     const SubServiceIcon = getIconComponent(subService.icon || 'FaTools')
@@ -2012,7 +2049,11 @@ const ServiceDetail = () => {
                       {currentService.subServices.map((subService) => {
                         const quantity = selectedSubServices[subService._id] || 0
                         const isSelected = quantity > 0
-                        const finalPrice = subService.finalPrice || subService.basePrice || subService.price || 0
+                        // For AC service, use basePrice (without GST), otherwise use finalPrice
+                        const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
+                        const finalPrice = isACService
+                          ? (subService.basePrice || subService.price || 0)
+                          : (subService.finalPrice || subService.basePrice || subService.price || 0)
                         const originalPrice = subService.originalPrice || subService.price || 0
                         const hasDiscount = originalPrice > finalPrice
                         // Handle icon - can be string URL or array

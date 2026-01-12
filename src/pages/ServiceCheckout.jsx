@@ -22,7 +22,7 @@ import CustomAlert from '../components/CustomAlert'
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const ServiceCheckout = () => {
   const navigate = useNavigate()
@@ -784,8 +784,12 @@ const ServiceCheckout = () => {
     return serviceData.serviceCharge || 0
   }
 
+  const getEmergencyCharge = () => {
+    return serviceData.emergencyCharge || 0
+  }
+
   const calculateTotalBeforeTax = () => {
-    return calculateSubtotal() + getVisitingCharge() + getServiceCharge()
+    return calculateSubtotal() + getVisitingCharge() + getServiceCharge() + getEmergencyCharge()
   }
 
   const calculateFinalAmount = () => {
@@ -923,6 +927,8 @@ const ServiceCheckout = () => {
         amount: calculateTotalBeforeTax(),
         visitingCharge: getVisitingCharge(),
         serviceCharge: getServiceCharge(),
+        emergencyCharge: getEmergencyCharge(),
+        isEmergency: serviceData.isEmergency || false,
         useWallet: useWallet,
         walletAmount: walletAmount
       }
@@ -1005,6 +1011,8 @@ const ServiceCheckout = () => {
         amount: calculateTotalBeforeTax(),
         visitingCharge: getVisitingCharge(),
         serviceCharge: getServiceCharge(),
+        emergencyCharge: getEmergencyCharge(),
+        isEmergency: serviceData.isEmergency || false,
         useWallet: true,
         walletAmount: walletAmount,
         paymentMode: 'wallet'
@@ -1745,8 +1753,19 @@ const ServiceCheckout = () => {
                     </div>
                   )}
                   
+                  {/* Emergency Charge */}
+                  {getEmergencyCharge() > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <span className="text-red-500">🚨</span>
+                        Emergency Service Charge
+                      </span>
+                      <span className="font-medium text-red-600">+₹{getEmergencyCharge().toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  
                   {/* Subtotal Before Tax */}
-                  {(getVisitingCharge() > 0 || getServiceCharge() > 0) && (
+                  {(getVisitingCharge() > 0 || getServiceCharge() > 0 || getEmergencyCharge() > 0) && (
                     <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
                       <span className="text-gray-700 font-medium">Subtotal (Before Tax)</span>
                       <span className="font-semibold text-gray-900">₹{calculateTotalBeforeTax().toLocaleString('en-IN')}</span>
