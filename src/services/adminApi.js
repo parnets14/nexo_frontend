@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_ADMIN_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const buildUrl = (path) => {
   // Handle both /api/admin and /admin routes
@@ -254,7 +254,7 @@ export const adminApi = {
 
   async updatePartnerProfile(token, partnerId, profileData) {
     // Use buildUrl to ensure correct URL construction
-    // The buildUrl function will prepend API_BASE_URL which is https://nexo.works in dev
+    // The buildUrl function will prepend API_BASE_URL which is http://localhost:9088 in dev
     const url = buildUrl(`/api/admin/updatePartnerProfile/${partnerId}`)
     const response = await fetch(url, {
       method: 'PUT',
@@ -1753,6 +1753,67 @@ export const adminApi = {
   async deleteCustomTax(token, taxIndex) {
     const response = await fetch(buildUrl(`/tax/custom-taxes/${taxIndex}`), {
       method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Partner Earnings Management
+  async getPartnerEarningsClaims(token, params = {}) {
+    const queryParams = new URLSearchParams()
+    
+    if (params.status) queryParams.append('status', params.status)
+    if (params.partnerId) queryParams.append('partnerId', params.partnerId)
+    if (params.startDate) queryParams.append('startDate', params.startDate)
+    if (params.endDate) queryParams.append('endDate', params.endDate)
+    if (params.page) queryParams.append('page', params.page.toString())
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+
+    const url = buildUrl(`/earnings/claims?${queryParams.toString()}`)
+    const response = await fetch(url, {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getEarningsStatistics(token) {
+    const url = buildUrl('/earnings/statistics')
+    const response = await fetch(url, {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getEarningsClaimDetails(token, bookingId) {
+    const url = buildUrl(`/earnings/claims/${bookingId}`)
+    const response = await fetch(url, {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async processEarningsClaim(token, bookingId, data) {
+    const url = buildUrl(`/earnings/claims/${bookingId}/process`)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(data)
+    })
+    return handleResponse(response)
+  },
+
+  async getEarningsClaimsHistory(token, params = {}) {
+    const queryParams = new URLSearchParams()
+    
+    if (params.partnerId) queryParams.append('partnerId', params.partnerId)
+    if (params.status) queryParams.append('status', params.status)
+    if (params.startDate) queryParams.append('startDate', params.startDate)
+    if (params.endDate) queryParams.append('endDate', params.endDate)
+    if (params.page) queryParams.append('page', params.page.toString())
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+
+    const url = buildUrl(`/earnings/claims-history?${queryParams.toString()}`)
+    const response = await fetch(url, {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)

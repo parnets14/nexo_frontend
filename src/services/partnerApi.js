@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const buildUrl = (path) => {
   if (path.startsWith('/api/')) {
@@ -327,6 +327,39 @@ export const partnerApi = {
   // Transactions
   async getTransactions(token) {
     const response = await fetch(buildUrl('/getAllwalletTransaction'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Partner Earnings
+  async getEarnings(token, params = {}) {
+    const queryString = new URLSearchParams(params).toString()
+    const response = await fetch(buildUrl(`/earnings?${queryString}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getEarningsSummary(token) {
+    const response = await fetch(buildUrl('/earnings/summary'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async claimEarnings(token, data) {
+    const response = await fetch(buildUrl('/earnings/claim'), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(data)
+    })
+    return handleResponse(response)
+  },
+
+  async getEarningsClaimsHistory(token, params = {}) {
+    const queryString = new URLSearchParams(params).toString()
+    const response = await fetch(buildUrl(`/earnings/claims-history?${queryString}`), {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)

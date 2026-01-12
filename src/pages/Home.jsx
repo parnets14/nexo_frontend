@@ -53,7 +53,7 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const Home = () => {
   const whatsappNumber = "+15558136145"
@@ -204,7 +204,7 @@ const Home = () => {
     },
     {
       step: '3',
-      title: 'Service done. Pay after work.',
+      title: 'Service done. Pay before work.',
       description: 'Simple, transparent, and satisfaction guaranteed.',
       icon: FaCreditCard,
     },
@@ -220,7 +220,7 @@ const Home = () => {
   useEffect(() => {
     const fetchFeaturedReviews = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'http://localhost:9088'
         const response = await fetch(`${apiUrl}/api/public/featured-reviews`)
         const data = await response.json()
         
@@ -462,7 +462,7 @@ const Home = () => {
                 variants={itemVariants}
                 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 sm:mb-6 leading-tight"
               >
-                Your home services.
+                Your Home services.
                 <br />
                 <motion.span 
                   className="text-yellow-300 inline-block"
@@ -514,7 +514,7 @@ const Home = () => {
                 variants={itemVariants}
                 className="text-white/80 mt-6 sm:mt-8 text-sm sm:text-lg px-4"
               >
-                Support for AC, electrical, plumbing, cleaning, appliances and 200+ services.
+                Support for AC, Electrical, Plumbing, Cleaning, Appliances and 200+ Services.
               </motion.p>
 
               {/* City Selection Card */}

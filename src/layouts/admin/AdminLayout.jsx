@@ -32,6 +32,7 @@ import NotificationDialog from '../../components/NotificationDialog.jsx'
 const navItems = [
   { label: 'Overview', icon: FiHome, to: '/admin/dashboard' },
   { label: 'Partner Control', icon: FiUsers, to: '/admin/partners' },
+  { label: 'Partner Earnings', icon: FiDollarSign, to: '/admin/partner-earnings' },
   { label: 'Vendor Management', icon: FiShoppingBag, to: '/admin/vendors' },
   { label: 'Customers', icon: FiUsers, to: '/admin/customers' },
   { label: 'Customer Bookings', icon: FiClipboard, to: '/admin/customer-bookings' },

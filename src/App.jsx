@@ -53,6 +53,8 @@ import FeaturedReviewsManagement from './pages/admin/FeaturedReviewsManagement.j
 import AMCPlanManagement from './pages/admin/AMCPlanManagement.jsx'
 import SupportManagement from './pages/admin/SupportManagement.jsx'
 import WhatsAppSettings from './pages/admin/WhatsAppSettings.jsx'
+import PartnerEarningsManagement from './pages/admin/PartnerEarningsManagement.jsx'
+import EarningsClaimsHistory from './pages/admin/EarningsClaimsHistory.jsx'
 import PartnerLogin from './pages/PartnerLogin.jsx'
 import PartnerDashboard from './pages/partner/PartnerDashboard.jsx'
 import PartnerLayout from './layouts/partner/PartnerLayout.jsx'
@@ -152,6 +154,8 @@ function App() {
 
             <Route path="/admin/amc-plans" element={<AMCPlanManagement />} />
             <Route path="/admin/featured-reviews" element={<FeaturedReviewsManagement />} />
+            <Route path="/admin/partner-earnings" element={<PartnerEarningsManagement />} />
+            <Route path="/admin/earnings-claims-history" element={<EarningsClaimsHistory />} />
             <Route path="/admin/support" element={<SupportManagement />} />
             <Route path="/admin/whatsapp-settings" element={<WhatsAppSettings />} />
             <Route path="/admin/invoice" element={<AdminInvoiceViewer />} />

@@ -22,7 +22,7 @@ import CustomAlert from '../components/CustomAlert'
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const ServiceCheckout = () => {
   const navigate = useNavigate()
@@ -320,7 +320,7 @@ const ServiceCheckout = () => {
 
   // Check if AMC should be offered
   const shouldOfferAMCPlan = () => {
-    const cartTotal = calculateTotal()
+    const cartTotal = calculateTotalBeforeTax()
     
     // Don't show AMC if cart total is too low
     if (cartTotal < 500) return false
@@ -342,7 +342,7 @@ const ServiceCheckout = () => {
 
   // Calculate AMC savings
   const calculateAMCSavings = (plan) => {
-    const cartTotal = calculateTotal()
+    const cartTotal = calculateTotalBeforeTax()
     if (!cartTotal || cartTotal === 0) return 0
     
     // Estimate annual service cost without AMC
@@ -765,13 +765,36 @@ const ServiceCheckout = () => {
     return cartData.total || 0
   }
 
+  const calculateSubtotal = () => {
+    // Calculate subtotal without visiting charge and service charge
+    let subtotal = 0
+    if (cartData.items) {
+      cartData.items.forEach(item => {
+        subtotal += item.total || 0
+      })
+    }
+    return subtotal
+  }
+
+  const getVisitingCharge = () => {
+    return serviceData.visitingCharge || 0
+  }
+
+  const getServiceCharge = () => {
+    return serviceData.serviceCharge || 0
+  }
+
+  const calculateTotalBeforeTax = () => {
+    return calculateSubtotal() + getVisitingCharge() + getServiceCharge()
+  }
+
   const calculateFinalAmount = () => {
-    const subtotal = calculateTotal()
+    const totalBeforeTax = calculateTotalBeforeTax()
     const cgst = serviceData.cgst || 9 // Default CGST 9%
     const sgst = serviceData.sgst || 9 // Default SGST 9%
     const totalGstRate = cgst + sgst
-    const gst = Math.round(subtotal * totalGstRate / 100)
-    const total = subtotal + gst
+    const gst = Math.round(totalBeforeTax * totalGstRate / 100)
+    const total = totalBeforeTax + gst
     
     if (useWallet && walletAmount > 0) {
       return Math.max(0, total - walletAmount)
@@ -785,10 +808,11 @@ const ServiceCheckout = () => {
     setUseWallet(newUseWallet)
     
     if (newUseWallet) {
+      const totalBeforeTax = calculateTotalBeforeTax()
       const cgst = serviceData.cgst || 9
       const sgst = serviceData.sgst || 9
       const totalGstRate = cgst + sgst
-      const total = Math.round(calculateTotal() * (1 + totalGstRate / 100))
+      const total = Math.round(totalBeforeTax * (1 + totalGstRate / 100))
       const maxWalletUse = Math.min(walletBalance, total)
       setWalletAmount(maxWalletUse)
       setCustomWalletAmount('')
@@ -802,10 +826,11 @@ const ServiceCheckout = () => {
 
   const handleCustomWalletAmount = (value) => {
     const amount = parseFloat(value) || 0
+    const totalBeforeTax = calculateTotalBeforeTax()
     const cgst = serviceData.cgst || 9
     const sgst = serviceData.sgst || 9
     const totalGstRate = cgst + sgst
-    const total = Math.round(calculateTotal() * (1 + totalGstRate / 100))
+    const total = Math.round(totalBeforeTax * (1 + totalGstRate / 100))
     const maxWalletUse = Math.min(walletBalance, total)
     
     if (amount > maxWalletUse) {
@@ -895,7 +920,9 @@ const ServiceCheckout = () => {
         scheduledDate: formData.bookingDate,
         scheduledTime: formData.bookingTime,
         specialInstructions: formData.specialInstructions,
-        amount: calculateTotal(),
+        amount: calculateTotalBeforeTax(),
+        visitingCharge: getVisitingCharge(),
+        serviceCharge: getServiceCharge(),
         useWallet: useWallet,
         walletAmount: walletAmount
       }
@@ -975,7 +1002,9 @@ const ServiceCheckout = () => {
         scheduledDate: formData.bookingDate,
         scheduledTime: formData.bookingTime,
         specialInstructions: formData.specialInstructions,
-        amount: calculateTotal(),
+        amount: calculateTotalBeforeTax(),
+        visitingCharge: getVisitingCharge(),
+        serviceCharge: getServiceCharge(),
         useWallet: true,
         walletAmount: walletAmount,
         paymentMode: 'wallet'
@@ -1553,7 +1582,7 @@ const ServiceCheckout = () => {
                   <div className="space-y-3">
                     {amcPlans.slice(0, 2).map((plan, index) => {
                       const savings = calculateAMCSavings(plan)
-                      const savingsPercentage = savings > 0 ? Math.round((savings / (calculateTotal() * 4)) * 100) : 0
+                      const savingsPercentage = savings > 0 ? Math.round((savings / (calculateTotalBeforeTax() * 4)) * 100) : 0
                       const isSelected = selectedAMCPlan?._id === plan._id
                       
                       return (
@@ -1693,14 +1722,58 @@ const ServiceCheckout = () => {
               )}
 
               {/* Price Breakdown */}
-              <div className="border-t border-gray-200 pt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">₹{calculateTotal()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">GST ({((serviceData.cgst || 9) + (serviceData.sgst || 9))}%)</span>
-                  <span className="font-medium">₹{Math.round(calculateTotal() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)}</span>
+              <div className="border-t border-gray-200 pt-4 space-y-3">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Service Subtotal</span>
+                    <span className="font-medium">₹{calculateSubtotal().toLocaleString('en-IN')}</span>
+                  </div>
+                  
+                  {/* Visiting Charge */}
+                  {getVisitingCharge() > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Visiting Charge</span>
+                      <span className="font-medium text-amber-600">+₹{getVisitingCharge().toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  
+                  {/* Service Charge */}
+                  {getServiceCharge() > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Platform Fee</span>
+                      <span className="font-medium text-blue-600">+₹{getServiceCharge().toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  
+                  {/* Subtotal Before Tax */}
+                  {(getVisitingCharge() > 0 || getServiceCharge() > 0) && (
+                    <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                      <span className="text-gray-700 font-medium">Subtotal (Before Tax)</span>
+                      <span className="font-semibold text-gray-900">₹{calculateTotalBeforeTax().toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  
+                  {/* Tax Breakdown */}
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2 mt-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">CGST ({serviceData.cgst || 9}%)</span>
+                      <span className="font-medium text-gray-700">₹{Math.round(calculateTotalBeforeTax() * (serviceData.cgst || 9) / 100).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">SGST ({serviceData.sgst || 9}%)</span>
+                      <span className="font-medium text-gray-700">₹{Math.round(calculateTotalBeforeTax() * (serviceData.sgst || 9) / 100).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                      <span className="text-gray-700 font-medium">Total GST</span>
+                      <span className="font-semibold text-gray-900">₹{Math.round(calculateTotalBeforeTax() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Total Before Wallet */}
+                  <div className="flex justify-between text-base font-semibold text-gray-900 pt-2 border-t border-gray-200">
+                    <span>Total Amount</span>
+                    <span>₹{Math.round(calculateTotalBeforeTax() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)).toLocaleString('en-IN')}</span>
+                  </div>
                 </div>
                 
                 {/* Wallet Section - Always show if user is authenticated */}
@@ -1765,7 +1838,7 @@ const ServiceCheckout = () => {
                               onChange={(e) => handleCustomWalletAmount(e.target.value)}
                               placeholder="Enter amount"
                               min="0"
-                              max={Math.min(walletBalance, Math.round(calculateTotal() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)))}
+                              max={Math.min(walletBalance, Math.round(calculateTotalBeforeTax() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)))}
                               className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                             />
                           </div>
@@ -1776,7 +1849,7 @@ const ServiceCheckout = () => {
                           </div>
                         )}
                         
-                        {walletAmount >= Math.round(calculateTotal() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)) && (
+                        {walletAmount >= Math.round(calculateTotalBeforeTax() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)) && (
                           <div className="flex items-start gap-2 bg-blue-50 rounded-lg p-2">
                             <FaInfoCircle className="text-blue-500 mt-0.5 flex-shrink-0" />
                             <p className="text-xs text-blue-700">
@@ -1789,10 +1862,38 @@ const ServiceCheckout = () => {
                   </div>
                 )}
                 
-                <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-200">
-                  <span>Amount to Pay</span>
-                  <span className="text-primary">₹{calculateFinalAmount().toFixed(2)}</span>
+                {/* Final Amount to Pay */}
+                <div className="flex justify-between text-lg font-bold pt-3 border-t-2 border-gray-300">
+                  <span className="text-gray-900">Amount to Pay</span>
+                  <span className="text-primary text-xl">₹{calculateFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+                
+                {/* Payment Method Info */}
+                {useWallet && walletAmount > 0 && calculateFinalAmount() > 0 && (
+                  <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FaInfoCircle className="text-blue-500" />
+                      <span className="font-semibold">Payment Split:</span>
+                    </div>
+                    <div className="ml-5 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Wallet Payment:</span>
+                        <span className="font-medium">₹{walletAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Online Payment:</span>
+                        <span className="font-medium">₹{calculateFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {calculateFinalAmount() === 0 && useWallet && (
+                  <div className="bg-green-50 rounded-lg p-3 text-xs text-green-700 flex items-center gap-2">
+                    <FaCheckCircle className="text-green-500" />
+                    <span>Full payment will be deducted from your wallet balance</span>
+                  </div>
+                )}
               </div>
 
               {/* Validation Summary */}
@@ -1840,24 +1941,24 @@ const ServiceCheckout = () => {
                 ) : useWallet && walletAmount > 0 ? (
                   <>
                     <FaCreditCard />
-                    Pay ₹{calculateFinalAmount().toFixed(2)} (Wallet Applied)
+                    Pay ₹{calculateFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Wallet: ₹{walletAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                   </>
                 ) : (
                   <>
                     <FaCreditCard />
-                    Proceed to Payment
+                    Proceed to Payment - ₹{calculateFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </>
                 )}
               </button>
 
               <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
-                <FaCheckCircle className="text-green-500" />
+                <FaShieldAlt className="text-green-500" />
                 <span>
                   {calculateFinalAmount() === 0 
-                    ? '100% payment via Wallet' 
+                    ? '100% payment via Wallet - Secure & Instant' 
                     : useWallet && walletAmount > 0
-                    ? `₹${walletAmount.toFixed(2)} from wallet + ₹${calculateFinalAmount().toFixed(2)} via PayU`
-                    : 'Secure payment via PayU'}
+                    ? `₹${walletAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} from wallet + ₹${calculateFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2 })} via PayU`
+                    : 'Secure payment powered by PayU'}
                 </span>
               </div>
             </motion.div>

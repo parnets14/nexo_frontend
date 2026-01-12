@@ -6,6 +6,19 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
   // Handle both prop patterns for backward compatibility
   let actualInvoiceData = invoiceData || data;
   
+  // Safe date formatting function
+  const safeFormatDate = (dateValue, formatString = 'dd MMMM yyyy') => {
+    try {
+      if (!dateValue) return 'N/A';
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return 'N/A';
+      return format(date, formatString);
+    } catch (error) {
+      console.warn('Date formatting error:', error, 'for value:', dateValue);
+      return 'N/A';
+    }
+  };
+  
   // If no invoice data is provided, show error or return null
   if (!actualInvoiceData) {
     console.error('Invoice component: No invoice data provided');
@@ -191,7 +204,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
             <h2 className="text-3xl font-light text-gray-600 mb-2">INVOICE</h2>
             <div className="text-sm space-y-0.5">
               <p className="font-semibold">#{invoiceNumber}</p>
-              <p>Date: {date ? format(new Date(date), 'dd MMMM yyyy') : format(new Date(), 'dd MMMM yyyy')}</p>
+              <p>Date: {safeFormatDate(date)}</p>
               <span className={`inline-block px-3 py-1 rounded text-xs font-medium ${
                 status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' : 
                 status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
@@ -249,7 +262,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
               )}
               <div className="flex justify-between">
                 <span>Service Date:</span>
-                <span>{paymentDetails?.serviceDate ? format(new Date(paymentDetails.serviceDate), 'dd MMMM yyyy') : format(new Date(date), 'dd MMMM yyyy')}</span>
+                <span>{safeFormatDate(paymentDetails?.serviceDate || date)}</span>
               </div>
               {paymentDetails?.serviceTime && (
                 <div className="flex justify-between">
@@ -289,7 +302,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-blue-700">Quotation Date:</span>
-                  <span className="ml-2">{actualInvoiceData.quotationDetails.quotationDate ? format(new Date(actualInvoiceData.quotationDetails.quotationDate), 'dd MMM yyyy') : 'N/A'}</span>
+                  <span className="ml-2">{safeFormatDate(actualInvoiceData.quotationDetails.quotationDate, 'dd MMM yyyy')}</span>
                 </div>
                 <div>
                   <span className="text-blue-700">Items Count:</span>

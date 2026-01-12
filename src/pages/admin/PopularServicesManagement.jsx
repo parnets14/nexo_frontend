@@ -42,6 +42,7 @@ const PopularServicesManagement = () => {
     slug: '',
     icon: 'FaTools',
     description: '',
+    shortNotes: '',
     price: '',
     basePrice: 0,
     discount: 0,
@@ -50,6 +51,7 @@ const PopularServicesManagement = () => {
     sgst: 0,
     serviceCharge: 0,
     serviceChargeType: 'amount',
+    visitingCharge: 0,
     trusted: 'Trusted by thousands of homes',
     included: [],
     excluded: [],
@@ -136,6 +138,7 @@ const PopularServicesManagement = () => {
         slug: service.slug || '',
         icon: service.icon || 'FaTools',
         description: service.description || '',
+        shortNotes: service.shortNotes || '',
         price: service.price || '',
         basePrice: service.basePrice || 0,
         discount: service.discount || 0,
@@ -144,6 +147,7 @@ const PopularServicesManagement = () => {
         sgst: service.sgst || 0,
         serviceCharge: service.serviceCharge || 0,
         serviceChargeType: service.serviceChargeType || 'amount',
+        visitingCharge: service.visitingCharge || 0,
         trusted: service.trusted || 'Trusted by thousands of homes',
         included: service.included || [],
         excluded: service.excluded || [],
@@ -168,6 +172,7 @@ const PopularServicesManagement = () => {
         slug: '',
         icon: 'FaTools',
         description: '',
+        shortNotes: '',
         price: '',
         basePrice: 0,
         discount: 0,
@@ -176,6 +181,7 @@ const PopularServicesManagement = () => {
         sgst: 0,
         serviceCharge: 0,
         serviceChargeType: 'amount',
+        visitingCharge: 0,
         trusted: 'Trusted by thousands of homes',
         included: [],
         excluded: [],
@@ -226,6 +232,7 @@ const PopularServicesManagement = () => {
         slug: '',
         icon: 'FaTools',
         description: '',
+        shortNotes: '',
         price: '',
         basePrice: 0,
         discount: 0,
@@ -234,6 +241,7 @@ const PopularServicesManagement = () => {
         sgst: 0,
         serviceCharge: 0,
         serviceChargeType: 'amount',
+        visitingCharge: 0,
         trusted: 'Trusted by thousands of homes',
         included: [],
         excluded: [],
@@ -981,6 +989,35 @@ const PopularServicesManagement = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Short Notes
+                </label>
+                <textarea
+                  value={formData.shortNotes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, shortNotes: e.target.value }))}
+                  rows="2"
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                  placeholder="Brief notes about the service..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Visiting Charge (₹)
+                </label>
+                <input
+                  type="number"
+                  value={formData.visitingCharge}
+                  onChange={(e) => setFormData(prev => ({ ...prev, visitingCharge: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-primary"
+                  placeholder="0"
+                  min="0"
+                  step="0.01"
+                />
+                <p className="mt-1 text-xs text-slate-500">Additional charge for visiting the customer location</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Trusted Text
                 </label>
                 <input
@@ -994,13 +1031,13 @@ const PopularServicesManagement = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Add-On Services
+                   Services
                 </label>
                 
                 {/* Add-On Form */}
                 <div className="bg-slate-50 p-4 rounded-xl border-2 border-slate-200 mb-4">
                   <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                    {editingAddOnIndex !== null ? 'Edit Add-On Service' : 'Add New Add-On Service'}
+                    {editingAddOnIndex !== null ? 'Edit Service' : 'Add New Service'}
                   </h4>
                   
                   <div className="space-y-3">
@@ -1357,7 +1394,7 @@ const PopularServicesManagement = () => {
                       onClick={handleAddAddOn}
                         className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-semibold text-sm"
                     >
-                        {editingAddOnIndex !== null ? 'Update Add-On' : 'Add Add-On'}
+                        {editingAddOnIndex !== null ? 'Update Service' : 'Add Service'}
                     </button>
                       {editingAddOnIndex !== null && (
                         <button
@@ -1377,12 +1414,12 @@ const PopularServicesManagement = () => {
                   {formData.emergencyService?.enabled && formData.emergencyService?.extraAmount > 0 && formData.addOns.length > 0 && (
                     <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                       <p className="text-sm text-orange-700">
-                        ⚡ Emergency service charge (+₹{formData.emergencyService.extraAmount}) will be applied to all add-on services and their sub-services
+                        ⚡ Emergency service charge (+₹{formData.emergencyService.extraAmount}) will be applied to all services and their sub-services
                       </p>
                     </div>
                   )}
                   {formData.addOns.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-4">No add-on services added yet</p>
+                    <p className="text-sm text-slate-400 text-center py-4">No services added yet</p>
                   ) : (
                     formData.addOns.map((addon, index) => {
                       const AddOnIcon = getIconComponent(addon.icon || 'FaTools')
@@ -1723,6 +1760,16 @@ const PopularServicesManagement = () => {
                     <p className="text-base text-slate-900 mt-1">{viewingService.description}</p>
                   </div>
                 )}
+                {viewingService.shortNotes && (
+                  <div className="mt-4">
+                    <label className="text-sm font-semibold text-slate-600">Short Notes</label>
+                    <p className="text-base text-slate-900 mt-1">{viewingService.shortNotes}</p>
+                  </div>
+                )}
+                <div className="mt-4">
+                  <label className="text-sm font-semibold text-slate-600">Visiting Charge</label>
+                  <p className="text-base text-slate-900 mt-1">₹{viewingService.visitingCharge || 0}</p>
+                </div>
                 {viewingService.trusted && (
                   <div className="mt-4">
                     <label className="text-sm font-semibold text-slate-600">Trusted Text</label>
@@ -1802,7 +1849,7 @@ const PopularServicesManagement = () => {
               {/* Add-Ons */}
               {viewingService.addOns && viewingService.addOns.length > 0 && (
                 <div className="bg-slate-50 rounded-xl p-6">
-                  <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Add-On Services</h4>
+                  <h4 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">Services</h4>
                   <div className="grid sm:grid-cols-1 gap-4">
                     {viewingService.addOns.map((addon, index) => {
                       const AddOnIcon = getIconComponent(addon.icon || 'FaTools')
