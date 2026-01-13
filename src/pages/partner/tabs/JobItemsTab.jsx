@@ -58,7 +58,7 @@ const JobItemsTab = () => {
       
       // Filter active jobs only
       const activeJobs = bookingsList.filter(job => 
-        ['accepted', 'in-progress', 'paused'].includes(job.status)
+        ['confirmed', 'accepted', 'in_progress', 'paused'].includes(job.status)
       )
       setJobs(activeJobs)
       
@@ -283,12 +283,15 @@ const JobItemsTab = () => {
                   )}
                 </div>
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                  job.status === 'confirmed' ? 'bg-cyan-100 text-cyan-800' :
                   job.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                  job.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                  job.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                   job.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
                   'bg-slate-100 text-slate-800'
                 }`}>
-                  {job.status}
+                  {job.status === 'confirmed' ? 'Assigned' :
+                   job.status === 'in_progress' ? 'In Progress' :
+                   job.status}
                 </span>
               </div>
               <p className="text-sm text-slate-600">

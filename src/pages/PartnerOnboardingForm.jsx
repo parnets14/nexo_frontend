@@ -28,6 +28,7 @@ import SEO from '../components/SEO'
 import { partnerApi } from '../services/partnerApi'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 import PayUPayment from '../components/PayUPayment'
+import { getIconComponent } from '../utils/iconMapper'
 
 const trades = [
   { id: 'ac-service', name: 'AC Service', icon: '❄️' },
@@ -514,6 +515,7 @@ const ProfileReviewStep = ({ currentStep, setCurrentStep, formData, token }) => 
                 localStorage.removeItem('partnerOnboardingFormData')
                 localStorage.removeItem('partnerOnboardingToken')
                 localStorage.removeItem('partnerOnboardingPartnerData')
+                localStorage.removeItem('partnerOnboardingFromLeadsneed')
                 
                 // Reload the page to start fresh
                 window.location.href = '/partner/onboard'
@@ -537,8 +539,6 @@ const ProfileReviewStep = ({ currentStep, setCurrentStep, formData, token }) => 
 const PartnerOnboardingForm = () => {
   const location = useLocation()
   const [searchParams] = useSearchParams()
-  const fromLeads = searchParams.get('from') === 'leads' || location.state?.fromLeads
-  const fromLeadsneed = searchParams.get('from') === 'leadsneed' || location.state?.fromLeadsneed
   
   // Load saved data from localStorage on mount
   const loadSavedData = () => {
@@ -547,20 +547,29 @@ const PartnerOnboardingForm = () => {
       const savedToken = localStorage.getItem('partnerOnboardingToken')
       const savedFormData = localStorage.getItem('partnerOnboardingFormData')
       const savedPartnerData = localStorage.getItem('partnerOnboardingPartnerData')
+      const savedFromLeadsneed = localStorage.getItem('partnerOnboardingFromLeadsneed')
       
       return {
         step: savedStep ? parseInt(savedStep) : 1,
         token: savedToken || null,
         formData: savedFormData ? JSON.parse(savedFormData) : null,
-        partnerData: savedPartnerData ? JSON.parse(savedPartnerData) : null
+        partnerData: savedPartnerData ? JSON.parse(savedPartnerData) : null,
+        savedFromLeadsneed: savedFromLeadsneed === 'true'
       }
     } catch (error) {
       console.error('Error loading saved data:', error)
-      return { step: 1, token: null, formData: null, partnerData: null }
+      return { step: 1, token: null, formData: null, partnerData: null, savedFromLeadsneed: false }
     }
   }
   
   const savedData = loadSavedData()
+  
+  // CRITICAL FIX: URL parameter takes precedence over localStorage
+  // If URL has 'from=leadsneed' → Lead Plans
+  // If URL has NO 'from' parameter → MG Plans (regular onboarding)
+  // Only use localStorage if continuing a session (no page reload with different URL)
+  const fromLeads = searchParams.get('from') === 'leads' || location.state?.fromLeads
+  const fromLeadsneed = searchParams.get('from') === 'leadsneed' || location.state?.fromLeadsneed
   
   const [currentStep, setCurrentStep] = useState(savedData.step)
   const [token, setToken] = useState(savedData.token)
@@ -704,6 +713,21 @@ const PartnerOnboardingForm = () => {
     }
   }, [partnerData])
 
+  // Save fromLeadsneed to localStorage
+  useEffect(() => {
+    try {
+      if (fromLeadsneed) {
+        localStorage.setItem('partnerOnboardingFromLeadsneed', 'true')
+      } else {
+        // CRITICAL: Remove the saved value when not in leadsneed flow
+        // This prevents wrong flow when user visits /partner/onboard after /partner/onboard?from=leadsneed
+        localStorage.removeItem('partnerOnboardingFromLeadsneed')
+      }
+    } catch (error) {
+      console.error('Error saving fromLeadsneed:', error)
+    }
+  }, [fromLeadsneed])
+
   // Clear localStorage when onboarding is complete (step 11)
   useEffect(() => {
     if (currentStep === 11 && (formData.selectedPlan || mgPlanSkipped)) {
@@ -712,6 +736,7 @@ const PartnerOnboardingForm = () => {
         localStorage.removeItem('partnerOnboardingFormData')
         localStorage.removeItem('partnerOnboardingToken')
         localStorage.removeItem('partnerOnboardingPartnerData')
+        localStorage.removeItem('partnerOnboardingFromLeadsneed')
         console.log('✅ Onboarding complete - localStorage cleared')
       } catch (error) {
         console.error('Error clearing localStorage:', error)
@@ -932,8 +957,11 @@ const PartnerOnboardingForm = () => {
       if (currentStep === 4) {
         setLoadingCategories(true)
         try {
+          // Determine source based on where user came from
+          const source = (fromLeads || fromLeadsneed) ? 'leads' : 'onboard'
+          
           // Try with token if available, otherwise without
-          const response = await partnerApi.getCategories(token || '')
+          const response = await partnerApi.getCategories(token || '', source)
           if (response.success && response.categories) {
             setCategories(response.categories)
           } else if (response.categories && Array.isArray(response.categories)) {
@@ -949,7 +977,7 @@ const PartnerOnboardingForm = () => {
       }
     }
     fetchCategories()
-  }, [currentStep, token])
+  }, [currentStep, token, fromLeads, fromLeadsneed])
 
   // Fetch Pricing Settings when on payment step or when partner type changes
   useEffect(() => {
@@ -1372,7 +1400,18 @@ const PartnerOnboardingForm = () => {
               }
             }
             
-            const response = await fetch(`${API_BASE_URL}/api/partner/lead-plans/public?partnerType=${formData.partnerType}`, {
+            // Build query parameters - filter by category if available
+            const queryParams = new URLSearchParams({
+              partnerType: formData.partnerType
+            })
+            
+            // Add category filter if partner has selected categories
+            if (formData.categories && formData.categories.length > 0) {
+              // Use the first category for filtering lead plans
+              queryParams.append('category', formData.categories[0])
+            }
+            
+            const response = await fetch(`${API_BASE_URL}/api/partner/lead-plans/public?${queryParams.toString()}`, {
               method: 'GET',
               headers: {
                 'Content-Type': 'application/json'
@@ -1416,6 +1455,7 @@ const PartnerOnboardingForm = () => {
                     price: plan.price || 0,
                     leads: plan.leads || 0,
                     leadFee: plan.leadFee || 50,
+                    category: plan.category || null,
                     leadQuality: plan.leadQuality || 'standard',
                     responseTime: plan.responseTime || '24 hours',
                     supportLevel: plan.supportLevel || 'basic',
@@ -1442,7 +1482,7 @@ const PartnerOnboardingForm = () => {
       }
     }
     fetchPlans()
-  }, [token, currentStep, formData.partnerType, fromLeadsneed])
+  }, [token, currentStep, formData.partnerType, formData.categories, fromLeadsneed])
 
   const handleSendOTP = async () => {
     if (!formData.phone || formData.phone.length !== 10) {
@@ -3011,7 +3051,11 @@ const PartnerOnboardingForm = () => {
                 {(categories.length > 0 ? categories : trades).map((category) => {
                   const categoryId = category.id || category._id || category.name
                   const categoryName = category.name
-                  const categoryIcon = category.icon || '🔧'
+                  const categoryIconRaw = category.icon || '🔧'
+                  // Convert icon string to component if needed
+                  const IconComponent = typeof categoryIconRaw === 'string' && categoryIconRaw.startsWith('Fa') 
+                    ? getIconComponent(categoryIconRaw) 
+                    : null
                   const isSelected = formData.categories.includes(categoryId) || formData.categoryNames.includes(categoryName)
                   
                   return (
@@ -3049,13 +3093,15 @@ const PartnerOnboardingForm = () => {
                       }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`p-6 rounded-2xl border-2 transition-all ${
+                      className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center justify-center text-center ${
                         isSelected
                           ? 'border-primary bg-primary/10 shadow-lg'
                           : 'border-gray-200 hover:border-primary/50'
                       }`}
                     >
-                      <div className="text-4xl mb-3">{categoryIcon}</div>
+                      <div className="text-4xl mb-3 flex items-center justify-center">
+                        {IconComponent ? <IconComponent /> : categoryIconRaw}
+                      </div>
                       <div className="font-semibold text-gray-800">{categoryName}</div>
                       {isSelected && (
                         <motion.div
@@ -4242,6 +4288,7 @@ const PartnerOnboardingForm = () => {
                       localStorage.removeItem('partnerOnboardingFormData')
                       localStorage.removeItem('partnerOnboardingToken')
                       localStorage.removeItem('partnerOnboardingPartnerData')
+                      localStorage.removeItem('partnerOnboardingFromLeadsneed')
                       
                       // Reload the page to start fresh
                       window.location.href = '/partner/onboard'
@@ -4529,14 +4576,16 @@ const PartnerOnboardingForm = () => {
 
               <div>
                 <h2 className="text-3xl font-bold text-primary mb-2">
-                  {formData.selectedLeadPlan ? 'Lead Plan Activated!' : 
+                  {fromLeadsneed && formData.selectedLeadPlan ? 'Lead Plan Activated!' : 
                    formData.selectedPlan ? 'Thank You!' : 'Registration Complete!'}
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  {formData.selectedLeadPlan 
+                  {fromLeadsneed && formData.selectedLeadPlan 
                     ? `Congratulations! Your ${formData.selectedLeadPlan} lead plan is now active. You'll start receiving quality leads based on your selected categories and location.`
                     : formData.selectedPlan 
                     ? `Thank you for subscribing to the ${formData.selectedPlan} plan! Your lead subscription is now active.`
+                    : fromLeadsneed
+                    ? 'Your partner registration is complete! You can subscribe to a lead plan anytime from your dashboard.'
                     : 'Your partner registration is complete! You can subscribe to an MG plan anytime from your dashboard.'
                   }
                 </p>
@@ -4560,13 +4609,36 @@ const PartnerOnboardingForm = () => {
                 </div>
               )}
 
-              {/* Show Lead Plan Success */}
-              {formData.selectedLeadPlan && (
+              {/* Show Lead Plan Success - Only for leadsneed flow */}
+              {fromLeadsneed && formData.selectedLeadPlan && (
                 <div className="bg-white border-2 border-green-500 rounded-2xl p-6">
                   <h3 className="text-xl font-semibold text-gray-800 mb-4">Your Lead Plan</h3>
                   <div className="text-center">
                     <div className="text-4xl mb-3">🎯</div>
                     <div className="text-2xl font-bold text-green-600 mb-2">{formData.selectedLeadPlan} Lead Plan</div>
+                    
+                    {/* Show Lead Plan Price */}
+                    {formData.selectedLeadPlanId && leadPlans.length > 0 && (() => {
+                      const selectedLeadPlanDetails = leadPlans.find(p => p._id === formData.selectedLeadPlanId || p.name === formData.selectedLeadPlan)
+                      return selectedLeadPlanDetails ? (
+                        <div className="mb-4">
+                          <div className="text-3xl font-bold text-primary mb-2">
+                            ₹{selectedLeadPlanDetails.price.toLocaleString('en-IN')}/month
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 max-w-md mx-auto mb-3">
+                            <div className="bg-green-50 rounded-lg p-3">
+                              <p className="text-xs text-gray-600 mb-1">Quality Leads</p>
+                              <p className="text-lg font-bold text-green-700">{selectedLeadPlanDetails.leads}/month</p>
+                            </div>
+                            <div className="bg-blue-50 rounded-lg p-3">
+                              <p className="text-xs text-gray-600 mb-1">Lead Fee</p>
+                              <p className="text-lg font-bold text-blue-700">₹{selectedLeadPlanDetails.leadFee}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null
+                    })()}
+                    
                     <p className="text-gray-600 mb-3">
                       Your lead plan is now active! You'll receive quality leads based on your selected categories and location.
                     </p>
@@ -4579,7 +4651,7 @@ const PartnerOnboardingForm = () => {
               )}
 
               {/* Show MG Plan Success - Only for non-leadsneed flow */}
-              {formData.selectedPlan && !fromLeadsneed && (
+              {!fromLeadsneed && formData.selectedPlan && (
                 <div className="bg-white border-2 border-primary rounded-2xl p-6">
                   <h3 className="text-xl font-semibold text-gray-800 mb-4">Your MG Plan</h3>
                   <div className="text-center">
@@ -4620,9 +4692,10 @@ const PartnerOnboardingForm = () => {
                       localStorage.removeItem('partnerOnboardingFormData')
                       localStorage.removeItem('partnerOnboardingToken')
                       localStorage.removeItem('partnerOnboardingPartnerData')
+                      localStorage.removeItem('partnerOnboardingFromLeadsneed')
                       
                       // Reload the page to start fresh
-                      window.location.href = '/partner/onboard'
+                      window.location.href = fromLeadsneed ? '/partner/onboard?from=leadsneed' : '/partner/onboard'
                     }
                   }}
                   whileHover={{ scale: 1.05 }}
@@ -4639,7 +4712,41 @@ const PartnerOnboardingForm = () => {
           )
         }
 
-        // Show plan selection if no plan selected yet
+        // Show plan selection if no plan selected yet - Only for non-leadsneed flow
+        if (fromLeadsneed) {
+          // For leadsneed flow, redirect to step 12 for lead plan selection
+          return (
+            <div className="space-y-6 text-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', duration: 0.5 }}
+                className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto"
+              >
+                <FaBullseye className="text-4xl text-blue-600" />
+              </motion.div>
+
+              <div>
+                <h2 className="text-3xl font-bold text-primary mb-2">Registration Complete!</h2>
+                <p className="text-gray-600 mb-6">
+                  Your partner registration is complete. Now select a lead plan to start receiving quality leads.
+                </p>
+              </div>
+
+              <motion.button
+                onClick={() => setCurrentStep(12)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-primary text-white px-8 py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2 mx-auto"
+              >
+                <FaBullseye />
+                Choose Lead Plan
+                <FaArrowRight />
+              </motion.button>
+            </div>
+          )
+        }
+        
         return (
           <div className="space-y-6">
             {/* Show Activated Plan Section if plan already selected */}
@@ -5001,9 +5108,10 @@ const PartnerOnboardingForm = () => {
                         localStorage.removeItem('partnerOnboardingFormData')
                         localStorage.removeItem('partnerOnboardingToken')
                         localStorage.removeItem('partnerOnboardingPartnerData')
+                        localStorage.removeItem('partnerOnboardingFromLeadsneed')
                         
                         // Reload the page to start fresh
-                        window.location.href = '/partner/onboard'
+                        window.location.href = '/partner/onboard?from=leadsneed'
                       }
                     }}
                     whileHover={{ scale: 1.05 }}
@@ -5044,9 +5152,83 @@ const PartnerOnboardingForm = () => {
                   <p className="text-gray-600">Loading lead plans...</p>
                 </div>
               ) : leadPlans.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-2xl">
-                  <p className="text-gray-600 text-lg font-medium mb-2">No lead plans available</p>
-                  <p className="text-gray-500 text-sm">Please contact admin to set up lead plans.</p>
+                <div className="space-y-6">
+                  <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
+                    <div className="mb-4">
+                      <svg className="w-16 h-16 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-600 text-lg font-medium mb-2">No Lead Plans Available</p>
+                    <p className="text-gray-500 text-sm mb-6">Lead plans are currently not available. You can proceed to complete your registration or contact support.</p>
+                    
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto">
+                      <motion.button
+                        onClick={() => {
+                          // Skip to success page
+                          setCurrentStep(11)
+                        }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bg-primary text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                      >
+                        <FaArrowRight />
+                        Complete Registration
+                      </motion.button>
+                      
+                      <motion.button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleWhatsAppClick(e)
+                        }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bg-green-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                      >
+                        <FaWhatsapp className="text-lg" />
+                        Contact Support
+                      </motion.button>
+                    </div>
+                  </div>
+
+                  {/* New Lead Registration Option */}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200">
+                    <div className="text-center mb-4">
+                      <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">Register Another Partner?</h3>
+                      <p className="text-gray-600 text-sm mb-4">
+                        Clear all saved data and start a fresh partner registration
+                      </p>
+                    </div>
+                    
+                    <motion.button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to start a new registration? This will clear all saved data from this device.')) {
+                          // Clear all localStorage data
+                          localStorage.removeItem('partnerOnboardingStep')
+                          localStorage.removeItem('partnerOnboardingFormData')
+                          localStorage.removeItem('partnerOnboardingToken')
+                          localStorage.removeItem('partnerOnboardingPartnerData')
+                          localStorage.removeItem('partnerOnboardingFromLeadsneed')
+                          
+                          // Reload the page to start fresh
+                          window.location.href = '/partner/onboard?from=leadsneed'
+                        }
+                      }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition shadow-md"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      New Lead Registration
+                    </motion.button>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -5550,9 +5732,10 @@ const PartnerOnboardingForm = () => {
                         localStorage.removeItem('partnerOnboardingFormData')
                         localStorage.removeItem('partnerOnboardingToken')
                         localStorage.removeItem('partnerOnboardingPartnerData')
+                        localStorage.removeItem('partnerOnboardingFromLeadsneed')
                         
                         // Reload the page to start fresh
-                        window.location.href = '/partner/onboard'
+                        window.location.href = '/partner/onboard?from=leadsneed'
                       }
                     }}
                     whileHover={{ scale: 1.05 }}
@@ -5593,9 +5776,83 @@ const PartnerOnboardingForm = () => {
                   <p className="text-gray-600">Loading lead plans...</p>
                 </div>
               ) : leadPlans.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-2xl">
-                  <p className="text-gray-600 text-lg font-medium mb-2">No lead plans available</p>
-                  <p className="text-gray-500 text-sm">Please contact admin to set up lead plans.</p>
+                <div className="space-y-6">
+                  <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
+                    <div className="mb-4">
+                      <svg className="w-16 h-16 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-600 text-lg font-medium mb-2">No Lead Plans Available</p>
+                    <p className="text-gray-500 text-sm mb-6">Lead plans are currently not available. You can proceed to complete your registration or contact support.</p>
+                    
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto">
+                      <motion.button
+                        onClick={() => {
+                          // Skip to success page
+                          setCurrentStep(11)
+                        }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bg-primary text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                      >
+                        <FaArrowRight />
+                        Complete Registration
+                      </motion.button>
+                      
+                      <motion.button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleWhatsAppClick(e)
+                        }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bg-green-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                      >
+                        <FaWhatsapp className="text-lg" />
+                        Contact Support
+                      </motion.button>
+                    </div>
+                  </div>
+
+                  {/* New Lead Registration Option */}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200">
+                    <div className="text-center mb-4">
+                      <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">Register Another Partner?</h3>
+                      <p className="text-gray-600 text-sm mb-4">
+                        Clear all saved data and start a fresh partner registration
+                      </p>
+                    </div>
+                    
+                    <motion.button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to start a new registration? This will clear all saved data from this device.')) {
+                          // Clear all localStorage data
+                          localStorage.removeItem('partnerOnboardingStep')
+                          localStorage.removeItem('partnerOnboardingFormData')
+                          localStorage.removeItem('partnerOnboardingToken')
+                          localStorage.removeItem('partnerOnboardingPartnerData')
+                          localStorage.removeItem('partnerOnboardingFromLeadsneed')
+                          
+                          // Reload the page to start fresh
+                          window.location.href = '/partner/onboard?from=leadsneed'
+                        }
+                      }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition shadow-md"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      New Lead Registration
+                    </motion.button>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -6379,6 +6636,35 @@ const PartnerOnboardingForm = () => {
             </AnimatePresence>
 
             {/* Navigation Buttons */}
+            {currentStep === 12 && fromLeadsneed && (
+              <div className="flex justify-between items-center mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
+                <button
+                  onClick={() => {
+                    // Go back to the previous step before lead plan selection
+                    // Since we skip step 7 (payment) in leadsneed flow, go back to step 6 (terms)
+                    setCurrentStep(6)
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition bg-gray-200 text-gray-700 hover:bg-gray-300"
+                >
+                  <FaArrowLeft /> Previous
+                </button>
+                
+                {existingLeadPlan && existingLeadPlan.status === 'active' ? (
+                  <div className="text-sm text-green-600 font-medium">
+                    ✓ You have an active lead plan
+                  </div>
+                ) : leadPlans.length === 0 ? (
+                  <div className="text-sm text-gray-500">
+                    No plans available - Contact support
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    Select a lead plan to continue
+                  </div>
+                )}
+              </div>
+            )}
+            
             {currentStep < 12 && currentStep !== 13 && (
               <div className="flex justify-between items-center mt-6 sm:mt-8 pt-4 sm:pt-6 border-t">
                 <button

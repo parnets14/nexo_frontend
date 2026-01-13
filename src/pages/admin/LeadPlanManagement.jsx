@@ -20,6 +20,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext'
 const LeadPlanManagement = () => {
   const { token } = useAdminAuth()
   const [leadPlans, setLeadPlans] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -32,6 +33,7 @@ const LeadPlanManagement = () => {
     leadFee: '',
     description: '',
     features: '',
+    category: '',
     leadQuality: 'standard',
     responseTime: '24 hours',
     supportLevel: 'basic',
@@ -45,6 +47,33 @@ const LeadPlanManagement = () => {
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
     (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/categories`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success) {
+            setCategories(result.categories || result.data || [])
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching categories:', err)
+      }
+    }
+    
+    if (token) {
+      fetchCategories()
+    }
+  }, [token])
 
   // Fetch lead plans
   const fetchLeadPlans = async () => {
@@ -115,7 +144,8 @@ const LeadPlanManagement = () => {
         leads: Number(formData.leads),
         leadFee: Number(formData.leadFee),
         validityMonths: Number(formData.validityMonths),
-        features: formData.features.split('\n').filter(f => f.trim())
+        features: formData.features.split('\n').filter(f => f.trim()),
+        category: formData.category || null
       }
 
       const url = selectedPlan 
@@ -198,6 +228,7 @@ const LeadPlanManagement = () => {
       leadFee: '',
       description: '',
       features: '',
+      category: '',
       leadQuality: 'standard',
       responseTime: '24 hours',
       supportLevel: 'basic',
@@ -219,6 +250,7 @@ const LeadPlanManagement = () => {
       leadFee: plan.leadFee.toString(),
       description: plan.description || '',
       features: plan.features?.join('\n') || '',
+      category: plan.category?._id || plan.category || '',
       leadQuality: plan.leadQuality || 'standard',
       responseTime: plan.responseTime || '24 hours',
       supportLevel: plan.supportLevel || 'basic',
@@ -345,6 +377,7 @@ const LeadPlanManagement = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leads</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quality</th>
@@ -364,6 +397,15 @@ const LeadPlanManagement = () => {
                           <div className="text-sm text-gray-500">{plan.description}</div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {plan.category ? (
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {plan.category.name}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">Not set</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">₹{plan.price?.toLocaleString()}</div>
@@ -459,6 +501,22 @@ const LeadPlanManagement = () => {
                     </select>
                   </div>
                   
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map(cat => (
+                        <option key={cat._id} value={cat._id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
                     <input

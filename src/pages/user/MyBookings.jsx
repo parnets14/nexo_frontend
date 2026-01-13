@@ -759,7 +759,7 @@ const isCancellationAllowed = (bookingData) => {
               </div>
               <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center min-w-[100px]">
                 <p className="text-3xl font-bold mb-1">
-                  {Array.isArray(bookings) ? bookings.filter(b => ['pending', 'confirmed', 'in-progress'].includes(b.status)).length : 0}
+                  {Array.isArray(bookings) ? bookings.filter(b => ['pending', 'confirmed', 'accepted', 'in_progress'].includes(b.status)).length : 0}
                 </p>
                 <p className="text-sm text-blue-100">Active</p>
               </div>
@@ -785,7 +785,8 @@ const isCancellationAllowed = (bookingData) => {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {status === 'in_progress' ? 'In Progress' : 
+              {status === 'confirmed' ? 'Assigned' :
+               status === 'in_progress' ? 'In Progress' : 
                status === 'work_completed' ? 'Work Completed' : 
                status.replace('_', ' ').replace('-', ' ')}
               {status !== 'all' && (
@@ -894,7 +895,8 @@ const isCancellationAllowed = (bookingData) => {
                     
                     <span className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 flex items-center gap-2 ${getStatusColor(bookingData.status)}`}>
                       {getStatusIcon(bookingData.status)}
-                      {bookingData.status === 'in_progress' ? 'In Progress' : 
+                      {bookingData.status === 'confirmed' ? 'Assigned' :
+                       bookingData.status === 'in_progress' ? 'In Progress' : 
                        bookingData.status === 'work_completed' ? 'Work Completed' : 
                        bookingData.status.replace('_', ' ').replace('-', ' ')}
                     </span>
@@ -949,8 +951,8 @@ const isCancellationAllowed = (bookingData) => {
                       View Details
                     </button>
                     
-                    {/* Quotation Button - Show for confirmed/in-progress bookings */}
-                    {['confirmed', 'in_progress', 'work_completed'].includes(bookingData.status) && (
+                    {/* Quotation Button - Show for confirmed/accepted/in-progress/work_completed bookings */}
+                    {['confirmed', 'accepted', 'in_progress', 'work_completed'].includes(bookingData.status) && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

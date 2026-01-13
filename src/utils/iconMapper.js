@@ -30,7 +30,10 @@ import {
   FaShieldAlt,
   FaFire,
   FaWater,
-  FaGasPump
+  FaGasPump,
+  FaTint,
+  FaPaintRoller,
+  FaFilter
 } from 'react-icons/fa';
 
 // Icon mapping object
@@ -52,6 +55,7 @@ const iconMap = {
   'FaToilet': FaToilet,
   'FaSink': FaSink,
   'FaWater': FaWater,
+  'FaTint': FaTint,
   
   // Appliances
   'FaCog': FaCog,
@@ -69,6 +73,7 @@ const iconMap = {
   
   // Painting & Cleaning
   'FaPaintBrush': FaPaintBrush,
+  'FaPaintRoller': FaPaintRoller,
   'FaBroom': FaBroom,
   'FaSprayCan': FaSprayCan,
   
@@ -78,6 +83,9 @@ const iconMap = {
   'FaLeaf': FaLeaf,
   'FaFire': FaFire,
   
+  // Water & Filters
+  'FaFilter': FaFilter,
+  
   // General
   'FaTools': FaTools,
   'FaHome': FaHome,
@@ -86,7 +94,18 @@ const iconMap = {
 
 // Function to get icon component by name
 export const getIconComponent = (iconName) => {
-  return iconMap[iconName] || FaTools; // Default to FaTools if icon not found
+  // If iconName is already a component, return it
+  if (typeof iconName === 'function') {
+    return iconName;
+  }
+  
+  // If it's a string, look it up in the map
+  if (typeof iconName === 'string') {
+    return iconMap[iconName] || FaTools; // Default to FaTools if icon not found
+  }
+  
+  // Default fallback
+  return FaTools;
 };
 
 // Function to get all available icons (for admin use)

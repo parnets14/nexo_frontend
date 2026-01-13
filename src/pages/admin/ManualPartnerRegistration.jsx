@@ -12,6 +12,7 @@ const ManualPartnerRegistration = () => {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
   const [categories, setCategories] = useState([])
+  const [popularServices, setPopularServices] = useState([])
   const [hubs, setHubs] = useState([])
   const [mgPlans, setMgPlans] = useState([])
   const [pricingSettings, setPricingSettings] = useState(null)
@@ -39,6 +40,8 @@ const ManualPartnerRegistration = () => {
     // Service Information
     category: [],
     categoryNames: [],
+    services: [],
+    serviceNames: [],
     modeOfService: 'both',
     selectedHubs: [],
     
@@ -89,7 +92,7 @@ const ManualPartnerRegistration = () => {
     profileStatus: 'active'
   })
 
-  // Fetch categories, hubs, fees, and MG plans on mount
+  // Fetch categories, popular services, hubs, fees, and MG plans on mount
   useEffect(() => {
     const fetchData = async () => {
       if (!token) {
@@ -100,7 +103,7 @@ const ManualPartnerRegistration = () => {
 
       setLoadingData(true)
       try {
-        console.log('Fetching categories, hubs, fees, and MG plans...')
+        console.log('Fetching categories, popular services, hubs, fees, and MG plans...')
         
         // Fetch categories using adminApi
         try {
@@ -112,6 +115,18 @@ const ManualPartnerRegistration = () => {
         } catch (catError) {
           console.error('Error fetching categories:', catError)
           setError('Failed to load categories. Please refresh the page.')
+        }
+
+        // Fetch popular services using adminApi
+        try {
+          const servicesData = await adminApi.fetchPopularServices(token)
+          console.log('Popular services response:', servicesData)
+          const services = servicesData.data || []
+          setPopularServices(services)
+          console.log('Popular services set:', services.length)
+        } catch (servicesError) {
+          console.error('Error fetching popular services:', servicesError)
+          setError('Failed to load services. Please refresh the page.')
         }
 
         // Fetch hubs using adminApi
@@ -236,6 +251,25 @@ const ManualPartnerRegistration = () => {
         ...prev, 
         category: newCategories,
         categoryNames: categoryNames
+      }
+    })
+  }
+
+  const handleServiceChange = (serviceId) => {
+    setFormData(prev => {
+      const isSelected = prev.services.includes(serviceId)
+      const newServices = isSelected
+        ? prev.services.filter(id => id !== serviceId)
+        : [...prev.services, serviceId]
+      
+      // Update service names
+      const selectedServices = popularServices.filter(service => newServices.includes(service._id))
+      const serviceNames = selectedServices.map(service => service.name)
+      
+      return { 
+        ...prev, 
+        services: newServices,
+        serviceNames: serviceNames
       }
     })
   }
@@ -403,6 +437,8 @@ const ManualPartnerRegistration = () => {
       // Add arrays as JSON strings
       submitData.append('category', JSON.stringify(formData.category))
       submitData.append('categoryNames', JSON.stringify(formData.categoryNames))
+      submitData.append('services', JSON.stringify(formData.services))
+      submitData.append('serviceNames', JSON.stringify(formData.serviceNames))
       console.log('Selected Hubs being sent:', formData.selectedHubs)
       submitData.append('selectedHubs', JSON.stringify(formData.selectedHubs))
       
@@ -727,30 +763,45 @@ const ManualPartnerRegistration = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Service Categories <span className="text-rose-500">*</span>
+                  Services <span className="text-rose-500">*</span>
                 </label>
+                <p className="text-xs text-slate-500 mb-3">
+                  Select the services this partner can provide (from the services displayed on the /services page)
+                </p>
                 {loadingData ? (
                   <div className="flex items-center justify-center p-8 border border-slate-200 rounded-lg">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                    <span className="ml-3 text-slate-600">Loading categories...</span>
+                    <span className="ml-3 text-slate-600">Loading services...</span>
                   </div>
-                ) : categories.length === 0 ? (
+                ) : popularServices.length === 0 ? (
                   <div className="p-4 border border-amber-200 bg-amber-50 rounded-lg text-amber-800 text-sm">
-                    No categories available. Please add categories first.
+                    No services available. Please add services in Popular Services Management first.
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {categories.map(category => (
-                      <label key={category._id} className="flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+                    {popularServices.map(service => (
+                      <label key={service._id} className="flex items-center gap-2 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={formData.category.includes(category._id)}
-                          onChange={() => handleCategoryChange(category._id)}
+                          checked={formData.services.includes(service._id)}
+                          onChange={() => handleServiceChange(service._id)}
                           className="w-4 h-4 text-primary focus:ring-primary"
                         />
-                        <span className="text-sm text-slate-700">{category.name}</span>
+                        <span className="text-sm text-slate-700">{service.name}</span>
                       </label>
                     ))}
+                  </div>
+                )}
+                {formData.services.length > 0 && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm font-medium text-blue-900">Selected Services: {formData.services.length}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.serviceNames.map((name, index) => (
+                        <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

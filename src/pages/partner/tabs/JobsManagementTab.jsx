@@ -282,6 +282,25 @@ const JobsManagementTab = () => {
     }
   }
 
+  const handleAcceptJob = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to accept this job?')) {
+      return
+    }
+
+    try {
+      const response = await partnerApi.acceptJob(token, bookingId)
+      if (response.success) {
+        await fetchBookings()
+        alert('Job accepted successfully! You can now start working on it.')
+      } else {
+        throw new Error(response.message || 'Failed to accept job')
+      }
+    } catch (err) {
+      console.error('Failed to accept job:', err)
+      alert(err.message || 'Failed to accept job')
+    }
+  }
+
   const handleDeleteQuotation = async (quotationId, bookingId) => {
     if (!window.confirm('Are you sure you want to delete this quotation? This action cannot be undone.')) {
       return
@@ -469,6 +488,7 @@ const JobsManagementTab = () => {
   const stats = {
     total: bookings.length,
     pending: bookings.filter((b) => b.status === 'pending').length,
+    confirmed: bookings.filter((b) => b.status === 'confirmed').length,
     accepted: bookings.filter((b) => b.status === 'accepted').length,
     in_progress: bookings.filter((b) => b.status === 'in_progress').length,
     work_completed: bookings.filter((b) => b.status === 'work_completed').length,
@@ -549,7 +569,7 @@ const JobsManagementTab = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
             <FiFilter className="text-slate-600 hidden sm:block" />
-          {['all', 'emergency', 'pending', 'accepted', 'in_progress', 'work_completed', 'paused', 'completed', 'rejected'].map((f) => (
+          {['all', 'emergency', 'pending', 'confirmed', 'accepted', 'in_progress', 'work_completed', 'paused', 'completed', 'rejected'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -767,8 +787,21 @@ const JobsManagementTab = () => {
                       )}
 
                       
-                      {/* Complete, Pause, and Send Quotation buttons for confirmed/accepted/in_progress jobs */}
-                      {(booking.status === 'confirmed' || booking.status === 'accepted' || booking.status === 'in_progress') && (
+                      {/* Accept Job button for confirmed jobs (admin assigned but partner hasn't accepted) */}
+                      {booking.status === 'confirmed' && (
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => handleAcceptJob(booking._id || booking.bookingId)}
+                            className="px-2 sm:px-3 py-1 sm:py-1.5 bg-green-600 text-white rounded-lg text-xs sm:text-sm font-semibold hover:bg-green-700 transition inline-flex items-center gap-1 sm:gap-2 shadow-md"
+                          >
+                            <FiCheckCircle /> <span className="hidden sm:inline">Accept Job</span><span className="sm:hidden">Accept</span>
+                          </button>
+                          <p className="text-xs text-slate-600 italic">Admin assigned this job to you</p>
+                        </div>
+                      )}
+                      
+                      {/* Complete, Pause, and Send Quotation buttons for accepted/in_progress jobs */}
+                      {(booking.status === 'accepted' || booking.status === 'in_progress') && (
                         <div className="flex flex-col gap-2">
                           <button
                             onClick={() => setCompleteJobModal(booking)}

@@ -159,6 +159,7 @@ const DashboardOverview = () => {
         const statusCounts = {
           completed: allBookings.filter(b => b?.status === 'completed').length,
           pending: allBookings.filter(b => b?.status === 'pending').length,
+          confirmed: allBookings.filter(b => b?.status === 'confirmed').length,
           accepted: allBookings.filter(b => b?.status === 'accepted').length,
           in_progress: allBookings.filter(b => b?.status === 'in_progress').length,
           rejected: allBookings.filter(b => b?.status === 'rejected').length
@@ -167,6 +168,7 @@ const DashboardOverview = () => {
         const statusDistribution = [
           { name: 'Completed', value: statusCounts.completed, color: '#10b981' },
           { name: 'Pending', value: statusCounts.pending, color: '#f59e0b' },
+          { name: 'Confirmed', value: statusCounts.confirmed, color: '#06b6d4' },
           { name: 'Accepted', value: statusCounts.accepted, color: '#3b82f6' },
           { name: 'In Progress', value: statusCounts.in_progress, color: '#8b5cf6' },
           { name: 'Rejected', value: statusCounts.rejected, color: '#ef4444' }

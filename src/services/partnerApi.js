@@ -215,10 +215,11 @@ export const partnerApi = {
   },
 
   // Get categories for trade selection
-  async getCategories(token) {
+  async getCategories(token, source = 'onboard') {
     // This endpoint doesn't require auth, so only add token if provided
     const headers = token ? getDefaultHeaders(token) : getDefaultHeaders()
-    const response = await fetch(buildUrl('/dropdown/categories'), {
+    const url = source ? buildUrl(`/dropdown/categories?source=${source}`) : buildUrl('/dropdown/categories')
+    const response = await fetch(url, {
       headers
     })
     return handleResponse(response)
@@ -697,6 +698,15 @@ export const partnerApi = {
   // Resume job
   async resumeJob(token, bookingId) {
     const response = await fetch(buildUrl(`/bookings/${bookingId}/resume`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Accept job (when admin assigns to partner)
+  async acceptJob(token, bookingId) {
+    const response = await fetch(buildUrl(`/jobs/${bookingId}/accept`), {
       method: 'POST',
       headers: getDefaultHeaders(token)
     })

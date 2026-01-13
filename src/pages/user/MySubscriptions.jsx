@@ -252,7 +252,7 @@ const MySubscriptions = () => {
           <h3 className="text-xl font-bold text-gray-900 mb-2">No Active AMC Subscription</h3>
           <p className="text-gray-600 mb-4">Subscribe to an AMC plan to enjoy annual maintenance benefits and priority support</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/amc')}
             className="bg-primary text-white px-6 py-3 rounded-full font-semibold hover:bg-primary-dark transition-colors"
           >
             Browse AMC Plans

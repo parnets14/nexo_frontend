@@ -52,7 +52,7 @@ const MyAddresses = () => {
         );
       } else {
         await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/user/address`,
+          `${import.meta.env.VITE_API_URL}/api/user/addresses`,
           formData,
           { headers: { Authorization: `Bearer ${token}` } }
         );

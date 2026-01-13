@@ -204,7 +204,7 @@ const Home = () => {
     },
     {
       step: '3',
-      title: 'Service done. Pay before work.',
+      title: 'Pay First, Relax Later Confirmed Service With Guaranteed Slot',
       description: 'Simple, transparent, and satisfaction guaranteed.',
       icon: FaCreditCard,
     },

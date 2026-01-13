@@ -152,7 +152,7 @@ export const userApi = {
 
   // Addresses
   async addAddress(token, addressData) {
-    const response = await fetch(buildUrl('/address'), {
+    const response = await fetch(buildUrl('/addresses'), {
       method: 'POST',
       headers: getDefaultHeaders(token),
       body: JSON.stringify(addressData)
