@@ -22,7 +22,36 @@ import CustomAlert from '../components/CustomAlert'
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+
+// Custom scrollbar styles for cart items
+const customScrollbarStyles = `
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  
+  @media (max-width: 640px) {
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+  }
+`
 
 const ServiceCheckout = () => {
   const navigate = useNavigate()
@@ -283,10 +312,21 @@ const ServiceCheckout = () => {
   const fetchAMCPlans = async () => {
     try {
       setAmcLoading(true)
+      
+      // Debug: Log service data to understand structure
+      console.log('🔍 [Checkout] Service Data:', serviceData)
+      console.log('🔍 [Checkout] Service Name from URL:', serviceName)
+      console.log('🔍 [Checkout] Cart Data:', cartData)
+      
       const response = await fetch(`${API_BASE_URL}/api/amc-plans`)
       const result = await response.json()
       
       if (result.success && result.data) {
+        console.log('🔍 [Checkout] All AMC Plans:', result.data.map(p => ({
+          name: p.name,
+          includedServices: p.includedServices?.map(s => s.name)
+        })))
+        
         // Filter plans based on user type and service
         const filteredPlans = filterPlansForUser(result.data)
         setAmcPlans(filteredPlans)
@@ -298,14 +338,66 @@ const ServiceCheckout = () => {
     }
   }
 
-  // Filter plans based on user type
+  // Filter plans based on service category and user type
   const filterPlansForUser = (plans) => {
     if (!user) return plans.slice(0, 2) // Show first 2 plans for non-authenticated users
 
     const userType = user.userType || 'home'
     
-    // Filter plans based on user type
-    let filteredPlans = plans.filter(plan => {
+    // Get all service names from cart items
+    const cartServiceNames = cartData?.items?.map(item => 
+      (item.name || '').toLowerCase().trim()
+    ) || []
+    
+    // Also get main service name
+    const mainServiceName = (serviceData?.name || serviceName || '').toLowerCase().trim()
+    
+    // Combine all service names
+    const allServiceNames = [...new Set([mainServiceName, ...cartServiceNames])].filter(Boolean)
+    
+    console.log('🔍 [Checkout] Filtering AMC plans')
+    console.log('🔍 [Checkout] All services:', allServiceNames)
+    console.log('🔍 [Checkout] Available plans:', plans.length)
+    console.log('🔍 [Checkout] User type:', userType)
+    
+    // First filter by service - match AMC plans to cart services
+    let servicePlans = plans.filter(plan => {
+      // If plan has no includedServices, skip it (don't show)
+      if (!plan.includedServices || plan.includedServices.length === 0) {
+        console.log(`  Plan "${plan.name}": ❌ No includedServices defined`)
+        return false
+      }
+      
+      // Check if ANY cart service matches ANY included service in the plan
+      const hasMatchingService = plan.includedServices.some(includedService => {
+        const includedServiceName = (includedService.name || '').toLowerCase().trim()
+        
+        // Check against all cart services
+        return allServiceNames.some(cartServiceName => {
+          // Exact match
+          if (includedServiceName === cartServiceName) {
+            console.log(`    ✅ Exact match: "${includedServiceName}" === "${cartServiceName}"`)
+            return true
+          }
+          
+          // Partial match (one contains the other)
+          if (includedServiceName.includes(cartServiceName) || cartServiceName.includes(includedServiceName)) {
+            console.log(`    ✅ Partial match: "${includedServiceName}" ~ "${cartServiceName}"`)
+            return true
+          }
+          
+          return false
+        })
+      })
+      
+      console.log(`  Plan "${plan.name}": ${hasMatchingService ? '✅ Matches' : '❌ No match'}`)
+      return hasMatchingService
+    })
+    
+    console.log('🔍 [Checkout] Plans after service filter:', servicePlans.length)
+    
+    // Then filter by user type
+    let filteredPlans = servicePlans.filter(plan => {
       if (userType === 'company') {
         return plan.planType === 'business' || plan.planType === 'corporate'
       } else if (userType === 'pg') {
@@ -314,30 +406,21 @@ const ServiceCheckout = () => {
         return plan.planType === 'individual' || plan.planType === 'business'
       }
     })
+    
+    console.log('🔍 [Checkout] Plans after user type filter:', filteredPlans.length)
+    console.log('🔍 [Checkout] Final plans:', filteredPlans.map(p => p.name))
 
-    return filteredPlans.slice(0, 3) // Show max 3 plans in checkout
+    // Return ALL matching plans (no limit)
+    return filteredPlans
   }
 
   // Check if AMC should be offered
   const shouldOfferAMCPlan = () => {
-    const cartTotal = calculateTotalBeforeTax()
-    
-    // Don't show AMC if cart total is too low
-    if (cartTotal < 500) return false
-    
     // Don't show if user already has an active AMC subscription
     if (user?.amcSubscription?.isActive) return false
     
-    // Show AMC for company users or high-value bookings
-    if (user?.userType === 'company' || cartTotal > 1000) return true
-    
-    // Show AMC for recurring service types (AC, electrical, plumbing)
-    const serviceName = serviceData?.name?.toLowerCase() || ''
-    if (serviceName.includes('ac') || serviceName.includes('electrical') || serviceName.includes('plumbing')) {
-      return true
-    }
-    
-    return true // Show for all users in checkout
+    // Show AMC if there are any matching plans
+    return amcPlans.length > 0
   }
 
   // Calculate AMC savings
@@ -1054,8 +1137,12 @@ const ServiceCheckout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <>
+      {/* Inject custom scrollbar styles */}
+      <style>{customScrollbarStyles}</style>
+      
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
           <button
@@ -1554,17 +1641,132 @@ const ServiceCheckout = () => {
                 Order Summary
               </h2>
 
-              {/* Cart Items */}
-              <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
-                {cartData.items?.map((item, index) => (
-                  <div key={index} className="flex justify-between items-start text-sm border-b border-gray-100 pb-2">
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{item.name}</p>
-                      <p className="text-gray-500 text-xs">Qty: {item.quantity}</p>
+              {/* Cart Items with AMC Details */}
+              <div className="space-y-3 mb-4 max-h-96 overflow-y-auto custom-scrollbar">
+                {cartData.items?.map((item, index) => {
+                  // Find AMC plans that include this service
+                  const relevantAMCPlans = amcPlans.filter(plan => {
+                    // If no includedServices, show all plans (backward compatibility)
+                    if (!plan.includedServices || plan.includedServices.length === 0) return true
+                    
+                    // Check if this cart item's service is included in the AMC plan
+                    return plan.includedServices.some(service => {
+                      const serviceName = (service.name || '').toLowerCase().trim()
+                      const itemName = (item.name || '').toLowerCase().trim()
+                      
+                      // Match by name similarity
+                      return serviceName.includes(itemName) || itemName.includes(serviceName)
+                    })
+                  })
+                  
+                  return (
+                    <div key={index} className="border-b border-gray-100 pb-3">
+                      {/* Cart Item */}
+                      <div className="flex justify-between items-start text-sm">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{item.name}</p>
+                          <p className="text-gray-500 text-xs">Qty: {item.quantity}</p>
+                        </div>
+                        <p className="font-semibold text-gray-900">₹{item.total}</p>
+                      </div>
+                      
+                      {/* AMC Details for this service */}
+                      {relevantAMCPlans.length > 0 && (
+                        <div className="mt-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2 border border-blue-200">
+                          <div className="flex items-center gap-1 mb-1">
+                            <FaShieldAlt className="text-blue-600 text-xs" />
+                            <span className="text-xs font-semibold text-blue-800">
+                              Available AMC Plans for this service
+                            </span>
+                          </div>
+                          
+                          {/* Scrollable AMC Plans */}
+                          <div className="space-y-1.5 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                            {relevantAMCPlans.map((plan, planIndex) => {
+                              // Get frequency for this service
+                              const serviceFrequency = plan.serviceFrequency && plan.includedServices
+                                ? plan.includedServices.reduce((freq, service) => {
+                                    const serviceName = (service.name || '').toLowerCase().trim()
+                                    const itemName = (item.name || '').toLowerCase().trim()
+                                    if (serviceName.includes(itemName) || itemName.includes(serviceName)) {
+                                      return plan.serviceFrequency[service._id] || plan.serviceFrequency[service] || 'included'
+                                    }
+                                    return freq
+                                  }, 'included')
+                                : 'included'
+                              
+                              return (
+                                <div 
+                                  key={planIndex}
+                                  className="bg-white rounded-md p-2 border border-blue-100 hover:border-blue-300 transition"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 mb-0.5">
+                                        <h5 className="text-xs font-bold text-gray-900 truncate">
+                                          {plan.name}
+                                        </h5>
+                                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                                          plan.planType === 'corporate' 
+                                            ? 'bg-purple-100 text-purple-700'
+                                            : plan.planType === 'business'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'bg-green-100 text-green-700'
+                                        }`}>
+                                          {plan.planType?.charAt(0).toUpperCase() + plan.planType?.slice(1)}
+                                        </span>
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <span className="text-primary font-bold">
+                                          ₹{plan.price.toLocaleString('en-IN')}/yr
+                                        </span>
+                                        {serviceFrequency && serviceFrequency !== 'included' && (
+                                          <span className="text-green-600 font-medium">
+                                            {serviceFrequency === 'unlimited' 
+                                              ? '∞ Unlimited' 
+                                              : `${serviceFrequency}x/year`}
+                                          </span>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Quick Features */}
+                                      {plan.features && plan.features.length > 0 && (
+                                        <div className="mt-1 space-y-0.5">
+                                          {plan.features.slice(0, 2).map((feature, idx) => (
+                                            <div key={idx} className="flex items-start gap-1 text-xs text-gray-600">
+                                              <FaCheckCircle className="text-green-500 text-xs mt-0.5 flex-shrink-0" />
+                                              <span className="line-clamp-1">{feature}</span>
+                                            </div>
+                                          ))}
+                                          {plan.features.length > 2 && (
+                                            <span className="text-xs text-gray-500 ml-3">
+                                              +{plan.features.length - 2} more
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleAMCPlanSelect(plan)
+                                      }}
+                                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition font-medium flex-shrink-0"
+                                    >
+                                      Select
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <p className="font-semibold text-gray-900">₹{item.total}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {/* Enhanced AMC Plans Section */}
@@ -1586,9 +1788,9 @@ const ServiceCheckout = () => {
                     </p>
                   </div>
                   
-                  {/* AMC Plans Grid */}
-                  <div className="space-y-3">
-                    {amcPlans.slice(0, 2).map((plan, index) => {
+                  {/* AMC Plans Grid - Scrollable */}
+                  <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-2">
+                    {amcPlans.map((plan, index) => {
                       const savings = calculateAMCSavings(plan)
                       const savingsPercentage = savings > 0 ? Math.round((savings / (calculateTotalBeforeTax() * 4)) * 100) : 0
                       const isSelected = selectedAMCPlan?._id === plan._id
@@ -1983,6 +2185,7 @@ const ServiceCheckout = () => {
             </motion.div>
           </div>
         </div>
+        </div>
       </div>
 
       {/* Custom Alert */}
@@ -2000,117 +2203,117 @@ const ServiceCheckout = () => {
 
       {/* AMC Subscription Confirmation Dialog */}
       {confirmationDialog.isOpen && (
-        <div className="fixed inset-0 confirmation-dialog">
+        <div className="fixed inset-0 confirmation-dialog z-[10001]">
           <CustomAlert
-          isOpen={confirmationDialog.isOpen}
-          onClose={() => setConfirmationDialog({ isOpen: false, plan: null, addressData: null })}
-          type="info"
-          title="Confirm AMC Subscription"
-          message={
-            confirmationDialog.plan && confirmationDialog.addressData ? (
-              <div className="space-y-4">
-                {/* Subscription Details */}
-                <div className="bg-primary/10 rounded-lg p-4 border border-primary/30">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">📋</span>
+            isOpen={confirmationDialog.isOpen}
+            onClose={() => setConfirmationDialog({ isOpen: false, plan: null, addressData: null })}
+            type="info"
+            title="Confirm AMC Subscription"
+            message={
+              confirmationDialog.plan && confirmationDialog.addressData ? (
+                <div className="space-y-4">
+                  {/* Subscription Details */}
+                  <div className="bg-primary/10 rounded-lg p-4 border border-primary/30">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">📋</span>
+                      </div>
+                      <h4 className="font-bold text-primary">Subscription Details</h4>
                     </div>
-                    <h4 className="font-bold text-primary">Subscription Details</h4>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-gray-600">Plan:</span>
-                      <p className="font-semibold text-primary">{confirmationDialog.plan.name}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Price:</span>
-                      <p className="font-semibold text-primary">₹{confirmationDialog.plan.price.toLocaleString('en-IN')}/year</p>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <span className="text-gray-600">Type:</span>
-                      <p className="font-semibold text-primary">{confirmationDialog.plan.planType?.charAt(0).toUpperCase() + confirmationDialog.plan.planType?.slice(1) || 'Standard'}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Service Address */}
-                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">🏠</span>
-                    </div>
-                    <h4 className="font-bold text-green-700">Service Address</h4>
-                  </div>
-                  <div className="text-sm space-y-2">
-                    <div>
-                      <span className="text-gray-600">Address:</span>
-                      <p className="font-medium text-green-800">{confirmationDialog.addressData.address}</p>
-                    </div>
-                    {confirmationDialog.addressData.landmark && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                       <div>
-                        <span className="text-gray-600">Landmark:</span>
-                        <p className="font-medium text-green-800">{confirmationDialog.addressData.landmark}</p>
+                        <span className="text-gray-600">Plan:</span>
+                        <p className="font-semibold text-primary">{confirmationDialog.plan.name}</p>
                       </div>
-                    )}
-                    <div>
-                      <span className="text-gray-600">Pincode:</span>
-                      <p className="font-medium text-green-800">{confirmationDialog.addressData.pincode}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Customer Details */}
-                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">👤</span>
-                    </div>
-                    <h4 className="font-bold text-slate-700">Customer Details</h4>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-gray-600">Name:</span>
-                      <p className="font-medium text-slate-800">{confirmationDialog.addressData.customerName}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Phone:</span>
-                      <p className="font-medium text-slate-800">{confirmationDialog.addressData.customerPhone}</p>
-                    </div>
-                    {confirmationDialog.addressData.customerEmail && (
+                      <div>
+                        <span className="text-gray-600">Price:</span>
+                        <p className="font-semibold text-primary">₹{confirmationDialog.plan.price.toLocaleString('en-IN')}/year</p>
+                      </div>
                       <div className="sm:col-span-2">
-                        <span className="text-gray-600">Email:</span>
-                        <p className="font-medium text-slate-800">{confirmationDialog.addressData.customerEmail}</p>
+                        <span className="text-gray-600">Type:</span>
+                        <p className="font-semibold text-primary">{confirmationDialog.plan.planType?.charAt(0).toUpperCase() + confirmationDialog.plan.planType?.slice(1) || 'Standard'}</p>
                       </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Payment Notice */}
-                <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-white text-sm font-bold">⚠️</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-amber-800 mb-1">Payment Gateway Redirect</h4>
-                      <p className="text-amber-700 text-sm">
-                        You will be redirected to our secure payment gateway to complete the subscription payment.
-                      </p>
                     </div>
                   </div>
+                  
+                  {/* Service Address */}
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">🏠</span>
+                      </div>
+                      <h4 className="font-bold text-green-700">Service Address</h4>
+                    </div>
+                    <div className="text-sm space-y-2">
+                      <div>
+                        <span className="text-gray-600">Address:</span>
+                        <p className="font-medium text-green-800">{confirmationDialog.addressData.address}</p>
+                      </div>
+                      {confirmationDialog.addressData.landmark && (
+                        <div>
+                          <span className="text-gray-600">Landmark:</span>
+                          <p className="font-medium text-green-800">{confirmationDialog.addressData.landmark}</p>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-gray-600">Pincode:</span>
+                        <p className="font-medium text-green-800">{confirmationDialog.addressData.pincode}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Customer Details */}
+                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">👤</span>
+                      </div>
+                      <h4 className="font-bold text-slate-700">Customer Details</h4>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-600">Name:</span>
+                        <p className="font-medium text-slate-800">{confirmationDialog.addressData.customerName}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Phone:</span>
+                        <p className="font-medium text-slate-800">{confirmationDialog.addressData.customerPhone}</p>
+                      </div>
+                      {confirmationDialog.addressData.customerEmail && (
+                        <div className="sm:col-span-2">
+                          <span className="text-gray-600">Email:</span>
+                          <p className="font-medium text-slate-800">{confirmationDialog.addressData.customerEmail}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Payment Notice */}
+                  <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white text-sm font-bold">⚠️</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-amber-800 mb-1">Payment Gateway Redirect</h4>
+                        <p className="text-amber-700 text-sm">
+                          You will be redirected to our secure payment gateway to complete the subscription payment.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ) : 'Loading subscription details...'
-          }
-          confirmText="Subscribe Now"
-          cancelText="Cancel"
-          showCancel={true}
-          onConfirm={handleAMCConfirmation}
+              ) : 'Loading subscription details...'
+            }
+            confirmText="Subscribe Now"
+            cancelText="Cancel"
+            showCancel={true}
+            onConfirm={handleAMCConfirmation}
           />
         </div>
       )}
 
-    </div>
+    </>
   )
 }
 

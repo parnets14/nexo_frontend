@@ -99,7 +99,7 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const ServiceDetail = () => {
   const { serviceName } = useParams()
@@ -121,6 +121,8 @@ const ServiceDetail = () => {
   const [showCartModal, setShowCartModal] = useState(false) // Cart modal visibility
   const [selectedCity, setSelectedCity] = useState(null) // User's selected city
   const [showAvailableServices, setShowAvailableServices] = useState(false) // Toggle for available services in cart
+  const [amcPlans, setAmcPlans] = useState([]) // AMC plans for the service
+  const [amcLoading, setAmcLoading] = useState(false) // AMC plans loading state
 
 
   // Load selected city from localStorage
@@ -258,6 +260,42 @@ const ServiceDetail = () => {
       fetchService()
     }
   }, [serviceName])
+
+  // Fetch AMC plans for the service
+  useEffect(() => {
+    const fetchAMCPlans = async () => {
+      if (!service) return
+      
+      try {
+        setAmcLoading(true)
+        const response = await fetch(`${API_BASE_URL}/api/amc-plans`)
+        const result = await response.json()
+        
+        if (result.success && result.data) {
+          // Filter plans that include this service
+          const servicePlans = result.data.filter(plan => {
+            if (!plan.includedServices || plan.includedServices.length === 0) return false
+            
+            return plan.includedServices.some(includedService => {
+              const includedServiceName = (includedService.name || '').toLowerCase().trim()
+              const currentServiceName = (service.name || '').toLowerCase().trim()
+              
+              return includedServiceName.includes(currentServiceName) || 
+                     currentServiceName.includes(includedServiceName)
+            })
+          })
+          
+          setAmcPlans(servicePlans)
+        }
+      } catch (error) {
+        console.error('Error fetching AMC plans:', error)
+      } finally {
+        setAmcLoading(false)
+      }
+    }
+
+    fetchAMCPlans()
+  }, [service])
 
   // Log authentication status for debugging
   useEffect(() => {
@@ -2808,48 +2846,154 @@ const ServiceDetail = () => {
                       const hasDiscount = originalPrice > finalPrice
                       const SubIcon = getIconComponent(sub.icon || 'FaTools')
 
+                      // Find AMC plans for this sub-service
+                      const relevantAMCPlans = amcPlans.filter(plan => {
+                        if (!plan.includedServices || plan.includedServices.length === 0) return false
+                        
+                        return plan.includedServices.some(service => {
+                          const serviceName = (service.name || '').toLowerCase().trim()
+                          const subServiceName = (sub.name || '').toLowerCase().trim()
+                          
+                          return serviceName.includes(subServiceName) || subServiceName.includes(serviceName)
+                        })
+                      })
+
                       return (
-                        <motion.div
-                          key={`sub-${sub._id}`}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="bg-gradient-to-br from-gray-50 to-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all"
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                              <SubIcon className="w-6 h-6 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-base font-bold text-gray-900 mb-1">{sub.name}</h4>
-                              {sub.description && (
-                                <p className="text-xs text-gray-600 mb-2 line-clamp-2">{sub.description}</p>
-                              )}
-                              <div className="flex items-center justify-between mt-3">
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => handleRemoveSubService(sub._id)}
-                                    className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg transition"
-                                  >
-                                    <FaMinus className="text-xs text-gray-700" />
-                                  </button>
-                                  <span className="w-12 text-center font-bold text-sm text-gray-900">{quantity}</span>
-                                  <button
-                                    onClick={() => handleAddSubService(sub._id)}
-                                    className="w-8 h-8 flex items-center justify-center bg-primary/10 hover:bg-primary/20 rounded-lg transition"
-                                  >
-                                    <FaPlus className="text-xs text-primary" />
-                                  </button>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-lg font-black text-primary">₹{Math.round(finalPrice * quantity).toLocaleString('en-IN')}</p>
-                                  {hasDiscount && (
-                                    <p className="text-xs text-gray-400 line-through">₹{Math.round(originalPrice * quantity).toLocaleString('en-IN')}</p>
-                                  )}
+                        <div key={`sub-${sub._id}`}>
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-gradient-to-br from-gray-50 to-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <SubIcon className="w-6 h-6 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-base font-bold text-gray-900 mb-1">{sub.name}</h4>
+                                {sub.description && (
+                                  <p className="text-xs text-gray-600 mb-2 line-clamp-2">{sub.description}</p>
+                                )}
+                                <div className="flex items-center justify-between mt-3">
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => handleRemoveSubService(sub._id)}
+                                      className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                                    >
+                                      <FaMinus className="text-xs text-gray-700" />
+                                    </button>
+                                    <span className="w-12 text-center font-bold text-sm text-gray-900">{quantity}</span>
+                                    <button
+                                      onClick={() => handleAddSubService(sub._id)}
+                                      className="w-8 h-8 flex items-center justify-center bg-primary/10 hover:bg-primary/20 rounded-lg transition"
+                                    >
+                                      <FaPlus className="text-xs text-primary" />
+                                    </button>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-lg font-black text-primary">₹{Math.round(finalPrice * quantity).toLocaleString('en-IN')}</p>
+                                    {hasDiscount && (
+                                      <p className="text-xs text-gray-400 line-through">₹{Math.round(originalPrice * quantity).toLocaleString('en-IN')}</p>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </motion.div>
+                          </motion.div>
+
+                          {/* AMC Plans for this service */}
+                          {relevantAMCPlans.length > 0 && (
+                            <div className="mt-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
+                              <div className="flex items-center gap-2 mb-2">
+                                <FaShieldAlt className="text-blue-600 text-sm" />
+                                <span className="text-xs font-bold text-blue-800">
+                                  💰 Save with AMC Plans for {sub.name}
+                                </span>
+                              </div>
+                              
+                              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                                {relevantAMCPlans.map((plan, planIndex) => {
+                                  // Get frequency for this service
+                                  const serviceFrequency = plan.serviceFrequency && plan.includedServices
+                                    ? plan.includedServices.reduce((freq, service) => {
+                                        const serviceName = (service.name || '').toLowerCase().trim()
+                                        const subServiceName = (sub.name || '').toLowerCase().trim()
+                                        if (serviceName.includes(subServiceName) || subServiceName.includes(serviceName)) {
+                                          return plan.serviceFrequency[service._id] || plan.serviceFrequency[service] || 'included'
+                                        }
+                                        return freq
+                                      }, 'included')
+                                    : 'included'
+                                  
+                                  return (
+                                    <div 
+                                      key={planIndex}
+                                      className="bg-white rounded-lg p-2.5 border border-blue-100 hover:border-blue-300 transition"
+                                    >
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-1.5 mb-1">
+                                            <h5 className="text-xs font-bold text-gray-900 truncate">
+                                              {plan.name}
+                                            </h5>
+                                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                                              plan.planType === 'corporate' 
+                                                ? 'bg-purple-100 text-purple-700'
+                                                : plan.planType === 'business'
+                                                ? 'bg-blue-100 text-blue-700'
+                                                : 'bg-green-100 text-green-700'
+                                            }`}>
+                                              {plan.planType?.charAt(0).toUpperCase() + plan.planType?.slice(1)}
+                                            </span>
+                                          </div>
+                                          
+                                          <div className="flex items-center gap-2 text-xs mb-1.5">
+                                            <span className="text-primary font-bold">
+                                              ₹{plan.price.toLocaleString('en-IN')}/yr
+                                            </span>
+                                            {serviceFrequency && serviceFrequency !== 'included' && (
+                                              <span className="text-green-600 font-medium">
+                                                {serviceFrequency === 'unlimited' 
+                                                  ? '∞ Unlimited' 
+                                                  : `${serviceFrequency}x/year`}
+                                              </span>
+                                            )}
+                                          </div>
+                                          
+                                          {plan.features && plan.features.length > 0 && (
+                                            <div className="space-y-0.5">
+                                              {plan.features.slice(0, 2).map((feature, idx) => (
+                                                <div key={idx} className="flex items-start gap-1 text-xs text-gray-600">
+                                                  <FaCheckCircle className="text-green-500 text-xs mt-0.5 flex-shrink-0" />
+                                                  <span className="line-clamp-1">{feature}</span>
+                                                </div>
+                                              ))}
+                                              {plan.features.length > 2 && (
+                                                <span className="text-xs text-gray-500 ml-3">
+                                                  +{plan.features.length - 2} more
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                        
+                                        <button
+                                          onClick={() => {
+                                            // Navigate to checkout with AMC plan selected
+                                            navigate('/amc-plans', { state: { selectedPlan: plan } })
+                                          }}
+                                          className="text-xs bg-blue-600 text-white px-2.5 py-1.5 rounded hover:bg-blue-700 transition font-medium flex-shrink-0"
+                                        >
+                                          View
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )
                     })}
 

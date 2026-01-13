@@ -24,7 +24,7 @@ import { useUserAuth } from '../context/UserAuthContext';
 import '../styles/modal-layers.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin);
 
 const AMCSubscriptionModal = ({ 
   isOpen, 
@@ -73,8 +73,41 @@ const AMCSubscriptionModal = ({
 
     const userType = user.userType || 'home';
     
-    // Filter plans based on user type
-    let filteredPlans = plans.filter(plan => {
+    // Get current service name for filtering
+    const currentServiceName = service?.name?.toLowerCase() || ''
+    
+    console.log('🔍 [AMCModal] Filtering AMC plans for service:', currentServiceName)
+    console.log('🔍 [AMCModal] Available plans:', plans.length)
+    
+    // First filter by service - only show plans that include this service
+    let servicePlans = plans.filter(plan => {
+      // If plan has includedServices populated, check if current service is included
+      if (plan.includedServices && plan.includedServices.length > 0) {
+        const hasMatchingService = plan.includedServices.some(includedService => {
+          const serviceName = includedService.name?.toLowerCase() || ''
+          // Check if service name matches or is related
+          return serviceName.includes(currentServiceName) || 
+                 currentServiceName.includes(serviceName) ||
+                 // Check for common service categories
+                 (currentServiceName.includes('ac') && serviceName.includes('ac')) ||
+                 (currentServiceName.includes('electrical') && serviceName.includes('electrical')) ||
+                 (currentServiceName.includes('plumbing') && serviceName.includes('plumbing')) ||
+                 (currentServiceName.includes('appliance') && serviceName.includes('appliance'))
+        })
+        
+        console.log(`  [AMCModal] Plan "${plan.name}": ${hasMatchingService ? '✅ Matches' : '❌ No match'}`)
+        return hasMatchingService
+      }
+      
+      // If no includedServices specified, show the plan (backward compatibility)
+      console.log(`  [AMCModal] Plan "${plan.name}": ⚠️ No service filter (showing by default)`)
+      return true
+    })
+    
+    console.log('🔍 [AMCModal] Plans after service filter:', servicePlans.length)
+    
+    // Then filter by user type
+    let filteredPlans = servicePlans.filter(plan => {
       if (userType === 'company') {
         return plan.planType === 'business' || plan.planType === 'corporate';
       } else if (userType === 'pg') {
@@ -83,23 +116,8 @@ const AMCSubscriptionModal = ({
         return plan.planType === 'individual' || plan.planType === 'business';
       }
     });
-
-    // If service is related to specific categories, prioritize relevant plans
-    if (service) {
-      const serviceName = service.name.toLowerCase();
-      if (serviceName.includes('ac') || serviceName.includes('electrical') || serviceName.includes('plumbing')) {
-        // Prioritize plans that include these services
-        filteredPlans = filteredPlans.sort((a, b) => {
-          const aHasService = a.includedServices?.some(s => 
-            s.name?.toLowerCase().includes(serviceName.split(' ')[0])
-          );
-          const bHasService = b.includedServices?.some(s => 
-            s.name?.toLowerCase().includes(serviceName.split(' ')[0])
-          );
-          return bHasService - aHasService;
-        });
-      }
-    }
+    
+    console.log('🔍 [AMCModal] Plans after user type filter:', filteredPlans.length)
 
     return filteredPlans.slice(0, 4); // Show max 4 plans
   };
