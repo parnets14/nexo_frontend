@@ -448,6 +448,14 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
                   <span>Quotation Amount:</span>
                   <span>₹{Number(paymentDetails.quotationAmount || 0).toLocaleString('en-IN')}</span>
                 </div>
+                
+                {/* Discount for quotation scenario */}
+                {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
+                  <div className="flex justify-between py-1.5 text-sm bg-green-50 px-2 rounded border-b border-green-200">
+                    <span className="text-green-700 font-medium">Discount Applied:</span>
+                    <span className="text-green-700 font-semibold">- ₹{Number(paymentDetails.discount || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -503,6 +511,14 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
                   <span className="text-gray-700 font-medium">Total GST:</span>
                   <span className="font-semibold text-gray-900">₹{Number((actualInvoiceData.cgstAmount || 0) + (actualInvoiceData.sgstAmount || 0)).toLocaleString('en-IN')}</span>
                 </div>
+              </div>
+            )}
+            
+            {/* Discount - Show if greater than 0 */}
+            {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
+              <div className="flex justify-between py-1.5 text-sm bg-green-50 px-2 rounded border-b border-green-200">
+                <span className="text-green-700 font-medium">Discount Applied:</span>
+                <span className="text-green-700 font-semibold">- ₹{Number(paymentDetails.discount || 0).toLocaleString('en-IN')}</span>
               </div>
             )}
             

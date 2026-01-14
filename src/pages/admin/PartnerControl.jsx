@@ -276,8 +276,14 @@ const PartnerControl = () => {
 
       if (response.success) {
         alert(`Payment approved successfully for ${partnerName}!`)
-        // Refresh the partners list
-        fetchAllPartners()
+        // Refresh the partners list by re-fetching
+        const data = await adminApi.fetchPartners(token, {
+          page: currentPage,
+          limit: pageSize,
+          search: searchQuery,
+          status: statusFilter
+        })
+        setPartnersData(data)
       } else {
         alert(`Failed to approve payment: ${response.message || 'Unknown error'}`)
       }
@@ -501,17 +507,18 @@ const PartnerControl = () => {
                           })
                           const allPartners = data?.partners || []
                           const exportData = allPartners.map(partner => {
+                            // Only process MG plan data if partner has an mgPlan
                             const mgPlan = partner.mgPlan || partner.mgPlanSummary
-                            const leadsGuaranteed = mgPlan?.leads || partner.mgPlanLeadQuota || 0
-                            const leadsUsed = partner.mgPlanLeadsUsed || 0
-                            const leadsRemaining = Math.max(leadsGuaranteed - leadsUsed, 0)
+                            const leadsGuaranteed = mgPlan ? (mgPlan.leads || partner.mgPlanLeadQuota || 0) : 0
+                            const leadsUsed = mgPlan ? (partner.mgPlanLeadsUsed || 0) : 0
+                            const leadsRemaining = mgPlan ? Math.max(leadsGuaranteed - leadsUsed, 0) : 0
                             
-                            // Lead Plan data
+                            // Only process Lead Plan data if partner has a leadPlan
                             const leadPlan = partner.leadPlan
-                            const leadPlanLeadsGuaranteed = partner.leadPlanLeadQuota || 0
-                            const leadPlanLeadsUsed = partner.leadPlanLeadsUsed || 0
-                            const leadPlanLeadsRemaining = Math.max(leadPlanLeadsGuaranteed - leadPlanLeadsUsed, 0)
-                            const leadPlanName = partner.leadPlanHistory?.length > 0 ? partner.leadPlanHistory[partner.leadPlanHistory.length - 1].planName : 'No Plan'
+                            const leadPlanLeadsGuaranteed = leadPlan ? (partner.leadPlanLeadQuota || 0) : 0
+                            const leadPlanLeadsUsed = leadPlan ? (partner.leadPlanLeadsUsed || 0) : 0
+                            const leadPlanLeadsRemaining = leadPlan ? Math.max(leadPlanLeadsGuaranteed - leadPlanLeadsUsed, 0) : 0
+                            const leadPlanName = leadPlan && partner.leadPlanHistory?.length > 0 ? partner.leadPlanHistory[partner.leadPlanHistory.length - 1].planName : 'No Plan'
                             
                             return {
                               'Partner ID': partner.Profile?.id || partner._id || partner.id || 'N/A',
@@ -597,30 +604,32 @@ const PartnerControl = () => {
             <div className="space-y-4">
                 {partners.map((partner) => {
                 // Calculate MG Plan status
+                // Only process if partner has an actual mgPlan reference (not null)
                 const mgPlan = partner.mgPlan || partner.mgPlanSummary
-                const leadsGuaranteed = mgPlan?.leads || partner.mgPlanLeadQuota || 0
-                const leadsUsed = partner.mgPlanLeadsUsed || 0
-                const leadsRemaining = Math.max(leadsGuaranteed - leadsUsed, 0)
+                const leadsGuaranteed = mgPlan?.leads || (mgPlan ? (partner.mgPlanLeadQuota || 0) : 0)
+                const leadsUsed = mgPlan ? (partner.mgPlanLeadsUsed || 0) : 0
+                const leadsRemaining = mgPlan ? Math.max(leadsGuaranteed - leadsUsed, 0) : 0
                 const now = new Date()
-                const expiresAt = partner.mgPlanExpiresAt
-                const isExpired = expiresAt ? now > new Date(expiresAt) : false
-                const daysUntilRenewal = expiresAt 
+                const expiresAt = mgPlan ? partner.mgPlanExpiresAt : null
+                const isExpired = (mgPlan && expiresAt) ? now > new Date(expiresAt) : false
+                const daysUntilRenewal = (mgPlan && expiresAt)
                   ? Math.ceil((new Date(expiresAt) - now) / (1000 * 60 * 60 * 24))
                   : 0
-                const needsRenewal = isExpired || daysUntilRenewal <= 7
+                const needsRenewal = mgPlan && (isExpired || daysUntilRenewal <= 7)
                 const planStatus = !mgPlan ? 'No Plan' : isExpired ? 'Expired' : needsRenewal ? 'Needs Renewal' : 'Active'
                 
                 // Calculate Lead Plan status
+                // Only process if partner has an actual leadPlan reference (not null)
                 const leadPlan = partner.leadPlan
-                const leadPlanLeadsGuaranteed = partner.leadPlanLeadQuota || 0
-                const leadPlanLeadsUsed = partner.leadPlanLeadsUsed || 0
-                const leadPlanLeadsRemaining = Math.max(leadPlanLeadsGuaranteed - leadPlanLeadsUsed, 0)
-                const leadPlanExpiresAt = partner.leadPlanExpiresAt
-                const leadPlanIsExpired = leadPlanExpiresAt ? now > new Date(leadPlanExpiresAt) : false
-                const leadPlanDaysUntilRenewal = leadPlanExpiresAt 
+                const leadPlanLeadsGuaranteed = leadPlan ? (partner.leadPlanLeadQuota || 0) : 0
+                const leadPlanLeadsUsed = leadPlan ? (partner.leadPlanLeadsUsed || 0) : 0
+                const leadPlanLeadsRemaining = leadPlan ? Math.max(leadPlanLeadsGuaranteed - leadPlanLeadsUsed, 0) : 0
+                const leadPlanExpiresAt = leadPlan ? partner.leadPlanExpiresAt : null
+                const leadPlanIsExpired = (leadPlan && leadPlanExpiresAt) ? now > new Date(leadPlanExpiresAt) : false
+                const leadPlanDaysUntilRenewal = (leadPlan && leadPlanExpiresAt)
                   ? Math.ceil((new Date(leadPlanExpiresAt) - now) / (1000 * 60 * 60 * 24))
                   : 0
-                const leadPlanNeedsRenewal = leadPlanIsExpired || leadPlanDaysUntilRenewal <= 7
+                const leadPlanNeedsRenewal = leadPlan && (leadPlanIsExpired || leadPlanDaysUntilRenewal <= 7)
                 const leadPlanStatus = !leadPlan ? 'No Plan' : leadPlanIsExpired ? 'Expired' : leadPlanNeedsRenewal ? 'Needs Renewal' : 'Active'
                 
                   // Debug: Log partner structure to find partnerType location

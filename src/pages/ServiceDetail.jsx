@@ -299,7 +299,8 @@ const ServiceDetail = () => {
 
   // Log authentication status for debugging
   useEffect(() => {
-    console.log('ServiceDetail Auth Status:', { isAuthenticated, authLoading, hasUser: !!user, hasToken: !!localStorage.getItem('userToken') })
+    // ✅ SECURITY FIX: Don't log token
+    console.log('ServiceDetail Auth Status:', { isAuthenticated, authLoading, hasUser: !!user })
   }, [isAuthenticated, authLoading, user])
 
   // Auto-carousel effect for sub-services
@@ -648,11 +649,14 @@ const ServiceDetail = () => {
     }
 
     // Debug logging
-    console.log('Auth Status:', { isAuthenticated, authLoading, user, token: localStorage.getItem('userToken') })
+    // ✅ SECURITY FIX: Don't log token or user data
+    console.log('Auth Status:', { isAuthenticated, authLoading, hasUser: !!user })
 
     // Check if user is logged in
     if (!isAuthenticated || !user) {
       console.log('User not authenticated, redirecting to login')
+      // Store the checkout URL for redirect after login
+      localStorage.setItem('redirectAfterLogin', `/service/${serviceName}/checkout`)
       // Redirect to login with return URL
       navigate('/user/login', {
         state: { from: `/service/${serviceName}` }

@@ -128,6 +128,14 @@ export const generateInvoiceFromBooking = (booking) => {
   const quotation = booking.acceptedQuotation || 
                     (booking.quotations && booking.quotations.find(q => q.customerStatus === 'accepted'));
 
+  console.log('📋 [invoiceGenerator] Quotation search result:', {
+    hasAcceptedQuotation: !!booking.acceptedQuotation,
+    quotationsArray: booking.quotations?.length || 0,
+    foundQuotation: !!quotation,
+    quotationAmount: quotation?.totalAmount || 0,
+    quotationNumber: quotation?.quotationNumber || 'N/A'
+  });
+
   // Build services array - include both booking service and quotation items
   let services = [];
   
@@ -182,6 +190,7 @@ export const generateInvoiceFromBooking = (booking) => {
   // Calculate totals and breakdown
   const bookingAmount = booking.amount || 0;
   const quotationAmount = quotation?.totalAmount || 0;
+  const discount = booking.discount || 0;
   const totalAmount = booking.totalAmount || (bookingAmount + quotationAmount);
   
   // Extract price breakdown fields - check multiple possible locations
@@ -304,6 +313,7 @@ export const generateInvoiceFromBooking = (booking) => {
       amount: totalAmount,
       bookingAmount: Number(bookingAmount),
       quotationAmount: Number(quotationAmount),
+      discount: Number(discount),
       totalAmount: Number(totalAmount),
       // Price breakdown
       visitingCharge: Number(visitingCharge),

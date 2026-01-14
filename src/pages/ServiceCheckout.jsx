@@ -1230,6 +1230,8 @@ const ServiceCheckout = () => {
 
   // Redirect if not authenticated
   if (!isAuthenticated) {
+    // Store the checkout URL for redirect after login
+    localStorage.setItem('redirectAfterLogin', location.pathname)
     navigate('/user/login', { state: { from: location.pathname } })
     return null
   }

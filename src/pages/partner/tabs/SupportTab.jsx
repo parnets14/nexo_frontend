@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { 
-  FiMail, FiPhone, FiMessageCircle, FiSend, FiCheckCircle, 
-  FiClock, FiHeadphones, FiHelpCircle, FiChevronDown,
-  FiEye, FiCornerUpLeft, FiThumbsUp, FiThumbsDown
+  FiMail, FiMessageCircle, FiSend, FiCheckCircle, 
+  FiHeadphones, FiHelpCircle, FiChevronDown,
+  FiEye, FiCornerUpLeft, FiThumbsUp, FiThumbsDown,
+  FiPhone, FiClock
 } from 'react-icons/fi';
 import { supportApi } from '../../../services/supportApi';
 import { usePartnerAuth } from '../../../context/PartnerAuthContext';
@@ -206,47 +207,19 @@ const SupportTab = () => {
           {/* Contact Support Tab */}
           {activeTab === 'contact' && (
             <div className="space-y-6 sm:space-y-8">
-              {/* Contact Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                <div className="group bg-white rounded-xl sm:rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-4 sm:p-6 text-center border border-gray-100 hover:border-primary/30 hover:-translate-y-1">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-primary to-primary-dark rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                    <FiPhone className="text-white" size={20} />
+              {/* Contact Card - Email Only */}
+              <div className="flex justify-center">
+                <div className="group bg-white rounded-xl sm:rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-6 sm:p-8 text-center border border-gray-100 hover:border-green-200 hover:-translate-y-1 max-w-md w-full">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <FiMail className="text-white" size={28} />
                   </div>
-                  <h3 className="font-bold text-gray-800 mb-2 text-base sm:text-lg">Call Us</h3>
-                  <p className="text-primary font-semibold text-base sm:text-lg mb-2 break-all">
-                    {supportSettings?.supportPhone || '+91 1800-XXX-XXXX'}
-                  </p>
-                  <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-gray-500">
-                    <FiClock size={12} className="sm:w-3.5 sm:h-3.5 flex-shrink-0" />
-                    <span className="text-center">
-                      {supportSettings?.workingHours || 'Mon-Sat, 9AM-6PM'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="group bg-white rounded-xl sm:rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-4 sm:p-6 text-center border border-gray-100 hover:border-green-200 hover:-translate-y-1">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                    <FiMail className="text-white" size={20} />
-                  </div>
-                  <h3 className="font-bold text-gray-800 mb-2 text-base sm:text-lg">Email Us</h3>
-                  <p className="text-green-600 font-semibold mb-2 text-sm sm:text-base break-all">
+                  <h3 className="font-bold text-gray-800 mb-3 text-xl sm:text-2xl">Email Us</h3>
+                  <p className="text-green-600 font-semibold mb-3 text-lg sm:text-xl break-all">
                     {supportSettings?.supportEmail || 'support@nexo.works'}
                   </p>
-                  <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-gray-500">
-                    <FiCheckCircle size={12} className="sm:w-3.5 sm:h-3.5 flex-shrink-0" />
-                    <span>24/7 Support</span>
-                  </div>
-                </div>
-
-                <div className="group bg-white rounded-xl sm:rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-4 sm:p-6 text-center border border-gray-100 hover:border-primary-light/30 hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-primary-light to-primary rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                    <FiMessageCircle className="text-white" size={20} />
-                  </div>
-                  <h3 className="font-bold text-gray-800 mb-2 text-base sm:text-lg">Live Chat</h3>
-                  <p className="text-primary-light font-semibold mb-2 text-sm sm:text-base">Chat with us</p>
-                  <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-gray-500">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${supportSettings?.liveChatEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
-                    <span>{supportSettings?.liveChatEnabled ? 'Available 24/7' : 'Currently Offline'}</span>
+                  <div className="flex items-center justify-center gap-2 text-sm sm:text-base text-gray-500">
+                    <FiCheckCircle size={16} className="flex-shrink-0" />
+                    <span>24/7 Support Available</span>
                   </div>
                 </div>
               </div>
@@ -610,7 +583,7 @@ const SupportTab = () => {
       )}
 
       {/* Need Immediate Help Section */}
-      <div className="bg-gradient-to-br from-primary via-primary-dark to-[#152d47] rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white shadow-xl">
+      {/* <div className="bg-gradient-to-br from-primary via-primary-dark to-[#152d47] rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white shadow-xl">
         <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
             <FiCheckCircle size={20} className="sm:w-6 sm:h-6" />
@@ -639,7 +612,7 @@ const SupportTab = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

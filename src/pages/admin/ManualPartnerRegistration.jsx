@@ -20,6 +20,18 @@ const ManualPartnerRegistration = () => {
   const signatureCanvasRef = useRef(null)
   const [isDrawing, setIsDrawing] = useState(false)
 
+  // Initialize canvas context with better drawing settings
+  useEffect(() => {
+    const canvas = signatureCanvasRef.current
+    if (canvas) {
+      const ctx = canvas.getContext('2d')
+      ctx.strokeStyle = '#000000'
+      ctx.lineWidth = 2
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+    }
+  }, [])
+
   // Form state
   const [formData, setFormData] = useState({
     // Personal Information
@@ -350,8 +362,11 @@ const ManualPartnerRegistration = () => {
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    // Scale coordinates to match canvas internal resolution
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
     
     const ctx = canvas.getContext('2d')
     ctx.beginPath()
@@ -366,8 +381,11 @@ const ManualPartnerRegistration = () => {
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    // Scale coordinates to match canvas internal resolution
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
     
     const ctx = canvas.getContext('2d')
     ctx.lineTo(x, y)
@@ -389,6 +407,49 @@ const ManualPartnerRegistration = () => {
       }
     }
     setIsDrawing(false)
+  }
+
+  // Touch event handlers for mobile/tablet
+  const handleTouchStart = (e) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    const canvas = signatureCanvasRef.current
+    if (!canvas) return
+    
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (touch.clientX - rect.left) * scaleX
+    const y = (touch.clientY - rect.top) * scaleY
+    
+    const ctx = canvas.getContext('2d')
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    setIsDrawing(true)
+  }
+
+  const handleTouchMove = (e) => {
+    e.preventDefault()
+    if (!isDrawing) return
+    
+    const touch = e.touches[0]
+    const canvas = signatureCanvasRef.current
+    if (!canvas) return
+    
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (touch.clientX - rect.left) * scaleX
+    const y = (touch.clientY - rect.top) * scaleY
+    
+    const ctx = canvas.getContext('2d')
+    ctx.lineTo(x, y)
+    ctx.stroke()
+  }
+
+  const handleTouchEnd = (e) => {
+    e.preventDefault()
+    stopDrawing()
   }
 
   const clearSignature = () => {
@@ -1072,6 +1133,9 @@ const ManualPartnerRegistration = () => {
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
                     onMouseLeave={stopDrawing}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
                     className="w-full cursor-crosshair bg-white"
                     style={{ touchAction: 'none' }}
                   />

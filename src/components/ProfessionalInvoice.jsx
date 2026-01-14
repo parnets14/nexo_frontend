@@ -48,6 +48,16 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
 
   const subtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
   
+  // Debug logging for quotation details
+  console.log('📋 [ProfessionalInvoice] Invoice data received:', {
+    hasQuotationDetails: !!quotationDetails,
+    quotationDetails: quotationDetails,
+    bookingAmount: paymentDetails?.bookingAmount,
+    quotationAmount: paymentDetails?.quotationAmount,
+    totalAmount: paymentDetails?.totalAmount,
+    servicesCount: services?.length || 0
+  });
+  
   // Debug logging for emergency bookings
   if (invoiceData?.booking?.isEmergency) {
     console.log('🚨 INVOICE COMPONENT - Emergency booking data:', {
@@ -380,6 +390,14 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
                       <span className="font-bold">₹{formatCurrency(paymentDetails.gstAmount || 0)}</span>
                     </div>
                   )}
+                  
+                  {/* Discount - Show if greater than 0 */}
+                  {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50">
+                      <span className="text-green-700 font-medium">Discount Applied:</span>
+                      <span className="font-bold text-green-700">- ₹{formatCurrency(paymentDetails.discount)}</span>
+                    </div>
+                  )}
                 </>
               ) : quotationDetails && (paymentDetails?.bookingAmount !== undefined || paymentDetails?.quotationAmount !== undefined) ? (
                 <>
@@ -391,12 +409,30 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
                     <span className="text-gray-600">Quotation Amount:</span>
                     <span className="font-medium">₹{formatCurrency(paymentDetails.quotationAmount || 0)}</span>
                   </div>
+                  
+                  {/* Discount for quotation scenario */}
+                  {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50">
+                      <span className="text-green-700 font-medium">Discount Applied:</span>
+                      <span className="font-bold text-green-700">- ₹{formatCurrency(paymentDetails.discount)}</span>
+                    </div>
+                  )}
                 </>
               ) : (
-                <div className="flex justify-between py-2 text-sm border-b border-gray-300">
-                  <span className="text-gray-700 font-medium">Subtotal:</span>
-                  <span className="font-bold">₹{formatCurrency(subtotal)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between py-2 text-sm border-b border-gray-300">
+                    <span className="text-gray-700 font-medium">Subtotal:</span>
+                    <span className="font-bold">₹{formatCurrency(subtotal)}</span>
+                  </div>
+                  
+                  {/* Discount for simple scenario */}
+                  {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
+                    <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50">
+                      <span className="text-green-700 font-medium">Discount Applied:</span>
+                      <span className="font-bold text-green-700">- ₹{formatCurrency(paymentDetails.discount)}</span>
+                    </div>
+                  )}
+                </>
               )}
               
               {/* Grand Total */}

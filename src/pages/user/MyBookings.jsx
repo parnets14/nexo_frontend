@@ -814,7 +814,7 @@ const isCancellationAllowed = (bookingData) => {
                       filter.replace('_', ' ').replace('-', ' ')} bookings at the moment.`}
           </p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/#services')}
             className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl hover:from-primary-dark hover:to-primary font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
           >
             <FiPackage size={20} />

@@ -686,8 +686,10 @@ const PartnerDetails = () => {
       return
     }
 
-    // Double confirmation
-    if (!confirm(`Type "DELETE" to confirm permanent deletion of ${partnerName}`)) {
+    // Double confirmation with prompt
+    const confirmText = prompt(`To confirm deletion, type "DELETE" (in capital letters):`)
+    if (confirmText !== 'DELETE') {
+      alert('Deletion cancelled. You must type "DELETE" exactly to confirm.')
       return
     }
 
@@ -701,7 +703,7 @@ const PartnerDetails = () => {
       }
     } catch (error) {
       console.error('Error deleting partner:', error)
-      alert('Error deleting partner')
+      alert(`Error deleting partner: ${error.message || 'Unknown error'}`)
     }
   }
 

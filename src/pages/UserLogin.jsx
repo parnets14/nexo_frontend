@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiPhone, FiLock, FiMail, FiArrowRight, FiRefreshCw, FiUser } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
@@ -8,6 +8,7 @@ import { useUserAuth } from '../context/UserAuthContext';
 
 const UserLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { checkAuth } = useUserAuth();
   const [loginMethod, setLoginMethod] = useState('otp'); // 'otp' or 'password'
   const [step, setStep] = useState(1); // 1: phone/email, 2: otp
@@ -104,8 +105,8 @@ const UserLogin = () => {
           // Redirect to profile completion page for new users
           navigate('/user/complete-profile', { replace: true });
         } else {
-          // Check for redirect URL
-          const redirectUrl = localStorage.getItem('redirectAfterLogin');
+          // Check for redirect URL from localStorage or location state
+          const redirectUrl = localStorage.getItem('redirectAfterLogin') || location.state?.from;
           if (redirectUrl) {
             localStorage.removeItem('redirectAfterLogin');
             navigate(redirectUrl, { replace: true });
@@ -134,8 +135,8 @@ const UserLogin = () => {
         localStorage.setItem('userToken', response.token);
         await checkAuth(); // Update auth context
         
-        // Check for redirect URL
-        const redirectUrl = localStorage.getItem('redirectAfterLogin');
+        // Check for redirect URL from localStorage or location state
+        const redirectUrl = localStorage.getItem('redirectAfterLogin') || location.state?.from;
         if (redirectUrl) {
           localStorage.removeItem('redirectAfterLogin');
           navigate(redirectUrl, { replace: true });

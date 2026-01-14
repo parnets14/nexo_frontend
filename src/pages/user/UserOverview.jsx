@@ -307,7 +307,7 @@ const UserOverview = () => {
 
               {/* CTA Button */}
               <button
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/#services')}
                 className="group relative px-5 md:px-6 py-2.5 md:py-3 bg-white text-orange-600 rounded-xl font-bold shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-110 whitespace-nowrap overflow-hidden"
               >
                 <span className="relative z-10 flex items-center gap-2">
@@ -385,7 +385,7 @@ const UserOverview = () => {
               <p className="text-slate-600 font-medium mb-2">No bookings yet</p>
               <p className="text-slate-500 text-sm mb-6">Start booking services to see them here</p>
               <button
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/#services')}
                 className="px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 font-medium"
               >
                 Book a Service
@@ -483,7 +483,7 @@ const UserOverview = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/#services')}
           className="group relative bg-gradient-to-br from-primary to-primary-light rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-8 text-left overflow-hidden transform hover:scale-105 animate-fade-in"
           style={{ animationDelay: '500ms' }}
         >

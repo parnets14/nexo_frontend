@@ -65,6 +65,7 @@ import VendorDashboard from './pages/vendor/VendorDashboard.jsx'
 import VendorLayout from './layouts/vendor/VendorLayout.jsx'
 import RequireVendorAuth from './layouts/vendor/RequireVendorAuth.jsx'
 import VerifyPartner from './pages/VerifyPartner.jsx'
+import VerifyTeamMember from './pages/VerifyTeamMember.jsx'
 import NotFound from './pages/NotFound.jsx'
 import NotificationPermissionPrompt from './components/NotificationPermissionPrompt.jsx'
 import UserDashboard from './pages/user/UserDashboard.jsx'
@@ -116,6 +117,7 @@ function App() {
           <Route path="/refund-policy" element={<CustomerRefundPolicy />} />
           <Route path="/partner-refund-policy" element={<PartnerRefundPolicy />} />
           <Route path="/verify/partner/:partnerId" element={<VerifyPartner />} />
+          <Route path="/verify/team-member/:memberId" element={<VerifyTeamMember />} />
         </Route>
 
         <Route path="/admin" element={<AdminLogin />} />
