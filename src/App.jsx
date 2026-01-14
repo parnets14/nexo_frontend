@@ -55,6 +55,7 @@ import SupportManagement from './pages/admin/SupportManagement.jsx'
 import WhatsAppSettings from './pages/admin/WhatsAppSettings.jsx'
 import PartnerEarningsManagement from './pages/admin/PartnerEarningsManagement.jsx'
 import EarningsClaimsHistory from './pages/admin/EarningsClaimsHistory.jsx'
+import OfferManagement from './pages/admin/OfferManagement.jsx'
 import PartnerLogin from './pages/PartnerLogin.jsx'
 import PartnerDashboard from './pages/partner/PartnerDashboard.jsx'
 import PartnerLayout from './layouts/partner/PartnerLayout.jsx'
@@ -156,6 +157,7 @@ function App() {
             <Route path="/admin/featured-reviews" element={<FeaturedReviewsManagement />} />
             <Route path="/admin/partner-earnings" element={<PartnerEarningsManagement />} />
             <Route path="/admin/earnings-claims-history" element={<EarningsClaimsHistory />} />
+            <Route path="/admin/offers" element={<OfferManagement />} />
             <Route path="/admin/support" element={<SupportManagement />} />
             <Route path="/admin/whatsapp-settings" element={<WhatsAppSettings />} />
             <Route path="/admin/invoice" element={<AdminInvoiceViewer />} />

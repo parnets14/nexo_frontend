@@ -103,6 +103,13 @@ const ServiceCheckout = () => {
   const [formErrors, setFormErrors] = useState({})
   const [confirmationDialog, setConfirmationDialog] = useState({ isOpen: false, plan: null, addressData: null })
 
+  // Offer/Coupon state
+  const [offers, setOffers] = useState([])
+  const [offerCode, setOfferCode] = useState('')
+  const [appliedOffer, setAppliedOffer] = useState(null)
+  const [offerLoading, setOfferLoading] = useState(false)
+  const [showOfferInput, setShowOfferInput] = useState(false)
+
   // Helper function to validate individual fields
   const validateField = (name, value) => {
     const errors = { ...formErrors }
@@ -199,12 +206,13 @@ const ServiceCheckout = () => {
   
   const [formData, setFormData] = useState(getInitialFormData())
 
-  // Fetch user addresses and wallet balance
+  // Fetch user addresses, wallet balance, and offers
   useEffect(() => {
     if (isAuthenticated && user) {
       fetchAddresses()
       fetchWalletBalance()
       fetchAMCPlans()
+      fetchActiveOffers()
     }
   }, [isAuthenticated, user])
   
@@ -306,6 +314,76 @@ const ServiceCheckout = () => {
       // Set balance to 0 but still show wallet section
       setWalletBalance(0)
     }
+  }
+
+  // Fetch active offers
+  const fetchActiveOffers = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/user/offers`)
+      if (response.data.success) {
+        // Filter active offers (within date range)
+        const now = new Date()
+        const activeOffers = response.data.data.filter(offer => {
+          const startDate = new Date(offer.startDate)
+          const endDate = new Date(offer.endDate)
+          return now >= startDate && now <= endDate
+        })
+        setOffers(activeOffers)
+        console.log('✅ Active offers loaded:', activeOffers.length)
+      }
+    } catch (error) {
+      console.error('❌ Error fetching offers:', error)
+    }
+  }
+
+  // Apply offer code
+  const handleApplyOffer = async () => {
+    if (!offerCode.trim()) {
+      showAlert('warning', 'Enter Offer Code', 'Please enter a valid offer code')
+      return
+    }
+
+    setOfferLoading(true)
+    try {
+      // Find matching offer
+      const matchingOffer = offers.find(
+        offer => offer.couponCode.toLowerCase() === offerCode.trim().toLowerCase()
+      )
+
+      if (!matchingOffer) {
+        showAlert('error', 'Invalid Offer Code', 'The offer code you entered is not valid or has expired')
+        setOfferLoading(false)
+        return
+      }
+
+      // Check if offer is still valid
+      const now = new Date()
+      const startDate = new Date(matchingOffer.startDate)
+      const endDate = new Date(matchingOffer.endDate)
+
+      if (now < startDate || now > endDate) {
+        showAlert('error', 'Offer Expired', 'This offer is no longer valid')
+        setOfferLoading(false)
+        return
+      }
+
+      // Apply the offer
+      setAppliedOffer(matchingOffer)
+      showAlert('success', 'Offer Applied!', `${matchingOffer.offerTitle} - ${matchingOffer.discount}% discount applied successfully`)
+      setShowOfferInput(false)
+      setOfferLoading(false)
+    } catch (error) {
+      console.error('Error applying offer:', error)
+      showAlert('error', 'Error', 'Failed to apply offer code')
+      setOfferLoading(false)
+    }
+  }
+
+  // Remove applied offer
+  const handleRemoveOffer = () => {
+    setAppliedOffer(null)
+    setOfferCode('')
+    showAlert('info', 'Offer Removed', 'Offer code has been removed from your order')
   }
 
   // Fetch AMC plans
@@ -875,13 +953,25 @@ const ServiceCheckout = () => {
     return calculateSubtotal() + getVisitingCharge() + getServiceCharge() + getEmergencyCharge()
   }
 
-  const calculateFinalAmount = () => {
+  const calculateOfferDiscount = () => {
+    if (!appliedOffer) return 0
     const totalBeforeTax = calculateTotalBeforeTax()
+    return Math.round(totalBeforeTax * appliedOffer.discount / 100)
+  }
+
+  const calculateTotalAfterDiscount = () => {
+    const totalBeforeTax = calculateTotalBeforeTax()
+    const discount = calculateOfferDiscount()
+    return totalBeforeTax - discount
+  }
+
+  const calculateFinalAmount = () => {
+    const totalAfterDiscount = calculateTotalAfterDiscount()
     const cgst = serviceData.cgst || 9 // Default CGST 9%
     const sgst = serviceData.sgst || 9 // Default SGST 9%
     const totalGstRate = cgst + sgst
-    const gst = Math.round(totalBeforeTax * totalGstRate / 100)
-    const total = totalBeforeTax + gst
+    const gst = Math.round(totalAfterDiscount * totalGstRate / 100)
+    const total = totalAfterDiscount + gst
     
     if (useWallet && walletAmount > 0) {
       return Math.max(0, total - walletAmount)
@@ -895,11 +985,11 @@ const ServiceCheckout = () => {
     setUseWallet(newUseWallet)
     
     if (newUseWallet) {
-      const totalBeforeTax = calculateTotalBeforeTax()
+      const totalAfterDiscount = calculateTotalAfterDiscount()
       const cgst = serviceData.cgst || 9
       const sgst = serviceData.sgst || 9
       const totalGstRate = cgst + sgst
-      const total = Math.round(totalBeforeTax * (1 + totalGstRate / 100))
+      const total = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
       const maxWalletUse = Math.min(walletBalance, total)
       setWalletAmount(maxWalletUse)
       setCustomWalletAmount('')
@@ -913,11 +1003,11 @@ const ServiceCheckout = () => {
 
   const handleCustomWalletAmount = (value) => {
     const amount = parseFloat(value) || 0
-    const totalBeforeTax = calculateTotalBeforeTax()
+    const totalAfterDiscount = calculateTotalAfterDiscount()
     const cgst = serviceData.cgst || 9
     const sgst = serviceData.sgst || 9
     const totalGstRate = cgst + sgst
-    const total = Math.round(totalBeforeTax * (1 + totalGstRate / 100))
+    const total = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
     const maxWalletUse = Math.min(walletBalance, total)
     
     if (amount > maxWalletUse) {
@@ -1013,7 +1103,14 @@ const ServiceCheckout = () => {
         emergencyCharge: getEmergencyCharge(),
         isEmergency: serviceData.isEmergency || false,
         useWallet: useWallet,
-        walletAmount: walletAmount
+        walletAmount: walletAmount,
+        // Offer information
+        appliedOffer: appliedOffer ? {
+          offerId: appliedOffer._id,
+          couponCode: appliedOffer.couponCode,
+          discount: appliedOffer.discount,
+          discountAmount: calculateOfferDiscount()
+        } : null
       }
 
       // Create booking and initiate PayU payment
@@ -1098,7 +1195,14 @@ const ServiceCheckout = () => {
         isEmergency: serviceData.isEmergency || false,
         useWallet: true,
         walletAmount: walletAmount,
-        paymentMode: 'wallet'
+        paymentMode: 'wallet',
+        // Offer information
+        appliedOffer: appliedOffer ? {
+          offerId: appliedOffer._id,
+          couponCode: appliedOffer.couponCode,
+          discount: appliedOffer.discount,
+          discountAmount: calculateOfferDiscount()
+        } : null
       }
 
       const response = await axios.post(
@@ -1936,14 +2040,14 @@ const ServiceCheckout = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Service Subtotal</span>
-                    <span className="font-medium">₹{calculateSubtotal().toLocaleString('en-IN')}</span>
+                    <span className="font-medium">₹{calculateSubtotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   
                   {/* Visiting Charge */}
                   {getVisitingCharge() > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Visiting Charge</span>
-                      <span className="font-medium text-amber-600">+₹{getVisitingCharge().toLocaleString('en-IN')}</span>
+                      <span className="font-medium text-amber-600">+₹{getVisitingCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   )}
                   
@@ -1951,7 +2055,7 @@ const ServiceCheckout = () => {
                   {getServiceCharge() > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Platform Fee</span>
-                      <span className="font-medium text-blue-600">+₹{getServiceCharge().toLocaleString('en-IN')}</span>
+                      <span className="font-medium text-blue-600">+₹{getServiceCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   )}
                   
@@ -1962,7 +2066,7 @@ const ServiceCheckout = () => {
                         <span className="text-red-500">🚨</span>
                         Emergency Service Charge
                       </span>
-                      <span className="font-medium text-red-600">+₹{getEmergencyCharge().toLocaleString('en-IN')}</span>
+                      <span className="font-medium text-red-600">+₹{getEmergencyCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   )}
                   
@@ -1970,7 +2074,32 @@ const ServiceCheckout = () => {
                   {(getVisitingCharge() > 0 || getServiceCharge() > 0 || getEmergencyCharge() > 0) && (
                     <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
                       <span className="text-gray-700 font-medium">Subtotal (Before Tax)</span>
-                      <span className="font-semibold text-gray-900">₹{calculateTotalBeforeTax().toLocaleString('en-IN')}</span>
+                      <span className="font-semibold text-gray-900">₹{calculateTotalBeforeTax().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                  
+                  {/* Offer/Discount Section */}
+                  {appliedOffer && (
+                    <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-700 font-medium">Offer Discount ({appliedOffer.discount}%)</span>
+                        <button
+                          onClick={handleRemoveOffer}
+                          className="text-red-500 hover:text-red-700 text-xs"
+                          title="Remove offer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <span className="font-semibold text-green-600">-₹{calculateOfferDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                  
+                  {/* Total After Discount */}
+                  {appliedOffer && (
+                    <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                      <span className="text-gray-700 font-medium">Total After Discount</span>
+                      <span className="font-semibold text-gray-900">₹{calculateTotalAfterDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   )}
                   
@@ -1978,22 +2107,139 @@ const ServiceCheckout = () => {
                   <div className="bg-gray-50 rounded-lg p-3 space-y-2 mt-2">
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-600">CGST ({serviceData.cgst || 9}%)</span>
-                      <span className="font-medium text-gray-700">₹{Math.round(calculateTotalBeforeTax() * (serviceData.cgst || 9) / 100).toLocaleString('en-IN')}</span>
+                      <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.cgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-600">SGST ({serviceData.sgst || 9}%)</span>
-                      <span className="font-medium text-gray-700">₹{Math.round(calculateTotalBeforeTax() * (serviceData.sgst || 9) / 100).toLocaleString('en-IN')}</span>
+                      <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.sgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
                       <span className="text-gray-700 font-medium">Total GST</span>
-                      <span className="font-semibold text-gray-900">₹{Math.round(calculateTotalBeforeTax() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toLocaleString('en-IN')}</span>
+                      <span className="font-semibold text-gray-900">₹{(calculateTotalAfterDiscount() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                   
                   {/* Total Before Wallet */}
                   <div className="flex justify-between text-base font-semibold text-gray-900 pt-2 border-t border-gray-200">
                     <span>Total Amount</span>
-                    <span>₹{Math.round(calculateTotalBeforeTax() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)).toLocaleString('en-IN')}</span>
+                    <span>₹{(calculateTotalAfterDiscount() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+                
+                {/* Offer Code Section */}
+                <div className="pt-3 border-t border-gray-200 mt-3">
+                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-3 mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">🎁</span>
+                        <span className="text-sm font-semibold text-gray-800">Have an Offer Code?</span>
+                      </div>
+                      {!appliedOffer && (
+                        <button
+                          onClick={() => setShowOfferInput(!showOfferInput)}
+                          className="text-primary hover:text-primary-dark font-medium text-xs"
+                        >
+                          {showOfferInput ? 'Hide' : 'Apply'}
+                        </button>
+                      )}
+                    </div>
+                    
+                    {appliedOffer ? (
+                      <div className="bg-white rounded-lg p-3 border-2 border-green-500">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-green-600 font-bold text-sm">{appliedOffer.couponCode}</span>
+                              <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                                {appliedOffer.discount}% OFF
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-600">{appliedOffer.offerTitle}</p>
+                            <p className="text-xs text-green-600 font-medium mt-1">
+                              You save ₹{calculateOfferDiscount().toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                          <button
+                            onClick={handleRemoveOffer}
+                            className="text-red-500 hover:text-red-700 font-medium text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : showOfferInput ? (
+                      <div className="space-y-2 animate-fade-in">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={offerCode}
+                            onChange={(e) => setOfferCode(e.target.value.toUpperCase())}
+                            placeholder="Enter offer code"
+                            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent uppercase"
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                handleApplyOffer()
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={handleApplyOffer}
+                            disabled={offerLoading || !offerCode.trim()}
+                            className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {offerLoading ? (
+                              <FaSpinner className="animate-spin" />
+                            ) : (
+                              'Apply'
+                            )}
+                          </button>
+                        </div>
+                        
+                        {/* Available Offers */}
+                        {offers.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs text-gray-600 mb-2 font-medium">Available Offers:</p>
+                            <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                              {offers.map((offer) => (
+                                <div
+                                  key={offer._id}
+                                  onClick={() => {
+                                    setOfferCode(offer.couponCode)
+                                  }}
+                                  className="bg-white rounded-lg p-2 border border-gray-200 hover:border-primary cursor-pointer transition"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-primary font-bold text-xs">{offer.couponCode}</span>
+                                        <span className="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                                          {offer.discount}% OFF
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-gray-600">{offer.offerTitle}</p>
+                                    </div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setOfferCode(offer.couponCode)
+                                        handleApplyOffer()
+                                      }}
+                                      className="text-xs text-primary hover:text-primary-dark font-medium"
+                                    >
+                                      Apply
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-600">
+                        Click "Apply" to enter your offer code and save on your order
+                      </p>
+                    )}
                   </div>
                 </div>
                 

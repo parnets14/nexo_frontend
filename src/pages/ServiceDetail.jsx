@@ -2521,7 +2521,7 @@ const ServiceDetail = () => {
                   <div className="bg-blue-400/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
                     <FaShieldAlt className="text-xl text-blue-300" />
                   </div>
-                  <h3 className="text-base font-bold mb-1">Pay After Service</h3>
+                  <h3 className="text-base font-bold mb-1">Pay First, Relax Later</h3>
                   <p className="text-xs text-white/80">No upfront payment required</p>
                 </motion.div>
                 <motion.div

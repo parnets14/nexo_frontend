@@ -1817,6 +1817,64 @@ export const adminApi = {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
+  },
+
+  // Offer Management
+  async fetchOffers(token) {
+    const response = await fetch(buildUrl('/services/offers'), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async createOffer(token, offerData) {
+    const formData = new FormData()
+    formData.append('couponCode', offerData.couponCode)
+    formData.append('discount', offerData.discount)
+    formData.append('startDate', offerData.startDate)
+    formData.append('endDate', offerData.endDate)
+    formData.append('offerTitle', offerData.offerTitle)
+    if (offerData.promotionalImage) {
+      formData.append('promotionalImage', offerData.promotionalImage)
+    }
+
+    const response = await fetch(buildUrl('/services/offers'), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: formData
+    })
+    return handleResponse(response)
+  },
+
+  async updateOffer(token, offerId, offerData) {
+    const formData = new FormData()
+    if (offerData.couponCode) formData.append('couponCode', offerData.couponCode)
+    if (offerData.discount) formData.append('discount', offerData.discount)
+    if (offerData.startDate) formData.append('startDate', offerData.startDate)
+    if (offerData.endDate) formData.append('endDate', offerData.endDate)
+    if (offerData.offerTitle) formData.append('offerTitle', offerData.offerTitle)
+    if (offerData.promotionalImage) {
+      formData.append('promotionalImage', offerData.promotionalImage)
+    }
+
+    const response = await fetch(buildUrl(`/services/offers/${offerId}`), {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: formData
+    })
+    return handleResponse(response)
+  },
+
+  async deleteOffer(token, offerId) {
+    const response = await fetch(buildUrl(`/services/offers/${offerId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
   }
 }
 

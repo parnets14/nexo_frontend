@@ -23,7 +23,8 @@ import {
   FiShoppingBag,
   FiMap,
   FiPercent,
-  FiTarget
+  FiTarget,
+  FiGift
 } from 'react-icons/fi'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
 import NotificationBell from '../../components/admin/NotificationBell.jsx'
@@ -51,6 +52,7 @@ const navItems = [
   { label: 'Fee Management', icon: FiDollarSign, to: '/admin/fees' },
   { label: 'Tax Management', icon: FiPercent, to: '/admin/tax-management' },
   { label: 'Fee Transactions', icon: FiCreditCard, to: '/admin/fee-transactions' },
+  { label: 'Offer Management', icon: FiGift, to: '/admin/offers' },
   { label: 'Support Management', icon: FiMessageSquare, to: '/admin/support' },
   { label: 'Reports', icon: FiSettings, to: '/admin/reports' },
   { label: 'Notifications', icon: FiBell, to: '/admin/notifications' },

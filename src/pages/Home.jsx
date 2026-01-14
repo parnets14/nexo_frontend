@@ -184,7 +184,7 @@ const Home = () => {
     { icon: FaBolt, text: 'Response under 2 minutes', color: 'text-yellow-500' },
     { icon: FaCheckCircle, text: 'Verified technicians', color: 'text-green-500' },
     { icon: FaRupeeSign, text: 'Fixed pricing', color: 'text-blue-500' },
-    { icon: FaCreditCard, text: 'Pay after service', color: 'text-purple-500' },
+    { icon: FaCreditCard, text: 'Pay First, Relax Later', color: 'text-purple-500' },
     { icon: FaMobileAlt, text: '24x7 WhatsApp support', color: 'text-green-600' },
     { icon: FaWrench, text: 'Free rework within 72 hours', color: 'text-orange-500' },
   ]
@@ -299,7 +299,7 @@ const Home = () => {
     <>
       <SEO 
         title="Nexo - Home Services on WhatsApp | AC, Electrical, Plumbing & More"
-        description="Fast, reliable and affordable home services from verified experts. Book AC service, electrical work, plumbing, cleaning, and 200+ services on WhatsApp. Response under 2 minutes. Verified technicians. Pay after service."
+        description="Fast, reliable and affordable home services from verified experts. Book AC service, electrical work, plumbing, cleaning, and 200+ services on WhatsApp. Response under 2 minutes. Verified technicians. Pay First, Relax Later."
         keywords="home services, AC service, electrical work, plumbing, cleaning services, WhatsApp booking, verified technicians, home maintenance, appliance repair, carpentry, painting services"
         url="/"
       />
