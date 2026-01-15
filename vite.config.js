@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5173',
+        target: 'https://nexo.works',
         changeOrigin: true,
         secure: false
       }

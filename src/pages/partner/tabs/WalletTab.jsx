@@ -291,7 +291,7 @@ const WalletTab = () => {
               onClick={async () => {
                 try {
                   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-                    (import.meta.env.DEV ? 'http://localhost:5173' : window.location.origin);
+                    (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
                   
                   const response = await fetch(`${API_BASE_URL}/api/partner/wallet/topup`, {
                     method: 'POST',

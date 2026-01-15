@@ -19,7 +19,7 @@ const UserLayout = () => {
     { path: '/user/dashboard/profile', icon: FiUser, label: 'Profile', color: 'green' },
     { path: '/user/dashboard/addresses', icon: FiMapPin, label: 'Addresses', color: 'orange' },
     { path: '/user/dashboard/wallet', icon: FiCreditCard, label: 'Wallet', color: 'pink' },
-    { path: '/user/dashboard/reviews', icon: FiStar, label: 'My Reviews', color: 'yellow' },
+    // { path: '/user/dashboard/reviews', icon: FiStar, label: 'My Reviews', color: 'yellow' },
     { path: '/user/dashboard/notifications', icon: FiBell, label: 'Notifications', color: 'red' },
     { path: '/user/dashboard/support', icon: FiHelpCircle, label: 'Support', color: 'indigo' },
   ];

@@ -5,7 +5,7 @@ import { userApi } from '../../services/userApi';
 import { useUserAuth } from '../../context/UserAuthContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'http://localhost:5173' : window.location.origin);
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin);
 
 const MyProfile = () => {
   const { checkAuth } = useUserAuth();

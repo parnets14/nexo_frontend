@@ -467,7 +467,7 @@ const UserOverview = () => {
               </span>
             </div>
           </div>
-          <div className="text-center">
+          {/* <div className="text-center">
             <div className="text-2xl font-bold mb-1">₹299</div>
             <div className="text-green-100 text-sm mb-3">per month</div>
             <button
@@ -476,7 +476,7 @@ const UserOverview = () => {
             >
               Get Standard Plan
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
 

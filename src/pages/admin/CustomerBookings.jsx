@@ -105,7 +105,7 @@ const CustomerBookings = () => {
 
   //         const response = await adminApi.getQuotationsByBooking ? 
   //           await adminApi.getQuotationsByBooking(token, bookingId) :
-  //           await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5173'}/api/admin/bookings/${bookingId}/quotations`, {
+  //           await fetch(`${import.meta.env.VITE_API_URL || 'https://nexo.works'}/api/admin/bookings/${bookingId}/quotations`, {
   //             headers: { Authorization: `Bearer ${token}` }
   //           }).then(res => res.json())
           
@@ -897,7 +897,24 @@ const CustomerBookings = () => {
                           <div className="text-sm font-medium text-gray-900">
                             {booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || 'Service Booking'}
                           </div>
-                          <div className="text-sm text-gray-500 flex items-center gap-1">
+                          {/* Show subservices/cart items if available */}
+                          {booking.cartItems && booking.cartItems.length > 0 && (
+                            <div className="text-xs text-gray-600 mt-1">
+                              {booking.cartItems.slice(0, 2).map((item, idx) => (
+                                <div key={idx} className="flex items-center gap-1">
+                                  <span className="inline-block w-1 h-1 bg-gray-400 rounded-full"></span>
+                                  <span>{item.name || item.serviceName}</span>
+                                  {item.quantity > 1 && <span className="text-gray-400">(x{item.quantity})</span>}
+                                </div>
+                              ))}
+                              {booking.cartItems.length > 2 && (
+                                <div className="text-gray-400 italic">
+                                  +{booking.cartItems.length - 2} more items
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                             <FiMapPin className="text-xs" />
                             {booking.location?.address?.substring(0, 30) || 'No address'}...
                           </div>
