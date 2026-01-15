@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -139,6 +139,37 @@
         ]
       }
     }
+    </script>
+    
+    <!-- Disable Inspect and DevTools -->
+    <script>
+      // Disable right-click
+      document.addEventListener('contextmenu', (e) => e.preventDefault());
+      
+      // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+      document.onkeydown = function(e) {
+        if(e.keyCode == 123 || // F12
+           (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) || // Ctrl+Shift+I
+           (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) || // Ctrl+Shift+J
+           (e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) || // Ctrl+Shift+C
+           (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0))) { // Ctrl+U
+          return false;
+        }
+      };
+      
+      // Disable zoom with keyboard
+      document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=')) {
+          e.preventDefault();
+        }
+      });
+      
+      // Disable zoom with mouse wheel
+      document.addEventListener('wheel', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+        }
+      }, { passive: false });
     </script>
   </head>
   <body>
