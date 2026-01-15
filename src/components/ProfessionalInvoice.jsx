@@ -288,26 +288,40 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
             <thead>
               <tr className="bg-gray-100">
                 <th className="text-left py-3 px-4 font-bold text-gray-700 text-sm">DESCRIPTION</th>
-                <th className="text-center py-3 px-4 font-bold text-gray-700 text-sm">QUANTITY</th>
+                <th className="text-center py-3 px-4 font-bold text-gray-700 text-sm">QTY</th>
                 <th className="text-center py-3 px-4 font-bold text-gray-700 text-sm">RATE</th>
                 <th className="text-right py-3 px-4 font-bold text-gray-700 text-sm">AMOUNT</th>
               </tr>
             </thead>
             <tbody>
               {services?.map((service, index) => (
-                <tr key={index} className={`border-b border-gray-200 ${service.type === 'quotation_item' ? 'bg-blue-50' : ''}`}>
+                <tr key={index} className={`border-b border-gray-200 ${
+                  service.type === 'quotation_item' ? 'bg-blue-50' : 
+                  service.type === 'addon' ? 'bg-purple-50' :
+                  service.type === 'subservice' ? 'bg-yellow-50' : ''
+                }`}>
                   <td className="py-3 px-4 text-sm text-gray-800">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{service.description}</span>
                         {service.type === 'quotation_item' && (
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold">
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold whitespace-nowrap">
                             Quotation Item
                           </span>
                         )}
                         {service.type === 'service' && (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-semibold">
+                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-semibold whitespace-nowrap">
                             Main Service
+                          </span>
+                        )}
+                        {service.type === 'addon' && (
+                          <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-semibold whitespace-nowrap">
+                            Add-on
+                          </span>
+                        )}
+                        {service.type === 'subservice' && (
+                          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full font-semibold whitespace-nowrap">
+                            Sub-service
                           </span>
                         )}
                       </div>
@@ -324,123 +338,101 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
           </table>
         </div>
 
-        {/* Total Section with Price Breakdown */}
+        {/* Total Section with Complete Price Breakdown */}
         <div className="flex justify-end mb-8">
-          <div className="w-96">
+          <div className="w-full md:w-96">
             <div className="space-y-2">
-              {/* Show detailed breakdown if any breakdown field exists */}
-              {(paymentDetails?.subtotalBeforeTax !== undefined || 
-                paymentDetails?.visitingCharge !== undefined || 
-                paymentDetails?.serviceCharge !== undefined || 
-                (paymentDetails?.emergencyCharge !== undefined && paymentDetails?.emergencyCharge > 0) ||
-                paymentDetails?.gstAmount !== undefined) ? (
-                <>
-                  {/* Visiting Charge */}
-                  {(paymentDetails?.visitingCharge !== undefined && paymentDetails?.visitingCharge > 0) && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-200">
-                      <span className="text-gray-600">Visiting Charge:</span>
-                      <span className="font-medium">₹{formatCurrency(paymentDetails.visitingCharge)}</span>
-                    </div>
-                  )}
+              {/* Services Subtotal */}
+              <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                <span className="text-gray-600">Services Subtotal:</span>
+                <span className="font-medium">₹{formatCurrency(subtotal)}</span>
+              </div>
+              
+              {/* Visiting Charge - Show if exists and > 0 */}
+              {(paymentDetails?.visitingCharge !== undefined && paymentDetails?.visitingCharge > 0) && (
+                <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                  <span className="text-gray-600">Visiting Charge:</span>
+                  <span className="font-medium text-amber-600">+₹{formatCurrency(paymentDetails.visitingCharge)}</span>
+                </div>
+              )}
+              
+              {/* Service Charge/Platform Fee - Show if exists and > 0 */}
+              {(paymentDetails?.serviceCharge !== undefined && paymentDetails?.serviceCharge > 0) && (
+                <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                  <span className="text-gray-600">Platform Fee:</span>
+                  <span className="font-medium text-blue-600">+₹{formatCurrency(paymentDetails.serviceCharge)}</span>
+                </div>
+              )}
+              
+              {/* Emergency Charge - Show if exists and > 0 */}
+              {(paymentDetails?.emergencyCharge !== undefined && paymentDetails?.emergencyCharge > 0) && (
+                <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-red-50 px-2 rounded">
+                  <span className="text-red-700 font-medium flex items-center gap-1">
+                    <span>🚨</span> Emergency Charge:
+                  </span>
+                  <span className="font-bold text-red-700">+₹{formatCurrency(paymentDetails.emergencyCharge)}</span>
+                </div>
+              )}
+              
+              {/* Subtotal Before Tax - Show if breakdown exists */}
+              {(paymentDetails?.subtotalBeforeTax !== undefined && paymentDetails?.subtotalBeforeTax > 0) && (
+                <div className="flex justify-between py-2 text-sm border-b border-gray-300 bg-gray-50 px-2 rounded">
+                  <span className="text-gray-700 font-medium">Subtotal (Before Tax):</span>
+                  <span className="font-bold">₹{formatCurrency(paymentDetails.subtotalBeforeTax)}</span>
+                </div>
+              )}
+              
+              {/* GST Breakdown - Show if GST exists */}
+              {(paymentDetails?.cgstAmount > 0 || paymentDetails?.sgstAmount > 0 || paymentDetails?.gstAmount > 0) && (
+                <div className="bg-blue-50 rounded-lg p-3 my-2 space-y-1 border border-blue-200">
+                  <div className="text-xs font-semibold text-blue-800 mb-2">GST Breakdown</div>
                   
-                  {/* Service Charge */}
-                  {(paymentDetails?.serviceCharge !== undefined && paymentDetails?.serviceCharge > 0) && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-200">
-                      <span className="text-gray-600">Service Charge:</span>
-                      <span className="font-medium">₹{formatCurrency(paymentDetails.serviceCharge)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Emergency Charge - Only show if greater than 0 */}
-                  {(paymentDetails?.emergencyCharge !== undefined && paymentDetails?.emergencyCharge > 0) && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-red-50">
-                      <span className="text-red-700 font-medium">🚨 Emergency Charge:</span>
-                      <span className="font-bold text-red-700">₹{formatCurrency(paymentDetails.emergencyCharge)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Subtotal Before Tax */}
-                  {(paymentDetails?.subtotalBeforeTax !== undefined || subtotal > 0) && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-300">
-                      <span className="text-gray-700 font-medium">Subtotal (Before Tax):</span>
-                      <span className="font-bold">₹{formatCurrency(paymentDetails.subtotalBeforeTax || subtotal)}</span>
-                    </div>
-                  )}
-                  
-                  {/* CGST - Always show if gstAmount exists */}
-                  {(paymentDetails?.cgstAmount !== undefined || paymentDetails?.gstAmount > 0) && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                  {/* CGST */}
+                  {paymentDetails?.cgstAmount > 0 && (
+                    <div className="flex justify-between text-xs">
                       <span className="text-gray-600">CGST ({paymentDetails.cgst || 9}%):</span>
-                      <span className="font-medium">₹{formatCurrency(paymentDetails.cgstAmount || 0)}</span>
+                      <span className="text-gray-700 font-medium">₹{formatCurrency(paymentDetails.cgstAmount)}</span>
                     </div>
                   )}
                   
-                  {/* SGST - Always show if gstAmount exists */}
-                  {(paymentDetails?.sgstAmount !== undefined || paymentDetails?.gstAmount > 0) && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-200">
+                  {/* SGST */}
+                  {paymentDetails?.sgstAmount > 0 && (
+                    <div className="flex justify-between text-xs">
                       <span className="text-gray-600">SGST ({paymentDetails.sgst || 9}%):</span>
-                      <span className="font-medium">₹{formatCurrency(paymentDetails.sgstAmount || 0)}</span>
+                      <span className="text-gray-700 font-medium">₹{formatCurrency(paymentDetails.sgstAmount)}</span>
                     </div>
                   )}
                   
                   {/* Total GST */}
-                  {paymentDetails?.gstAmount !== undefined && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-300 bg-gray-50">
-                      <span className="text-gray-700 font-medium">Total GST ({(paymentDetails.cgst || 9) + (paymentDetails.sgst || 9)}%):</span>
-                      <span className="font-bold">₹{formatCurrency(paymentDetails.gstAmount || 0)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Discount - Show if greater than 0 */}
-                  {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50">
-                      <span className="text-green-700 font-medium">Discount Applied:</span>
-                      <span className="font-bold text-green-700">- ₹{formatCurrency(paymentDetails.discount)}</span>
-                    </div>
-                  )}
-                </>
-              ) : quotationDetails && (paymentDetails?.bookingAmount !== undefined || paymentDetails?.quotationAmount !== undefined) ? (
-                <>
-                  <div className="flex justify-between py-2 text-sm border-b border-gray-200">
-                    <span className="text-gray-600">Service Amount:</span>
-                    <span className="font-medium">₹{formatCurrency(paymentDetails.bookingAmount || 0)}</span>
+                  <div className="flex justify-between text-sm pt-2 border-t border-blue-200">
+                    <span className="text-blue-700 font-semibold">Total GST:</span>
+                    <span className="font-bold text-blue-800">₹{formatCurrency(paymentDetails.gstAmount || (paymentDetails.cgstAmount + paymentDetails.sgstAmount))}</span>
                   </div>
-                  <div className="flex justify-between py-2 text-sm border-b border-gray-200">
-                    <span className="text-gray-600">Quotation Amount:</span>
-                    <span className="font-medium">₹{formatCurrency(paymentDetails.quotationAmount || 0)}</span>
-                  </div>
-                  
-                  {/* Discount for quotation scenario */}
-                  {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50">
-                      <span className="text-green-700 font-medium">Discount Applied:</span>
-                      <span className="font-bold text-green-700">- ₹{formatCurrency(paymentDetails.discount)}</span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="flex justify-between py-2 text-sm border-b border-gray-300">
-                    <span className="text-gray-700 font-medium">Subtotal:</span>
-                    <span className="font-bold">₹{formatCurrency(subtotal)}</span>
-                  </div>
-                  
-                  {/* Discount for simple scenario */}
-                  {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
-                    <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50">
-                      <span className="text-green-700 font-medium">Discount Applied:</span>
-                      <span className="font-bold text-green-700">- ₹{formatCurrency(paymentDetails.discount)}</span>
-                    </div>
-                  )}
-                </>
+                </div>
+              )}
+              
+              {/* Discount - Show if exists and > 0 */}
+              {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
+                <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50 px-2 rounded">
+                  <span className="text-green-700 font-medium">Discount Applied:</span>
+                  <span className="font-bold text-green-700">- ₹{formatCurrency(paymentDetails.discount)}</span>
+                </div>
+              )}
+              
+              {/* Quotation Amount - Show if quotation exists */}
+              {quotationDetails && paymentDetails?.quotationAmount > 0 && (
+                <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-blue-50 px-2 rounded">
+                  <span className="text-blue-700 font-medium">Quotation Amount:</span>
+                  <span className="font-bold text-blue-800">+₹{formatCurrency(paymentDetails.quotationAmount)}</span>
+                </div>
               )}
               
               {/* Grand Total */}
-              <div className="flex justify-between items-center mt-4">
-                <div className="bg-gray-800 text-white px-4 py-3 font-bold text-sm">
+              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center mt-4 gap-2">
+                <div className="bg-gray-800 text-white px-4 py-3 font-bold text-sm text-center sm:text-left">
                   TOTAL AMOUNT:
                 </div>
-                <div className="bg-gray-600 text-white px-4 py-3 font-bold text-lg">
+                <div className="bg-gray-600 text-white px-4 py-3 font-bold text-lg text-center sm:text-right">
                   ₹{formatCurrency(totalAmount)}
                 </div>
               </div>

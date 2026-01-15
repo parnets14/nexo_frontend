@@ -1,4 +1,107 @@
 /* Professional Invoice Print Styles - Single Page Only, No Blank Pages */
+
+/* Mobile Responsive Styles - Screen View */
+@media screen and (max-width: 768px) {
+  .professional-invoice {
+    padding: 1rem !important;
+    font-size: 12px !important;
+  }
+
+  .professional-invoice .grid-cols-2 {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .professional-invoice .text-4xl {
+    font-size: 1.5rem !important;
+  }
+
+  .professional-invoice .text-3xl {
+    font-size: 1.25rem !important;
+  }
+
+  .professional-invoice .text-2xl {
+    font-size: 1.125rem !important;
+  }
+
+  .professional-invoice .text-xl {
+    font-size: 1rem !important;
+  }
+
+  .professional-invoice .text-lg {
+    font-size: 0.875rem !important;
+  }
+
+  .professional-invoice table {
+    font-size: 11px !important;
+  }
+
+  .professional-invoice th,
+  .professional-invoice td {
+    padding: 0.5rem 0.25rem !important;
+  }
+
+  .professional-invoice .w-96 {
+    width: 100% !important;
+  }
+
+  .professional-invoice .w-80 {
+    width: 100% !important;
+  }
+
+  .professional-invoice .w-28 {
+    width: 4rem !important;
+  }
+
+  .professional-invoice .h-28 {
+    height: 4rem !important;
+  }
+
+  .professional-invoice .mb-8 {
+    margin-bottom: 1rem !important;
+  }
+
+  .professional-invoice .mb-6 {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .professional-invoice .mb-4 {
+    margin-bottom: 0.5rem !important;
+  }
+
+  .professional-invoice .gap-12 {
+    gap: 1rem !important;
+  }
+
+  /* Make table scrollable on mobile */
+  .professional-invoice .overflow-x-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Ensure badges wrap properly */
+  .professional-invoice .flex-wrap {
+    flex-wrap: wrap !important;
+  }
+
+  .professional-invoice .whitespace-nowrap {
+    white-space: nowrap !important;
+  }
+
+  /* Total section responsive */
+  .professional-invoice .flex-col {
+    flex-direction: column !important;
+  }
+
+  .professional-invoice .sm\\:flex-row {
+    flex-direction: column !important;
+  }
+
+  .professional-invoice .gap-2 {
+    gap: 0.5rem !important;
+  }
+}
+
 @media print {
   * {
     -webkit-print-color-adjust: exact !important;

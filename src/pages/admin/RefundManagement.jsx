@@ -6,6 +6,7 @@ import DataTable from '../../components/admin/DataTable.jsx'
 import { useAdminData } from '../../hooks/useAdminData.js'
 import { adminApi } from '../../services/adminApi.js'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
+import toast from 'react-hot-toast'
 
 const RefundManagement = () => {
   const { user } = useAdminAuth()
@@ -30,46 +31,59 @@ const RefundManagement = () => {
   const loadRefunds = async () => {
     setLoading(true)
     try {
-      // Mock data - replace with actual API call
-      const mockRefunds = [
-        {
-          id: 1,
-          orderId: 'ORD-001',
-          customerId: 'CUST-001',
-          customerName: 'John Doe',
-          amount: 1500,
-          reason: 'Product damaged',
-          status: 'pending',
-          requestDate: '2024-01-10',
-          processedDate: null
-        },
-        {
-          id: 2,
-          orderId: 'ORD-002',
-          customerId: 'CUST-002',
-          customerName: 'Jane Smith',
-          amount: 750,
-          reason: 'Wrong item delivered',
-          status: 'approved',
-          requestDate: '2024-01-09',
-          processedDate: '2024-01-10'
+      const token = localStorage.getItem('adminToken')
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/admin/refunds`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      ]
-      
-      setRefunds(mockRefunds)
-      setFilteredRefunds(mockRefunds)
-      
-      // Calculate stats
-      const totalAmount = mockRefunds.reduce((sum, refund) => sum + refund.amount, 0)
-      setStats({
-        total: mockRefunds.length,
-        pending: mockRefunds.filter(r => r.status === 'pending').length,
-        approved: mockRefunds.filter(r => r.status === 'approved').length,
-        rejected: mockRefunds.filter(r => r.status === 'rejected').length,
-        totalAmount
       })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        const refundsData = result.data.refunds.map(refund => ({
+          id: refund._id,
+          refundNumber: refund.refundNumber,
+          orderId: refund.booking?._id || 'N/A',
+          customerId: refund.user?._id || 'N/A',
+          customerName: refund.customerDetails?.name || refund.user?.name || 'Unknown',
+          customerEmail: refund.customerDetails?.email || refund.user?.email || '',
+          customerPhone: refund.customerDetails?.phone || refund.user?.phone || '',
+          amount: refund.finalRefundAmount,
+          originalAmount: refund.originalAmount,
+          visitingCharge: refund.visitingCharge,
+          reason: refund.cancellationReason,
+          status: refund.status,
+          requestDate: new Date(refund.createdAt).toLocaleDateString(),
+          processedDate: refund.refundedAt ? new Date(refund.refundedAt).toLocaleDateString() : null,
+          serviceName: refund.serviceDetails?.serviceName || 'N/A',
+          slaStatus: refund.slaStatus,
+          rejectionReason: refund.rejectionReason,
+          transactionId: refund.transactionId,
+          paymentMode: refund.paymentMode
+        }))
+        
+        setRefunds(refundsData)
+        setFilteredRefunds(refundsData)
+        
+        // Calculate stats from backend data
+        const totalAmount = refundsData.reduce((sum, refund) => sum + refund.amount, 0)
+        setStats({
+          total: refundsData.length,
+          pending: refundsData.filter(r => r.status === 'pending').length,
+          approved: refundsData.filter(r => r.status === 'approved').length,
+          rejected: refundsData.filter(r => r.status === 'rejected').length,
+          totalAmount
+        })
+        
+        toast.success('Refunds loaded successfully')
+      } else {
+        toast.error(result.message || 'Failed to load refunds')
+      }
     } catch (error) {
       console.error('Error loading refunds:', error)
+      toast.error('Error loading refunds')
     } finally {
       setLoading(false)
     }
@@ -85,8 +99,10 @@ const RefundManagement = () => {
 
     if (searchTerm) {
       filtered = filtered.filter(refund =>
-        refund.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        refund.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+        refund.refundNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        refund.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        refund.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        refund.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
@@ -98,29 +114,58 @@ const RefundManagement = () => {
   }, [refunds, searchTerm, statusFilter])
 
   // Handle refund action
-  const handleRefundAction = async (refundId, action) => {
+  const handleRefundAction = async (refundId, action, rejectionReason = null) => {
     try {
-      // Mock API call - replace with actual implementation
-      console.log(`${action} refund ${refundId}`)
+      const token = localStorage.getItem('adminToken')
+      let endpoint = ''
+      let body = {}
       
-      // Update local state
-      setRefunds(prev => prev.map(refund =>
-        refund.id === refundId
-          ? { ...refund, status: action, processedDate: new Date().toISOString().split('T')[0] }
-          : refund
-      ))
+      if (action === 'approved') {
+        endpoint = `${import.meta.env.VITE_BACKEND_URL}/api/admin/refunds/${refundId}/approve`
+        body = { paymentMode: 'original_payment_method' }
+      } else if (action === 'rejected') {
+        if (!rejectionReason) {
+          toast.error('Rejection reason is required')
+          return
+        }
+        endpoint = `${import.meta.env.VITE_BACKEND_URL}/api/admin/refunds/${refundId}/reject`
+        body = { rejectionReason }
+      } else if (action === 'completed') {
+        endpoint = `${import.meta.env.VITE_BACKEND_URL}/api/admin/refunds/${refundId}/process`
+        body = { refundToWallet: true }
+      }
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        toast.success(`Refund ${action} successfully`)
+        loadRefunds() // Reload data
+      } else {
+        toast.error(result.message || `Failed to ${action} refund`)
+      }
     } catch (error) {
       console.error('Error processing refund:', error)
+      toast.error('Error processing refund')
     }
   }
 
   // Table columns
   const columns = [
-    { key: 'id', label: 'ID', sortable: true },
-    { key: 'orderId', label: 'Order ID', sortable: true },
+    { key: 'refundNumber', label: 'Refund #', sortable: true },
     { key: 'customerName', label: 'Customer', sortable: true },
-    { key: 'amount', label: 'Amount', sortable: true, format: (value) => `₹${value.toLocaleString()}` },
-    { key: 'reason', label: 'Reason', sortable: false },
+    { key: 'serviceName', label: 'Service', sortable: false },
+    { key: 'originalAmount', label: 'Original', sortable: true, format: (value) => `₹${value?.toLocaleString() || 0}` },
+    { key: 'visitingCharge', label: 'Non-Refundable', sortable: true, format: (value) => `₹${value?.toLocaleString() || 0}` },
+    { key: 'amount', label: 'Refund Amount', sortable: true, format: (value) => `₹${value?.toLocaleString() || 0}` },
     { 
       key: 'status', 
       label: 'Status', 
@@ -128,15 +173,16 @@ const RefundManagement = () => {
       format: (value) => (
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
           value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-          value === 'approved' ? 'bg-green-100 text-green-800' :
-          'bg-red-100 text-red-800'
+          value === 'approved' ? 'bg-blue-100 text-blue-800' :
+          value === 'completed' ? 'bg-green-100 text-green-800' :
+          value === 'rejected' ? 'bg-red-100 text-red-800' :
+          'bg-gray-100 text-gray-800'
         }`}>
           {value.charAt(0).toUpperCase() + value.slice(1)}
         </span>
       )
     },
-    { key: 'requestDate', label: 'Request Date', sortable: true },
-    { key: 'processedDate', label: 'Processed Date', sortable: true }
+    { key: 'requestDate', label: 'Request Date', sortable: true }
   ]
 
   // Action buttons
@@ -162,13 +208,27 @@ const RefundManagement = () => {
             <FiCheck />
           </button>
           <button
-            onClick={() => handleRefundAction(refund.id, 'rejected')}
+            onClick={() => {
+              const reason = prompt('Enter rejection reason:')
+              if (reason) {
+                handleRefundAction(refund.id, 'rejected', reason)
+              }
+            }}
             className="p-1 text-red-600 hover:text-red-800"
             title="Reject"
           >
             <FiX />
           </button>
         </>
+      )}
+      {refund.status === 'approved' && (
+        <button
+          onClick={() => handleRefundAction(refund.id, 'completed')}
+          className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+          title="Process Refund"
+        >
+          Process
+        </button>
       )}
     </div>
   )
@@ -184,34 +244,34 @@ const RefundManagement = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
-          title="Total Refunds"
+          label="Total Refunds"
           value={stats.total}
-          icon={<FiDollarSign />}
-          color="blue"
+          icon={FiDollarSign}
+          color="bg-blue-500"
         />
         <StatCard
-          title="Pending"
+          label="Pending"
           value={stats.pending}
-          icon={<FiClock />}
-          color="yellow"
+          icon={FiClock}
+          color="bg-yellow-500"
         />
         <StatCard
-          title="Approved"
+          label="Approved"
           value={stats.approved}
-          icon={<FiCheck />}
-          color="green"
+          icon={FiCheck}
+          color="bg-green-500"
         />
         <StatCard
-          title="Rejected"
+          label="Rejected"
           value={stats.rejected}
-          icon={<FiX />}
-          color="red"
+          icon={FiX}
+          color="bg-red-500"
         />
         <StatCard
-          title="Total Amount"
+          label="Total Amount"
           value={`₹${stats.totalAmount.toLocaleString()}`}
-          icon={<FiDollarSign />}
-          color="purple"
+          icon={FiDollarSign}
+          color="bg-purple-500"
         />
       </div>
 
@@ -223,7 +283,7 @@ const RefundManagement = () => {
               <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by order ID or customer name..."
+                placeholder="Search by refund #, customer name, or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -239,7 +299,10 @@ const RefundManagement = () => {
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
+              <option value="processing">Processing</option>
+              <option value="completed">Completed</option>
               <option value="rejected">Rejected</option>
+              <option value="failed">Failed</option>
             </select>
             <button
               onClick={loadRefunds}
@@ -280,28 +343,50 @@ const RefundManagement = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Refund ID</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedRefund.id}</p>
+                  <label className="block text-sm font-medium text-gray-700">Refund Number</label>
+                  <p className="mt-1 text-sm text-gray-900 font-mono">{selectedRefund.refundNumber}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Order ID</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedRefund.orderId}</p>
+                  <label className="block text-sm font-medium text-gray-700">Booking ID</label>
+                  <p className="mt-1 text-sm text-gray-900 font-mono">{selectedRefund.orderId}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Customer Name</label>
                   <p className="mt-1 text-sm text-gray-900">{selectedRefund.customerName}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Amount</label>
-                  <p className="mt-1 text-sm text-gray-900">₹{selectedRefund.amount.toLocaleString()}</p>
+                  <label className="block text-sm font-medium text-gray-700">Customer Email</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedRefund.customerEmail}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Customer Phone</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedRefund.customerPhone}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Service</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedRefund.serviceName}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Original Amount</label>
+                  <p className="mt-1 text-sm text-gray-900">₹{selectedRefund.originalAmount?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Visiting Charge (Non-Refundable)</label>
+                  <p className="mt-1 text-sm text-red-600 font-semibold">-₹{selectedRefund.visitingCharge?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Final Refund Amount</label>
+                  <p className="mt-1 text-lg text-green-600 font-bold">₹{selectedRefund.amount?.toLocaleString()}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Status</label>
                   <p className="mt-1">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       selectedRefund.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      selectedRefund.status === 'approved' ? 'bg-green-100 text-green-800' :
-                      'bg-red-100 text-red-800'
+                      selectedRefund.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                      selectedRefund.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      selectedRefund.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
                     }`}>
                       {selectedRefund.status.charAt(0).toUpperCase() + selectedRefund.status.slice(1)}
                     </span>
@@ -311,32 +396,69 @@ const RefundManagement = () => {
                   <label className="block text-sm font-medium text-gray-700">Request Date</label>
                   <p className="mt-1 text-sm text-gray-900">{selectedRefund.requestDate}</p>
                 </div>
+                {selectedRefund.processedDate && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Processed Date</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedRefund.processedDate}</p>
+                  </div>
+                )}
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700">Reason</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedRefund.reason}</p>
+                <label className="block text-sm font-medium text-gray-700">Cancellation Reason</label>
+                <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded">{selectedRefund.reason}</p>
               </div>
 
+              {selectedRefund.rejectionReason && (
+                <div>
+                  <label className="block text-sm font-medium text-red-700">Rejection Reason</label>
+                  <p className="mt-1 text-sm text-red-900 bg-red-50 p-3 rounded border border-red-200">{selectedRefund.rejectionReason}</p>
+                </div>
+              )}
+
+              {selectedRefund.transactionId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Transaction ID</label>
+                  <p className="mt-1 text-sm text-gray-900 font-mono bg-green-50 p-3 rounded">{selectedRefund.transactionId}</p>
+                </div>
+              )}
+
               {selectedRefund.status === 'pending' && (
-                <div className="flex gap-2 pt-4">
+                <div className="flex gap-2 pt-4 border-t">
                   <button
                     onClick={() => {
                       handleRefundAction(selectedRefund.id, 'approved')
                       setShowDetails(false)
                     }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
                   >
-                    Approve Refund
+                    <FiCheck /> Approve Refund
                   </button>
                   <button
                     onClick={() => {
-                      handleRefundAction(selectedRefund.id, 'rejected')
+                      const reason = prompt('Enter rejection reason:')
+                      if (reason) {
+                        handleRefundAction(selectedRefund.id, 'rejected', reason)
+                        setShowDetails(false)
+                      }
+                    }}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                  >
+                    <FiX /> Reject Refund
+                  </button>
+                </div>
+              )}
+
+              {selectedRefund.status === 'approved' && (
+                <div className="flex gap-2 pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      handleRefundAction(selectedRefund.id, 'completed')
                       setShowDetails(false)
                     }}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
                   >
-                    Reject Refund
+                    <FiDollarSign /> Process Refund to Wallet
                   </button>
                 </div>
               )}

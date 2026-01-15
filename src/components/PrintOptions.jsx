@@ -3,15 +3,21 @@ import { FiPrinter } from 'react-icons/fi';
 const PrintOptions = ({ onPrint, invoiceData }) => {
 
   const handlePrintInNewWindow = () => {
-    // Get the invoice content
-    const invoiceElement = document.querySelector('.invoice-container');
+    // Get the invoice content - try both class names for compatibility
+    const invoiceElement = document.querySelector('.invoice-container') || document.querySelector('.professional-invoice');
     if (!invoiceElement) {
-      alert('Invoice content not found');
+      alert('Invoice content not found. Please try again.');
+      console.error('Invoice container element not found in DOM. Tried: .invoice-container and .professional-invoice');
       return;
     }
 
     // Create a new window for printing
     const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    if (!printWindow) {
+      alert('Unable to open print window. Please check if pop-ups are blocked.');
+      return;
+    }
     
     // Write the HTML content to the new window
     printWindow.document.write(`
@@ -293,12 +299,19 @@ const PrintOptions = ({ onPrint, invoiceData }) => {
     printWindow.document.close();
     
     // Wait for content to load, then print
-    printWindow.onload = () => {
-      setTimeout(() => {
+    setTimeout(() => {
+      try {
+        printWindow.focus();
         printWindow.print();
-        printWindow.close();
-      }, 500);
-    };
+        // Close window after a delay to allow print dialog to open
+        setTimeout(() => {
+          printWindow.close();
+        }, 1000);
+      } catch (error) {
+        console.error('Print error:', error);
+        alert('An error occurred while printing. Please try again.');
+      }
+    }, 800);
     
     if (onPrint) onPrint();
   };

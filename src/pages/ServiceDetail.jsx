@@ -417,7 +417,7 @@ const ServiceDetail = () => {
     const sgst = isACService ? 0 : Math.max(0, parseFloat(addon.sgst) || 0)
     const serviceCharge = Math.max(0, parseFloat(addon.serviceCharge) || 0)
 
-    // Calculate original total price (without discount)
+    // Calculate original total price (without discount, for display purposes)
     const originalSubtotalWithCharge = basePrice + serviceCharge
     const originalGstAmount = originalSubtotalWithCharge * ((cgst + sgst) / 100)
     const originalTotalPrice = originalSubtotalWithCharge + originalGstAmount
@@ -429,11 +429,13 @@ const ServiceDetail = () => {
     // Add service charge
     const subtotalWithCharge = subtotalAfterDiscount + serviceCharge
 
-    // Calculate GST on subtotal (after discount + service charge)
+    // NOTE: GST calculation is for display purposes only
+    // The actual GST will be calculated once in the backend during booking
     const gstAmount = subtotalWithCharge * ((cgst + sgst) / 100)
 
-    // Final price
-    const finalPrice = subtotalWithCharge + gstAmount
+    // Final price WITHOUT GST (GST will be added in backend)
+    // This ensures GST is only applied once during booking creation
+    const finalPrice = subtotalWithCharge // Removed: + gstAmount
 
     return {
       basePrice,
@@ -444,8 +446,8 @@ const ServiceDetail = () => {
       subtotalWithCharge,
       cgst,
       sgst,
-      gstAmount,
-      finalPrice,
+      gstAmount, // For display purposes only
+      finalPrice, // Price after discount and service charge, but BEFORE GST
       originalTotalPrice // This is basePrice + serviceCharge + GST (without discount)
     }
   }

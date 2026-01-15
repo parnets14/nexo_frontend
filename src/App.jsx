@@ -1,5 +1,6 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import { ComingSoonProvider } from './contexts/ComingSoonContext'
 import ScrollToTop from './components/ScrollToTop'
 import Home from './pages/Home'
@@ -87,6 +88,30 @@ function App() {
       <Router>
       <ScrollToTop />
       <NotificationPermissionPrompt />
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            duration: 4000,
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />

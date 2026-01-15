@@ -67,6 +67,23 @@ export const generateInvoiceFromBooking = (booking) => {
   console.log('📋 Processing booking data:', booking);
   console.log('📋 Quotations in booking:', booking.quotations);
   console.log('📋 Accepted quotation:', booking.acceptedQuotation);
+  
+  // Log all potential service/addon fields for debugging
+  console.log('🔍 Checking for services/add-ons:');
+  console.log('  - selectedAddOns:', booking.selectedAddOns?.length || 0, 'items');
+  console.log('  - cartItems:', booking.cartItems?.length || 0, 'items');
+  console.log('  - cart:', booking.cart?.length || 0, 'items');
+  console.log('  - services:', booking.services?.length || 0, 'items');
+  
+  if (booking.selectedAddOns && booking.selectedAddOns.length > 0) {
+    console.log('  📦 selectedAddOns details:', JSON.stringify(booking.selectedAddOns, null, 2));
+  }
+  if (booking.cartItems && booking.cartItems.length > 0) {
+    console.log('  🛒 cartItems details:', JSON.stringify(booking.cartItems, null, 2));
+  }
+  if (booking.cart && booking.cart.length > 0) {
+    console.log('  🛒 cart details:', JSON.stringify(booking.cart, null, 2));
+  }
 
   // Try multiple possible ID fields
   const possibleIds = [
@@ -136,20 +153,119 @@ export const generateInvoiceFromBooking = (booking) => {
     quotationNumber: quotation?.quotationNumber || 'N/A'
   });
 
-  // Build services array - include both booking service and quotation items
+  // Build services array - include main service, add-ons, sub-services, and quotation items
   let services = [];
   
   // Add main booking service if exists
-  if (booking.serviceName || booking.service || booking.subService) {
+  if (booking.serviceName || booking.service || booking.subService || booking.popularService) {
+    const serviceName = extractField(booking, [
+      'serviceName', 
+      'popularService.name',
+      'service.name', 
+      'subService.name', 
+      'serviceType', 
+      'category', 
+      'title'
+    ], 'Service');
+    
     services.push({
-      description: extractField(booking, [
-        'serviceName', 'service.name', 'subService.name', 'serviceType', 'category', 'title'
-      ], 'Service'),
+      description: serviceName,
+      details: extractField(booking, [
+        'popularService.description',
+        'service.description',
+        'subService.description',
+        'description'
+      ], 'Main service'),
       quantity: 1,
       rate: booking.amount || 0,
       amount: booking.amount || 0,
       type: 'service'
     });
+  }
+
+  // Add selected add-ons if they exist
+  if (booking.selectedAddOns && Array.isArray(booking.selectedAddOns) && booking.selectedAddOns.length > 0) {
+    console.log('📋 Adding add-ons to invoice:', booking.selectedAddOns.length);
+    booking.selectedAddOns.forEach(addon => {
+      // Skip if basePrice is 0 or undefined (might be placeholder data)
+      const price = addon.basePrice || addon.price || 0;
+      const numericPrice = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.]/g, '')) : price;
+      
+      // Only add add-ons with price > 1 (skip placeholder/incorrect data)
+      if (numericPrice > 1) {
+        services.push({
+          description: addon.name || 'Add-on',
+          details: addon.description || 'Additional service',
+          quantity: 1,
+          rate: numericPrice,
+          amount: numericPrice,
+          type: 'addon'
+        });
+        console.log(`  ✅ Added add-on: ${addon.name} - ₹${numericPrice}`);
+      } else {
+        console.warn(`  ⚠️ Skipped add-on with invalid price (₹${numericPrice}): ${addon.name}`);
+        console.warn(`     This add-on has incorrect pricing data and will not appear in the invoice.`);
+      }
+    });
+  } else {
+    console.log('📋 No selectedAddOns found in booking');
+  }
+
+  // Add cart items (sub-services) if they exist
+  if (booking.cartItems && Array.isArray(booking.cartItems) && booking.cartItems.length > 0) {
+    console.log('📋 Adding cart items to invoice:', booking.cartItems.length);
+    booking.cartItems.forEach(item => {
+      const price = item.price || item.basePrice || 0;
+      const quantity = item.quantity || 1;
+      const amount = quantity * price;
+      
+      if (price > 0) {
+        services.push({
+          description: item.name || item.serviceName || 'Sub-service',
+          details: item.description || 'Additional service item',
+          quantity: quantity,
+          rate: price,
+          amount: amount,
+          type: 'subservice'
+        });
+        console.log(`  ✅ Added cart item: ${item.name || item.serviceName} - ₹${price} x ${quantity}`);
+      } else {
+        console.warn(`  ⚠️ Skipped cart item with zero price: ${item.name || item.serviceName}`);
+      }
+    });
+  } else {
+    console.log('📋 No cartItems found in booking');
+  }
+  
+  // BACKWARD COMPATIBILITY: Check for cart in booking.cart (old structure)
+  if (booking.cart && Array.isArray(booking.cart) && booking.cart.length > 0) {
+    console.log('📋 Adding cart items from booking.cart:', booking.cart.length);
+    booking.cart.forEach(item => {
+      // Only add approved items
+      if (item.approved !== false) {
+        const price = item.price || item.amount || 0;
+        const quantity = item.quantity || 1;
+        const amount = quantity * price;
+        
+        if (price > 0) {
+          services.push({
+            description: item.name || 'Cart Item',
+            details: item.description || 'Additional item',
+            quantity: quantity,
+            rate: price,
+            amount: amount,
+            type: 'subservice'
+          });
+          console.log(`  ✅ Added cart item: ${item.name} - ₹${price} x ${quantity}`);
+        } else {
+          console.warn(`  ⚠️ Skipped cart item with zero price: ${item.name}`);
+        }
+      } else {
+        console.log(`  ⏭️ Skipped unapproved cart item: ${item.name}`);
+      }
+    });
+  } else {
+    console.log('📋 No cart items found in booking.cart');
   }
 
   // Add quotation items if quotation exists and is accepted
@@ -170,6 +286,7 @@ export const generateInvoiceFromBooking = (booking) => {
 
   // If no services were added, add a default service
   if (services.length === 0) {
+    console.warn('⚠️ No services found in booking data, adding default service');
     services = booking.services?.map(service => ({
       description: safeString(service.name || service.description || service.serviceName || service.title, 'Service'),
       quantity: service.quantity || 1,
@@ -186,6 +303,15 @@ export const generateInvoiceFromBooking = (booking) => {
       }
     ];
   }
+  
+  // Log final services summary
+  console.log('📊 INVOICE SERVICES SUMMARY:');
+  console.log(`  Total services: ${services.length}`);
+  services.forEach((service, idx) => {
+    console.log(`  ${idx + 1}. [${service.type || 'unknown'}] ${service.description} - ₹${service.amount}`);
+  });
+  console.log(`  Total amount: ₹${services.reduce((sum, s) => sum + s.amount, 0)}`);
+  console.log('='.repeat(70));
 
   // Calculate totals and breakdown
   const bookingAmount = booking.amount || 0;
@@ -197,12 +323,51 @@ export const generateInvoiceFromBooking = (booking) => {
   // First check direct booking fields, then check nested booking.booking
   const bookingData = booking.booking || booking;
   
-  const visitingCharge = bookingData.visitingCharge !== undefined ? bookingData.visitingCharge : 0;
-  const serviceCharge = bookingData.serviceCharge !== undefined ? bookingData.serviceCharge : 0;
+  // Get stored values or calculate for old bookings
+  let visitingCharge = bookingData.visitingCharge !== undefined ? bookingData.visitingCharge : 0;
+  let serviceCharge = bookingData.serviceCharge !== undefined ? bookingData.serviceCharge : 0;
   let emergencyCharge = bookingData.emergencyCharge !== undefined ? bookingData.emergencyCharge : 0;
+  let cgstAmount = bookingData.cgstAmount !== undefined ? bookingData.cgstAmount : 0;
+  let sgstAmount = bookingData.sgstAmount !== undefined ? bookingData.sgstAmount : 0;
+  let gstAmount = bookingData.gstAmount !== undefined ? bookingData.gstAmount : 0;
+  let subtotalBeforeTax = bookingData.subtotalBeforeTax !== undefined ? bookingData.subtotalBeforeTax : 0;
+  
+  // BACKWARD COMPATIBILITY: Calculate breakdown for old bookings
+  const hasStoredBreakdown = (
+    bookingData.visitingCharge !== undefined || 
+    bookingData.cgstAmount !== undefined || 
+    bookingData.subtotalBeforeTax !== undefined
+  );
+  
+  if (!hasStoredBreakdown && totalAmount > 0) {
+    console.log('📊 Calculating price breakdown for old booking...');
+    
+    // Try to extract visiting charge from popularService
+    if (bookingData.popularService?.visitingCharge) {
+      visitingCharge = bookingData.popularService.visitingCharge;
+    }
+    
+    // Calculate GST (assuming 18% total = 9% CGST + 9% SGST)
+    // GST is typically included in totalAmount
+    const gstRate = 0.18; // 18% total GST
+    const amountWithGST = totalAmount - discount;
+    const amountWithoutGST = amountWithGST / (1 + gstRate);
+    gstAmount = amountWithGST - amountWithoutGST;
+    cgstAmount = gstAmount / 2;
+    sgstAmount = gstAmount / 2;
+    subtotalBeforeTax = amountWithoutGST;
+    
+    console.log('📊 Calculated breakdown:', {
+      totalAmount,
+      subtotalBeforeTax: subtotalBeforeTax.toFixed(2),
+      gstAmount: gstAmount.toFixed(2),
+      cgstAmount: cgstAmount.toFixed(2),
+      sgstAmount: sgstAmount.toFixed(2),
+      visitingCharge
+    });
+  }
   
   // If booking is emergency but emergencyCharge is not set, try to extract from amount
-  // This is a fallback for bookings created before emergencyCharge field was added
   if (bookingData.isEmergency && emergencyCharge === 0) {
     // Check if there's an emergency service with extra amount
     if (bookingData.popularService?.emergencyService?.extraAmount) {
@@ -210,15 +375,10 @@ export const generateInvoiceFromBooking = (booking) => {
     } else if (bookingData.serviceData?.emergencyService?.extraAmount) {
       emergencyCharge = bookingData.serviceData.emergencyService.extraAmount;
     }
-    // If still 0, we'll show it as 0 but the field will be present
   }
   
   const cgst = bookingData.cgst !== undefined ? bookingData.cgst : 9; // Default 9%
   const sgst = bookingData.sgst !== undefined ? bookingData.sgst : 9; // Default 9%
-  const cgstAmount = bookingData.cgstAmount !== undefined ? bookingData.cgstAmount : 0;
-  const sgstAmount = bookingData.sgstAmount !== undefined ? bookingData.sgstAmount : 0;
-  const gstAmount = bookingData.gstAmount !== undefined ? bookingData.gstAmount : (cgstAmount + sgstAmount);
-  const subtotalBeforeTax = bookingData.subtotalBeforeTax !== undefined ? bookingData.subtotalBeforeTax : (booking.amount || 0)
 
 
 
