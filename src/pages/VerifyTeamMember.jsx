@@ -16,7 +16,7 @@ const VerifyTeamMember = () => {
   const fetchMemberDetails = async () => {
     try {
       setLoading(true)
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://nexo.works'
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5173'
       const response = await fetch(`${API_BASE_URL}/api/partner/verify/team-member/${memberId}`)
       const data = await response.json()
 
@@ -66,7 +66,7 @@ const VerifyTeamMember = () => {
   const profileImage = member.profilePicture
     ? (member.profilePicture.startsWith('http') 
         ? member.profilePicture 
-        : `https://nexo.works/${member.profilePicture}`)
+        : `http://localhost:5173/${member.profilePicture}`)
     : null
 
   return (

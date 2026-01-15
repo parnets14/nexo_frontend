@@ -22,7 +22,7 @@ import CustomAlert from '../components/CustomAlert'
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:5173' : window.location.origin)
 
 // Custom scrollbar styles for cart items
 const customScrollbarStyles = `

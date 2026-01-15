@@ -5,7 +5,7 @@ import axios from 'axios';
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx';
 import cityService from '../../services/cityService';
 
-const API_BASE_URL = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works';
+const API_BASE_URL = import.meta.env.VITE_ADMIN_API_BASE_URL || 'http://localhost:5173';
 
 const iconOptions = [
   { name: 'FaMapMarkerAlt', icon: FaMapMarkerAlt, label: 'Map Marker' },
