@@ -46,7 +46,20 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
     });
   };
 
-  const subtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
+  // Calculate services subtotal from the services array
+  const servicesSubtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
+  
+  // Get additional charges
+  const visitingCharge = Number(paymentDetails?.visitingCharge) || 0;
+  const serviceCharge = Number(paymentDetails?.serviceCharge) || 0;
+  const emergencyCharge = Number(paymentDetails?.emergencyCharge) || 0;
+  const cgstAmount = Number(paymentDetails?.cgstAmount) || 0;
+  const sgstAmount = Number(paymentDetails?.sgstAmount) || 0;
+  const gstAmount = cgstAmount + sgstAmount;
+  const discount = Number(paymentDetails?.discount) || 0;
+  
+  // Calculate subtotal before tax (services + visiting + service + emergency charges)
+  const subtotalBeforeTax = servicesSubtotal + visitingCharge + serviceCharge + emergencyCharge;
   
   // Debug logging for quotation details
   console.log('📋 [ProfessionalInvoice] Invoice data received:', {
@@ -55,7 +68,13 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
     bookingAmount: paymentDetails?.bookingAmount,
     quotationAmount: paymentDetails?.quotationAmount,
     totalAmount: paymentDetails?.totalAmount,
-    servicesCount: services?.length || 0
+    servicesCount: services?.length || 0,
+    servicesSubtotal,
+    visitingCharge,
+    serviceCharge,
+    emergencyCharge,
+    subtotalBeforeTax,
+    gstAmount
   });
   
   // Debug logging for emergency bookings
@@ -72,43 +91,42 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
   }
   
   // Calculate the correct total amount
-  let totalAmount = subtotal;
+  let totalAmount = subtotalBeforeTax + gstAmount - discount;
   
-  // If quotation exists, calculate total as booking amount + quotation amount
-  if (quotationDetails) {
-    const bookingAmt = Number(paymentDetails?.bookingAmount) || 0;
-    const quotationAmt = Number(paymentDetails?.quotationAmount) || 0;
+  // If quotation exists, add quotation amount to the total
+  if (quotationDetails && paymentDetails?.quotationAmount) {
+    const quotationAmt = Number(paymentDetails.quotationAmount) || 0;
+    totalAmount += quotationAmt;
     
-    // If we have explicit amounts, use them
-    if (bookingAmt > 0 || quotationAmt > 0) {
-      totalAmount = bookingAmt + quotationAmt;
-      console.log('ProfessionalInvoice Total Calculation (with quotation):', {
-        bookingAmount: bookingAmt,
-        quotationAmount: quotationAmt,
-        calculatedTotal: totalAmount
-      });
-    } else {
-      // Fallback to paymentDetails.totalAmount or subtotal
-      if (paymentDetails?.totalAmount !== undefined && paymentDetails?.totalAmount !== null) {
-        totalAmount = Number(paymentDetails.totalAmount);
-      }
-    }
+    console.log('ProfessionalInvoice Total Calculation (with quotation):', {
+      subtotalBeforeTax,
+      gstAmount,
+      discount,
+      quotationAmount: quotationAmt,
+      calculatedTotal: totalAmount
+    });
   } else {
-    // No quotation - use paymentDetails.totalAmount or calculated subtotal
-    if (paymentDetails?.totalAmount !== undefined && paymentDetails?.totalAmount !== null) {
+    // No quotation - use paymentDetails.totalAmount if available and valid
+    if (paymentDetails?.totalAmount !== undefined && paymentDetails?.totalAmount !== null && paymentDetails.totalAmount > 0) {
       totalAmount = Number(paymentDetails.totalAmount);
     }
     
     console.log('ProfessionalInvoice Total Calculation (no quotation):', {
+      servicesSubtotal,
+      visitingCharge,
+      serviceCharge,
+      emergencyCharge,
+      subtotalBeforeTax,
+      gstAmount,
+      discount,
       paymentDetailsTotalAmount: paymentDetails?.totalAmount,
-      subtotal,
-      finalTotal: totalAmount
+      calculatedTotal: totalAmount
     });
   }
   
   // Ensure totalAmount is a valid number
   if (isNaN(totalAmount) || totalAmount === 0) {
-    totalAmount = subtotal;
+    totalAmount = servicesSubtotal;
   }
 
   return (
@@ -345,77 +363,77 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
               {/* Services Subtotal */}
               <div className="flex justify-between py-2 text-sm border-b border-gray-200">
                 <span className="text-gray-600">Services Subtotal:</span>
-                <span className="font-medium">₹{formatCurrency(subtotal)}</span>
+                <span className="font-medium">₹{formatCurrency(servicesSubtotal)}</span>
               </div>
               
               {/* Visiting Charge - Show if exists and > 0 */}
-              {(paymentDetails?.visitingCharge !== undefined && paymentDetails?.visitingCharge > 0) && (
+              {visitingCharge > 0 && (
                 <div className="flex justify-between py-2 text-sm border-b border-gray-200">
                   <span className="text-gray-600">Visiting Charge:</span>
-                  <span className="font-medium text-amber-600">+₹{formatCurrency(paymentDetails.visitingCharge)}</span>
+                  <span className="font-medium text-amber-600">+₹{formatCurrency(visitingCharge)}</span>
                 </div>
               )}
               
               {/* Service Charge/Platform Fee - Show if exists and > 0 */}
-              {(paymentDetails?.serviceCharge !== undefined && paymentDetails?.serviceCharge > 0) && (
+              {serviceCharge > 0 && (
                 <div className="flex justify-between py-2 text-sm border-b border-gray-200">
                   <span className="text-gray-600">Platform Fee:</span>
-                  <span className="font-medium text-blue-600">+₹{formatCurrency(paymentDetails.serviceCharge)}</span>
+                  <span className="font-medium text-blue-600">+₹{formatCurrency(serviceCharge)}</span>
                 </div>
               )}
               
               {/* Emergency Charge - Show if exists and > 0 */}
-              {(paymentDetails?.emergencyCharge !== undefined && paymentDetails?.emergencyCharge > 0) && (
+              {emergencyCharge > 0 && (
                 <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-red-50 px-2 rounded">
                   <span className="text-red-700 font-medium flex items-center gap-1">
                     <span>🚨</span> Emergency Charge:
                   </span>
-                  <span className="font-bold text-red-700">+₹{formatCurrency(paymentDetails.emergencyCharge)}</span>
+                  <span className="font-bold text-red-700">+₹{formatCurrency(emergencyCharge)}</span>
                 </div>
               )}
               
               {/* Subtotal Before Tax - Show if breakdown exists */}
-              {(paymentDetails?.subtotalBeforeTax !== undefined && paymentDetails?.subtotalBeforeTax > 0) && (
+              {subtotalBeforeTax > 0 && (
                 <div className="flex justify-between py-2 text-sm border-b border-gray-300 bg-gray-50 px-2 rounded">
                   <span className="text-gray-700 font-medium">Subtotal (Before Tax):</span>
-                  <span className="font-bold">₹{formatCurrency(paymentDetails.subtotalBeforeTax)}</span>
+                  <span className="font-bold">₹{formatCurrency(subtotalBeforeTax)}</span>
                 </div>
               )}
               
               {/* GST Breakdown - Show if GST exists */}
-              {(paymentDetails?.cgstAmount > 0 || paymentDetails?.sgstAmount > 0 || paymentDetails?.gstAmount > 0) && (
+              {gstAmount > 0 && (
                 <div className="bg-blue-50 rounded-lg p-3 my-2 space-y-1 border border-blue-200">
                   <div className="text-xs font-semibold text-blue-800 mb-2">GST Breakdown</div>
                   
                   {/* CGST */}
-                  {paymentDetails?.cgstAmount > 0 && (
+                  {cgstAmount > 0 && (
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">CGST ({paymentDetails.cgst || 9}%):</span>
-                      <span className="text-gray-700 font-medium">₹{formatCurrency(paymentDetails.cgstAmount)}</span>
+                      <span className="text-gray-600">CGST ({paymentDetails?.cgst || 9}%):</span>
+                      <span className="text-gray-700 font-medium">₹{formatCurrency(cgstAmount)}</span>
                     </div>
                   )}
                   
                   {/* SGST */}
-                  {paymentDetails?.sgstAmount > 0 && (
+                  {sgstAmount > 0 && (
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">SGST ({paymentDetails.sgst || 9}%):</span>
-                      <span className="text-gray-700 font-medium">₹{formatCurrency(paymentDetails.sgstAmount)}</span>
+                      <span className="text-gray-600">SGST ({paymentDetails?.sgst || 9}%):</span>
+                      <span className="text-gray-700 font-medium">₹{formatCurrency(sgstAmount)}</span>
                     </div>
                   )}
                   
                   {/* Total GST */}
                   <div className="flex justify-between text-sm pt-2 border-t border-blue-200">
                     <span className="text-blue-700 font-semibold">Total GST:</span>
-                    <span className="font-bold text-blue-800">₹{formatCurrency(paymentDetails.gstAmount || (paymentDetails.cgstAmount + paymentDetails.sgstAmount))}</span>
+                    <span className="font-bold text-blue-800">₹{formatCurrency(gstAmount)}</span>
                   </div>
                 </div>
               )}
               
               {/* Discount - Show if exists and > 0 */}
-              {(paymentDetails?.discount !== undefined && paymentDetails?.discount > 0) && (
+              {discount > 0 && (
                 <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50 px-2 rounded">
                   <span className="text-green-700 font-medium">Discount Applied:</span>
-                  <span className="font-bold text-green-700">- ₹{formatCurrency(paymentDetails.discount)}</span>
+                  <span className="font-bold text-green-700">- ₹{formatCurrency(discount)}</span>
                 </div>
               )}
               

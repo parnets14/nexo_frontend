@@ -13,8 +13,36 @@ const CompactInvoice = ({ invoiceData, onPrint }) => {
     companyDetails
   } = invoiceData;
 
-  const subtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
-  const totalAmount = subtotal;
+  // Calculate services subtotal from the services array
+  const servicesSubtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
+  
+  // Get additional charges
+  const visitingCharge = Number(paymentDetails?.visitingCharge) || 0;
+  const serviceCharge = Number(paymentDetails?.serviceCharge) || 0;
+  const emergencyCharge = Number(paymentDetails?.emergencyCharge) || 0;
+  const cgstAmount = Number(paymentDetails?.cgstAmount) || 0;
+  const sgstAmount = Number(paymentDetails?.sgstAmount) || 0;
+  const gstAmount = cgstAmount + sgstAmount;
+  const discount = Number(paymentDetails?.discount) || 0;
+  
+  // Calculate subtotal before tax (services + visiting + service + emergency charges)
+  const subtotalBeforeTax = servicesSubtotal + visitingCharge + serviceCharge + emergencyCharge;
+  
+  // Calculate total amount
+  let totalAmount = subtotalBeforeTax + gstAmount - discount;
+  
+  // If quotation exists, add quotation amount
+  if (invoiceData.quotationDetails && paymentDetails?.quotationAmount) {
+    totalAmount += Number(paymentDetails.quotationAmount) || 0;
+  } else if (paymentDetails?.totalAmount !== undefined && paymentDetails?.totalAmount !== null && paymentDetails.totalAmount > 0) {
+    // Use paymentDetails.totalAmount if available and valid
+    totalAmount = Number(paymentDetails.totalAmount);
+  }
+  
+  // Ensure totalAmount is a valid number
+  if (isNaN(totalAmount) || totalAmount === 0) {
+    totalAmount = servicesSubtotal;
+  }
 
   const handlePrint = () => {
     window.print();
@@ -152,12 +180,42 @@ const CompactInvoice = ({ invoiceData, onPrint }) => {
 
         {/* Compact Total Section */}
         <div className="flex justify-end mb-3">
-          <div className="w-48">
+          <div className="w-56">
             <div className="flex justify-between py-0.5 text-xs">
-              <span>Subtotal:</span>
-              <span>₹{subtotal}</span>
+              <span>Services:</span>
+              <span>₹{servicesSubtotal}</span>
             </div>
-            <div className="flex justify-between py-1 bg-gray-800 text-white px-2 font-semibold text-sm">
+            {visitingCharge > 0 && (
+              <div className="flex justify-between py-0.5 text-xs">
+                <span>Visiting Charge:</span>
+                <span className="text-amber-600">+₹{visitingCharge}</span>
+              </div>
+            )}
+            {serviceCharge > 0 && (
+              <div className="flex justify-between py-0.5 text-xs">
+                <span>Platform Fee:</span>
+                <span className="text-blue-600">+₹{serviceCharge}</span>
+              </div>
+            )}
+            {emergencyCharge > 0 && (
+              <div className="flex justify-between py-0.5 text-xs bg-red-50 px-1">
+                <span className="text-red-600">Emergency:</span>
+                <span className="text-red-600">+₹{emergencyCharge}</span>
+              </div>
+            )}
+            {gstAmount > 0 && (
+              <div className="flex justify-between py-0.5 text-xs">
+                <span>GST:</span>
+                <span>+₹{gstAmount}</span>
+              </div>
+            )}
+            {discount > 0 && (
+              <div className="flex justify-between py-0.5 text-xs text-green-600">
+                <span>Discount:</span>
+                <span>-₹{discount}</span>
+              </div>
+            )}
+            <div className="flex justify-between py-1 bg-gray-800 text-white px-2 font-semibold text-sm mt-1">
               <span>TOTAL AMOUNT:</span>
               <span>₹{totalAmount}</span>
             </div>

@@ -12,8 +12,36 @@ const PrintOnlyInvoice = ({ invoiceData }) => {
     companyDetails
   } = invoiceData;
 
-  const subtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
-  const totalAmount = subtotal;
+  // Calculate services subtotal from the services array
+  const servicesSubtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
+  
+  // Get additional charges
+  const visitingCharge = Number(paymentDetails?.visitingCharge) || 0;
+  const serviceCharge = Number(paymentDetails?.serviceCharge) || 0;
+  const emergencyCharge = Number(paymentDetails?.emergencyCharge) || 0;
+  const cgstAmount = Number(paymentDetails?.cgstAmount) || 0;
+  const sgstAmount = Number(paymentDetails?.sgstAmount) || 0;
+  const gstAmount = cgstAmount + sgstAmount;
+  const discount = Number(paymentDetails?.discount) || 0;
+  
+  // Calculate subtotal before tax (services + visiting + service + emergency charges)
+  const subtotalBeforeTax = servicesSubtotal + visitingCharge + serviceCharge + emergencyCharge;
+  
+  // Calculate total amount
+  let totalAmount = subtotalBeforeTax + gstAmount - discount;
+  
+  // If quotation exists, add quotation amount
+  if (invoiceData.quotationDetails && paymentDetails?.quotationAmount) {
+    totalAmount += Number(paymentDetails.quotationAmount) || 0;
+  } else if (paymentDetails?.totalAmount !== undefined && paymentDetails?.totalAmount !== null && paymentDetails.totalAmount > 0) {
+    // Use paymentDetails.totalAmount if available and valid
+    totalAmount = Number(paymentDetails.totalAmount);
+  }
+  
+  // Ensure totalAmount is a valid number
+  if (isNaN(totalAmount) || totalAmount === 0) {
+    totalAmount = servicesSubtotal;
+  }
 
   useEffect(() => {
     // Auto-print when component loads
@@ -397,9 +425,39 @@ const PrintOnlyInvoice = ({ invoiceData }) => {
           <div className="total-section">
             <div className="total-box">
               <div className="subtotal-row">
-                <span>Subtotal:</span>
-                <span style={{fontWeight: 'bold'}}>₹{subtotal}</span>
+                <span>Services Subtotal:</span>
+                <span style={{fontWeight: 'bold'}}>₹{servicesSubtotal}</span>
               </div>
+              {visitingCharge > 0 && (
+                <div className="subtotal-row">
+                  <span>Visiting Charge:</span>
+                  <span style={{fontWeight: 'bold', color: '#d97706'}}>+₹{visitingCharge}</span>
+                </div>
+              )}
+              {serviceCharge > 0 && (
+                <div className="subtotal-row">
+                  <span>Platform Fee:</span>
+                  <span style={{fontWeight: 'bold', color: '#2563eb'}}>+₹{serviceCharge}</span>
+                </div>
+              )}
+              {emergencyCharge > 0 && (
+                <div className="subtotal-row" style={{backgroundColor: '#fef2f2', padding: '8px'}}>
+                  <span style={{color: '#dc2626'}}>Emergency Charge:</span>
+                  <span style={{fontWeight: 'bold', color: '#dc2626'}}>+₹{emergencyCharge}</span>
+                </div>
+              )}
+              {gstAmount > 0 && (
+                <div className="subtotal-row">
+                  <span>GST:</span>
+                  <span style={{fontWeight: 'bold'}}>+₹{gstAmount}</span>
+                </div>
+              )}
+              {discount > 0 && (
+                <div className="subtotal-row">
+                  <span>Discount:</span>
+                  <span style={{fontWeight: 'bold', color: '#059669'}}>-₹{discount}</span>
+                </div>
+              )}
               <div className="total-row">
                 <div className="total-label">TOTAL AMOUNT:</div>
                 <div className="total-amount">₹{totalAmount}</div>
