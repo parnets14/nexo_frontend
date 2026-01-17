@@ -7,7 +7,6 @@ import CompleteJobModal from '../../../components/CompleteJobModal.jsx'
 import PauseJobModal from '../../../components/PauseJobModal.jsx'
 import SendQuotationModal from '../../../components/SendQuotationModal.jsx'
 import QuotationDetailsModal from '../../../components/QuotationDetailsModal.jsx'
-import JobPaymentModal from '../../../components/JobPaymentModal.jsx'
 import { exportToExcel } from '../../../utils/excelExport.js'
 import '../../../styles/media-modal.css'
 
@@ -26,7 +25,6 @@ const JobsManagementTab = () => {
   const [selectedQuotation, setSelectedQuotation] = useState(null) // Selected quotation for details
   const [quotations, setQuotations] = useState({}) // Store quotations by bookingId
   const [quotationsLoading, setQuotationsLoading] = useState(false) // Loading state for quotations
-  const [paymentModal, setPaymentModal] = useState(null) // Payment modal state
   const [selectedBookingMedia, setSelectedBookingMedia] = useState(null) // For media modal
   const [showMediaModal, setShowMediaModal] = useState(false)
 
@@ -234,11 +232,7 @@ const JobsManagementTab = () => {
       const response = await partnerApi.completeJob(token, bookingId, formData)
       if (response.success) {
         await fetchBookings()
-        if (response.requiresPayment) {
-          alert('Work marked as completed! Payment is required to finalize the job.')
-        } else {
-          alert('Job completed successfully!')
-        }
+        alert('Work marked as completed successfully!')
       } else {
         throw new Error(response.message || 'Failed to complete job')
       }
@@ -445,37 +439,7 @@ const JobsManagementTab = () => {
     }
   }
 
-  const handlePaymentComplete = async (paymentData) => {
-    try {
-      console.log('[JobsManagement] Payment completed:', paymentData)
-      
-      // Refresh bookings to show updated payment status
-      await fetchBookings()
-      
-      // Show success message
-      if (paymentData.success) {
-        const isFullyCompleted = paymentData.isFullyCompleted || paymentData.jobStatus === 'completed';
-        const baseMessage = paymentData.paymentMethod === 'cash' 
-          ? `Payment of ₹${paymentData.amount.toLocaleString()} completed via wallet. New balance: ₹${paymentData.newWalletBalance?.toLocaleString() || 'N/A'}`
-          : `Payment of ₹${paymentData.amount.toLocaleString()} completed via online payment.`;
-        
-        const statusMessage = isFullyCompleted 
-          ? '\n🎉 Job is now fully completed!'
-          : '\n⏳ Partial payment completed. More payment may be required.';
-        
-        console.log('[JobsManagement] Payment completion status:', {
-          isFullyCompleted,
-          jobStatus: paymentData.jobStatus,
-          paymentStatus: paymentData.paymentStatus
-        });
-        
-        alert(`Payment Successful!\n${baseMessage}${statusMessage}`);
-      }
-    } catch (err) {
-      console.error('Error handling payment completion:', err)
-      alert('Payment completed but failed to refresh data. Please refresh the page.')
-    }
-  }
+
 
   if (loading) {
     return (
@@ -593,11 +557,7 @@ const JobsManagementTab = () => {
                 'Customer Name': b.user?.name || 'N/A',
                 'Customer Phone': b.user?.phone || 'N/A',
                 'Service': b.service?.name || b.subService?.name || b.popularService?.name || b.serviceName || 'N/A',
-                'Amount (₹)': b.amount || 0,
-                'Total Amount (₹)': b.totalAmount || b.amount || 0,
-                'Paid Amount (₹)': b.payamount || 0,
                 'Status': b.status || 'N/A',
-                'Payment Status': b.paymentStatus || 'N/A',
                 'Scheduled Date': b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString('en-IN') : 'N/A',
                 'Scheduled Time': b.scheduledTime || 'N/A',
                 'Location': b.location?.address || 'N/A',
@@ -616,11 +576,7 @@ const JobsManagementTab = () => {
                 { header: 'Customer Name', accessor: 'Customer Name' },
                 { header: 'Customer Phone', accessor: 'Customer Phone' },
                 { header: 'Service', accessor: 'Service' },
-                { header: 'Amount (₹)', accessor: 'Amount (₹)' },
-                { header: 'Total Amount (₹)', accessor: 'Total Amount (₹)' },
-                { header: 'Paid Amount (₹)', accessor: 'Paid Amount (₹)' },
                 { header: 'Status', accessor: 'Status' },
-                { header: 'Payment Status', accessor: 'Payment Status' },
                 { header: 'Scheduled Date', accessor: 'Scheduled Date' },
                 { header: 'Scheduled Time', accessor: 'Scheduled Time' },
                 { header: 'Location', accessor: 'Location' },
@@ -634,7 +590,7 @@ const JobsManagementTab = () => {
                 { header: 'Videos Count', accessor: 'Videos Count' },
                 { header: 'Created At', accessor: 'Created At' }
               ], 'Jobs_Management', 'Jobs', {
-                columnWidths: [15, 20, 15, 25, 15, 15, 15, 12, 12, 15, 12, 30, 20, 20, 20, 12, 30, 15, 10, 10, 20]
+                columnWidths: [15, 20, 15, 25, 12, 15, 12, 30, 20, 20, 20, 12, 30, 15, 10, 10, 20]
               })
             }}
             disabled={filteredBookings.length === 0}
@@ -695,17 +651,95 @@ const JobsManagementTab = () => {
                     <p className="text-sm text-slate-600 mb-1">
                       Booking ID: {booking.bookingId || booking._id || 'N/A'}
                     </p>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {booking.user && (
-                        <p className="text-sm text-slate-600">
-                          Customer: {booking.user?.name || booking.userName || 'N/A'}
-                        </p>
-                      )}
+                    {/* Customer Details Section */}
+                    <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Customer Name */}
+                        {booking.user && (
+                          <div className="flex items-start gap-2">
+                            <FiUser className="text-slate-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs text-slate-500 font-medium">Customer Name</p>
+                              <p className="text-sm text-slate-800 font-semibold">
+                                {booking.user?.name || booking.userName || 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Customer Phone */}
+                        {(booking.user?.phone || booking.userPhone) && (
+                          <div className="flex items-start gap-2">
+                            <svg className="w-4 h-4 text-slate-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <div>
+                              <p className="text-xs text-slate-500 font-medium">Phone Number</p>
+                              <p className="text-sm text-slate-800 font-semibold">
+                                {booking.user?.phone || booking.userPhone}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Service Details */}
+                        <div className="flex items-start gap-2 sm:col-span-2">
+                          <FiBriefcase className="text-slate-600 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs text-slate-500 font-medium">Service Details</p>
+                            <p className="text-sm text-slate-800 font-semibold">
+                              {booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || 'Service Booking'}
+                            </p>
+                            {booking.service?.description && (
+                              <p className="text-xs text-slate-600 mt-1">{booking.service.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Address */}
+                        {(booking.location?.address || booking.address) && (
+                          <div className="flex items-start gap-2 sm:col-span-2">
+                            <svg className="w-4 h-4 text-slate-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <div className="flex-1">
+                              <p className="text-xs text-slate-500 font-medium">Service Address</p>
+                              <p className="text-sm text-slate-800">
+                                {booking.location?.address || booking.address}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Scheduled Date & Time */}
+                        {(booking.scheduledDate || booking.scheduledTime) && (
+                          <div className="flex items-start gap-2 sm:col-span-2">
+                            <FiClock className="text-slate-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs text-slate-500 font-medium">Scheduled</p>
+                              <p className="text-sm text-slate-800">
+                                {booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString('en-IN', { 
+                                  weekday: 'short', 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                }) : 'N/A'}
+                                {booking.scheduledTime && ` at ${booking.scheduledTime}`}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Team Member Assignment */}
                       {booking.teamMember && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold flex items-center gap-1">
-                          <FiUser className="text-xs" />
-                          Team: {booking.teamMember?.name || 'Team Member'}
-                        </span>
+                        <div className="mt-3 pt-3 border-t border-slate-200">
+                          <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold inline-flex items-center gap-2">
+                            <FiUser className="text-sm" />
+                            Assigned to: {booking.teamMember?.name || 'Team Member'}
+                          </span>
+                        </div>
                       )}
                     </div>
                     {/* Assign Team Member Section */}
@@ -737,9 +771,6 @@ const JobsManagementTab = () => {
                     )}
                   </div>
                   <div className="text-left sm:text-right flex-shrink-0">
-                    <p className="text-lg sm:text-xl font-bold text-primary">
-                      ₹{booking.totalAmount?.toLocaleString('en-IN') || booking.amount?.toLocaleString('en-IN') || 0}
-                    </p>
                     <p className="text-xs sm:text-sm text-slate-500">
                       {booking.createdAt
                         ? new Date(booking.createdAt).toLocaleDateString('en-IN')
@@ -823,74 +854,6 @@ const JobsManagementTab = () => {
                           </button>
                         </div>
                       )}
-                      {/* Payment button for work completed jobs */}
-                      {booking.status === 'work_completed' && (
-                        (() => {
-                          // Find accepted quotation for this booking
-                          const acceptedQuotation = quotations[booking._id || booking.bookingId]?.find(
-                            q => q.customerStatus === 'accepted'
-                          );
-                          
-                          // Calculate remaining amount
-                          const totalAmount = acceptedQuotation?.totalAmount || booking.totalAmount || booking.amount || 0;
-                          const paidAmount = booking.payamount || 0;
-                          
-                          // Check if booking is already fully paid
-                          const isBookingPaid = booking.paymentStatus === 'completed';
-                          const remainingAmount = isBookingPaid ? 0 : Math.max(0, totalAmount - paidAmount);
-                          
-                          console.log(`[JobsManagement] Payment calculation for booking ${booking._id}:`, {
-                            totalAmount,
-                            paidAmount,
-                            paymentStatus: booking.paymentStatus,
-                            isBookingPaid,
-                            remainingAmount
-                          });
-                          
-                          // Always show payment button for work_completed status
-                          return (
-                            <div className="flex flex-col gap-2">
-                              <div className={`border rounded-lg p-3 mb-2 ${
-                                remainingAmount > 0 
-                                  ? 'bg-orange-50 border-orange-200' 
-                                  : 'bg-green-50 border-green-200'
-                              }`}>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <FiDollarSign className={remainingAmount > 0 ? 'text-orange-600' : 'text-green-600'} />
-                                  <span className={`font-semibold text-sm ${
-                                    remainingAmount > 0 ? 'text-orange-800' : 'text-green-800'
-                                  }`}>
-                                    {remainingAmount > 0 ? 'Payment Required' : 'Payment Complete'}
-                                  </span>
-                                </div>
-                                <div className={`text-xs space-y-1 ${
-                                  remainingAmount > 0 ? 'text-orange-700' : 'text-green-700'
-                                }`}>
-                                  <p>Total: ₹{totalAmount.toLocaleString()}</p>
-                                  <p>Paid: ₹{isBookingPaid ? totalAmount.toLocaleString() : paidAmount.toLocaleString()}</p>
-                                  <p className="font-semibold">Due: ₹{remainingAmount.toLocaleString()}</p>
-                                  {isBookingPaid && (
-                                    <p className="text-green-600 font-medium">✅ Paid during booking</p>
-                                  )}
-                                </div>
-                              </div>
-                              {remainingAmount > 0 && (
-                                <button
-                                  onClick={() => setPaymentModal({ booking, quotation: acceptedQuotation })}
-                                  className="px-2 sm:px-3 py-1 sm:py-1.5 bg-orange-500 text-white rounded-lg text-xs sm:text-sm font-semibold hover:bg-orange-600 transition inline-flex items-center gap-1 sm:gap-2"
-                                >
-                                  <FiDollarSign /> <span className="hidden sm:inline">Pay ₹{remainingAmount.toLocaleString()}</span><span className="sm:hidden">Pay</span>
-                                </button>
-                              )}
-                              {remainingAmount <= 0 && (
-                                <div className="text-xs text-green-600 font-semibold">
-                                  ✅ Payment Complete - Processing final completion
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()
-                      )}
                       {/* Completed job status */}
                       {booking.status === 'completed' && (
                         <div className="bg-green-50 border border-green-200 rounded-lg p-3">
@@ -899,7 +862,6 @@ const JobsManagementTab = () => {
                             <span className="text-green-800 font-semibold text-sm">Job Completed</span>
                           </div>
                           <div className="text-xs text-green-700">
-                            <p>Total Paid: ₹{(booking.payamount || 0).toLocaleString()}</p>
                             <p>Completed: {booking.completedAt ? new Date(booking.completedAt).toLocaleDateString() : 'N/A'}</p>
                           </div>
                           
@@ -964,13 +926,6 @@ const JobsManagementTab = () => {
                     </div>
                   </div>
                 </div>
-                {booking.address && (
-                  <div className="mt-4 p-3 bg-slate-50 rounded-lg">
-                    <p className="text-sm text-slate-600">
-                      <strong>Address:</strong> {booking.address}
-                    </p>
-                  </div>
-                )}
                 
                 {/* Photos & Videos Section */}
                 {((booking.photos && booking.photos.length > 0) || (booking.videos && booking.videos.length > 0)) && (
@@ -1110,7 +1065,7 @@ const JobsManagementTab = () => {
                             onClick={() => setSelectedQuotation(quotation)}
                           >
                             <p className="text-xs font-semibold text-slate-800">
-                              #{quotation.quotationNumber} - ₹{quotation.totalAmount?.toFixed(2) || '0.00'}
+                              #{quotation.quotationNumber}
                             </p>
                             <div className="flex flex-wrap gap-1 mt-1">
                               <span className={`px-2 py-0.5 rounded text-xs font-semibold ${quotation.customerStatus === 'accepted' ? 'bg-green-100 text-green-800' : quotation.customerStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
@@ -1226,17 +1181,6 @@ const JobsManagementTab = () => {
           onAccept={handleApproveQuotation}
           onReject={handleRejectQuotation}
           userType="partner"
-          token={token}
-        />
-      )}
-
-      {/* Job Payment Modal */}
-      {paymentModal && (
-        <JobPaymentModal
-          booking={paymentModal.booking}
-          quotation={paymentModal.quotation}
-          onClose={() => setPaymentModal(null)}
-          onPaymentComplete={handlePaymentComplete}
           token={token}
         />
       )}
