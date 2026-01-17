@@ -57,6 +57,7 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
   const sgstAmount = Number(paymentDetails?.sgstAmount) || 0;
   const gstAmount = cgstAmount + sgstAmount;
   const discount = Number(paymentDetails?.discount) || 0;
+  const specialDiscount = invoiceData?.specialDiscount?.amount || 0;
   
   // Calculate subtotal before tax (services + visiting + service + emergency charges)
   const subtotalBeforeTax = servicesSubtotal + visitingCharge + serviceCharge + emergencyCharge;
@@ -91,7 +92,7 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
   }
   
   // Calculate the correct total amount
-  let totalAmount = subtotalBeforeTax + gstAmount - discount;
+  let totalAmount = subtotalBeforeTax + gstAmount - discount - specialDiscount;
   
   // If quotation exists, add quotation amount to the total
   if (quotationDetails && paymentDetails?.quotationAmount) {
@@ -102,6 +103,7 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
       subtotalBeforeTax,
       gstAmount,
       discount,
+      specialDiscount,
       quotationAmount: quotationAmt,
       calculatedTotal: totalAmount
     });
@@ -119,6 +121,7 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
       subtotalBeforeTax,
       gstAmount,
       discount,
+      specialDiscount,
       paymentDetailsTotalAmount: paymentDetails?.totalAmount,
       calculatedTotal: totalAmount
     });
@@ -434,6 +437,19 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
                 <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50 px-2 rounded">
                   <span className="text-green-700 font-medium">Discount Applied:</span>
                   <span className="font-bold text-green-700">- ₹{formatCurrency(discount)}</span>
+                </div>
+              )}
+              
+              {/* Special Discount - Show if exists and > 0 */}
+              {specialDiscount > 0 && (
+                <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-purple-50 px-2 rounded">
+                  <div className="flex flex-col">
+                    <span className="text-purple-700 font-medium">Special Discount:</span>
+                    {invoiceData?.specialDiscount?.reason && (
+                      <span className="text-xs text-purple-600 italic mt-0.5">{invoiceData.specialDiscount.reason}</span>
+                    )}
+                  </div>
+                  <span className="font-bold text-purple-700">- ₹{formatCurrency(specialDiscount)}</span>
                 </div>
               )}
               

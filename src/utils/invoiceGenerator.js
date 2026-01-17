@@ -317,6 +317,7 @@ export const generateInvoiceFromBooking = (booking) => {
   const bookingAmount = booking.amount || 0;
   const quotationAmount = quotation?.totalAmount || 0;
   const discount = booking.discount || 0;
+  const specialDiscount = booking.specialDiscount || null;
   const totalAmount = booking.totalAmount || (bookingAmount + quotationAmount);
   
   // Extract price breakdown fields - check multiple possible locations
@@ -380,7 +381,12 @@ export const generateInvoiceFromBooking = (booking) => {
   const cgst = bookingData.cgst !== undefined ? bookingData.cgst : 9; // Default 9%
   const sgst = bookingData.sgst !== undefined ? bookingData.sgst : 9; // Default 9%
 
-
+  console.log('📋 Special Discount Data:', {
+    hasSpecialDiscount: !!specialDiscount,
+    amount: specialDiscount?.amount || 0,
+    percentage: specialDiscount?.percentage || 0,
+    reason: specialDiscount?.reason || 'N/A'
+  });
 
   return {
     invoiceNumber: cleanInvoiceNumber,
@@ -453,6 +459,7 @@ export const generateInvoiceFromBooking = (booking) => {
       itemCount: quotation.items?.length || 0,
       status: quotation.customerStatus
     } : null,
+    specialDiscount: specialDiscount,
     paymentDetails: {
       bookingId: cleanBookingId,
       serviceDate: booking.scheduledDate || booking.serviceDate || booking.appointmentDate || booking.date || new Date().toISOString(),
