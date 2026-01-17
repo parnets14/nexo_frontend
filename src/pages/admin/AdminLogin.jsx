@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { FiLock, FiMail, FiShield } from 'react-icons/fi'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
-import { adminApi } from '../../services/adminApi.js'
+import { adminApi } from '../../services/adminApi'
 
 const AdminLogin = () => {
   const navigate = useNavigate()

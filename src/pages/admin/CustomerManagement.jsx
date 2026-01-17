@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { FiSearch, FiFilter, FiDownload, FiEye, FiMail, FiPhone, FiMapPin, FiCalendar, FiShoppingBag, FiCreditCard } from 'react-icons/fi'
+import { FiSearch, FiFilter, FiDownload, FiEye, FiMail, FiPhone, FiMapPin, FiCalendar, FiShoppingBag, FiCreditCard, FiTrash } from 'react-icons/fi'
 import { useAdminAuth } from '../../context/AdminAuthContext.jsx'
 import { adminApi } from '../../services/adminApi.js'
 
@@ -48,6 +48,22 @@ const CustomerManagement = () => {
   const handleViewDetails = (customer) => {
     setSelectedCustomer(customer)
     setShowDetailsModal(true)
+  }
+
+  const handleDeleteCustomer = async (customer) => {
+    if (!window.confirm(`Are you sure you want to delete customer "${customer.name}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      await adminApi.deleteCustomer(token, customer._id)
+      // Remove the customer from the list
+      setCustomers(prev => prev.filter(c => c._id !== customer._id))
+      alert('Customer deleted successfully')
+    } catch (error) {
+      console.error('Error deleting customer:', error)
+      alert('Failed to delete customer: ' + (error.message || 'Unknown error'))
+    }
   }
 
   const exportToCSV = () => {
@@ -243,12 +259,21 @@ const CustomerManagement = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => handleViewDetails(customer)}
-                        className="text-primary hover:text-primary-dark font-medium"
-                      >
-                        View Details
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleViewDetails(customer)}
+                          className="text-primary hover:text-primary-dark font-medium"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCustomer(customer)}
+                          className="p-2 text-red-600 hover:text-white hover:bg-red-600 border border-red-600 rounded-lg transition"
+                          title="Delete customer"
+                        >
+                          <FiTrash className="text-sm" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

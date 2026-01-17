@@ -19,7 +19,9 @@ import {
   FiUserPlus,
   FiSearch,
   FiStar,
-  FiAlertTriangle
+  FiAlertTriangle,
+  FiTag,
+  FiTrash
 } from 'react-icons/fi'
 import { FaBolt } from 'react-icons/fa'
 import { adminApi } from '../../services/adminApi'
@@ -29,6 +31,7 @@ import { CompactAdminInvoiceButton } from '../../components/AdminInvoiceButton'
 import QuotationDetailsModal from '../../components/QuotationDetailsModal'
 import { exportToExcel } from '../../utils/excelExport'
 import { supportApi } from '../../services/supportApi'
+import SpecialDiscountModal from '../../components/SpecialDiscountModal'
 import '../../styles/media-modal.css'
 
 const CustomerBookings = () => {
@@ -61,6 +64,7 @@ const CustomerBookings = () => {
   const [selectedQuotation, setSelectedQuotation] = useState(null)
   const [selectedBookingMedia, setSelectedBookingMedia] = useState(null) // For media modal
   const [showMediaModal, setShowMediaModal] = useState(false)
+  const [showSpecialDiscountModal, setShowSpecialDiscountModal] = useState(false)
   const [partnerFilters, setPartnerFilters] = useState({
     search: '',
     sortBy: 'name', // name, leads, mgPlan, leadUsage
@@ -491,6 +495,27 @@ const CustomerBookings = () => {
     }
   }
 
+  const handleDeleteBooking = async (booking) => {
+    if (!window.confirm(`Are you sure you want to delete booking for "${booking.customerName}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      await adminApi.deleteBooking(token, booking._id)
+      // Remove the booking from the list
+      setBookings(prev => prev.filter(b => b._id !== booking._id))
+      // Update pagination total
+      setPagination(prev => ({
+        ...prev,
+        totalItems: Math.max(0, prev.totalItems - 1)
+      }))
+      alert('Booking deleted successfully')
+    } catch (error) {
+      console.error('Error deleting booking:', error)
+      alert('Failed to delete booking: ' + (error.message || 'Unknown error'))
+    }
+  }
+
   // Sort bookings to show emergency bookings first
   const filteredBookings = useMemo(() => {
     const sortedBookings = [...bookings].sort((a, b) => {
@@ -550,6 +575,13 @@ const CustomerBookings = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSpecialDiscountModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+          >
+            <FiTag className="text-sm" />
+            Special Discount
+          </button>
           <button
             onClick={fetchBookings}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition"
@@ -1177,6 +1209,15 @@ const CustomerBookings = () => {
                           booking={booking}
                           className="ml-2"
                         />
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => handleDeleteBooking(booking)}
+                          className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                          title="Delete booking"
+                        >
+                          <FiTrash className="text-xs" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1843,6 +1884,17 @@ const CustomerBookings = () => {
           onReject={handleRejectQuotation}
           userType="admin"
           token={token}
+        />
+      )}
+
+      {/* Special Discount Modal */}
+      {showSpecialDiscountModal && (
+        <SpecialDiscountModal
+          onClose={() => setShowSpecialDiscountModal(false)}
+          onSuccess={() => {
+            setShowSpecialDiscountModal(false)
+            fetchBookings(pagination.currentPage)
+          }}
         />
       )}
     </div>

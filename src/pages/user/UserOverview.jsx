@@ -233,24 +233,15 @@ const UserOverview = () => {
         
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            {/* Left: Icon + Message */}
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="relative flex-shrink-0">
-                {/* Main animated icon with mechanics theme */}
-                <div className="w-12 h-12 md:w-14 md:h-14 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center animate-bounce-slow">
-                  <div className="relative">
-                    <FiTool className="text-yellow-300 animate-pulse" size={28} />
-                    <FiZap className="absolute -top-1 -right-1 text-white animate-ping" size={12} />
-                  </div>
-                </div>
-                {/* Orbiting mechanics icons */}
-                <div className="absolute top-0 left-0 w-full h-full animate-spin" style={{ animationDuration: '4s' }}>
-                  <FiSettings className="absolute -top-1 left-1/2 -ml-2 text-yellow-300" size={12} />
-                </div>
-                <div className="absolute top-0 left-0 w-full h-full animate-spin" style={{ animationDuration: '3s', animationDirection: 'reverse' }}>
-                  <FiTool className="absolute -bottom-1 left-1/2 -ml-2 text-white" size={10} />
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-300 rounded-full animate-ping"></div>
+            {/* Left: Logo + Icon + Message */}
+            <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
+              {/* Nexo Logo - Visible on Both Mobile and Desktop */}
+              <div className="flex-shrink-0">
+                <img 
+                  src="/logo.png" 
+                  alt="Nexo Logo" 
+                  className="w-12 h-12 md:w-14 md:h-14 object-contain bg-primary rounded-xl p-2 shadow-lg"
+                />
               </div>
               <div className="text-left">
                 <div className="flex items-center gap-2 mb-1">

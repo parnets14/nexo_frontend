@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_ADMIN_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const buildUrl = (path) => {
   // Handle both /api/admin and /admin routes
@@ -407,6 +407,22 @@ export const adminApi = {
     })
     const data = await handleResponse(response)
     return data
+  },
+
+  async deleteCustomer(token, customerId) {
+    const response = await fetch(buildUrl(`/api/admin/customers/${customerId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async deleteBooking(token, bookingId) {
+    const response = await fetch(buildUrl(`/api/admin/bookings/${bookingId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
   },
   
   // Reports
@@ -1587,6 +1603,22 @@ export const adminApi = {
     return data
   },
 
+  async deleteCustomer(token, customerId) {
+    const response = await fetch(buildUrl(`/api/admin/customers/${customerId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async deleteBooking(token, bookingId) {
+    const response = await fetch(buildUrl(`/api/admin/bookings/${bookingId}`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
   // Customer Bookings - Partner wise details
   async getCustomerBookingsPartnerWise(token, filters = {}) {
     const queryParams = new URLSearchParams({
@@ -1872,6 +1904,50 @@ export const adminApi = {
   async deleteOffer(token, offerId) {
     const response = await fetch(buildUrl(`/services/offers/${offerId}`), {
       method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  // Special Discount Management
+  async applySpecialDiscount(token, bookingId, discountData) {
+    const response = await fetch(buildUrl(`/api/admin/bookings/${bookingId}/special-discount`), {
+      method: 'POST',
+      headers: getDefaultHeaders(token),
+      body: JSON.stringify(discountData)
+    })
+    return handleResponse(response)
+  },
+
+  async removeSpecialDiscount(token, bookingId) {
+    const response = await fetch(buildUrl(`/api/admin/bookings/${bookingId}/special-discount`), {
+      method: 'DELETE',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getAllCustomers(token, params = {}) {
+    const queryParams = new URLSearchParams({
+      page: params.page || 1,
+      limit: params.limit || 50,
+      ...(params.search && { search: params.search })
+    }).toString()
+    
+    const response = await fetch(buildUrl(`/api/admin/bookings/customers?${queryParams}`), {
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
+  async getCustomerBookings(token, customerId, params = {}) {
+    const queryParams = new URLSearchParams({
+      page: params.page || 1,
+      limit: params.limit || 20,
+      ...(params.status && { status: params.status })
+    }).toString()
+    
+    const response = await fetch(buildUrl(`/api/admin/bookings/customers/${customerId}/bookings?${queryParams}`), {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
