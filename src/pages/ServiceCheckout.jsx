@@ -938,7 +938,9 @@ const ServiceCheckout = () => {
   }
 
   const getVisitingCharge = () => {
-    return serviceData.visitingCharge || 0
+    const charge = serviceData.visitingCharge || 0
+    console.log('🔍 [Checkout] Visiting Charge:', charge, 'Service Data:', serviceData)
+    return charge
   }
 
   const getServiceCharge = () => {
@@ -946,11 +948,27 @@ const ServiceCheckout = () => {
   }
 
   const getEmergencyCharge = () => {
-    return serviceData.emergencyCharge || 0
+    const charge = serviceData.emergencyCharge || 0
+    console.log('🔍 [Checkout] Emergency Charge:', charge, 'Is Emergency:', serviceData.isEmergency)
+    return charge
   }
 
   const calculateTotalBeforeTax = () => {
-    return calculateSubtotal() + getVisitingCharge() + getServiceCharge() + getEmergencyCharge()
+    const subtotal = calculateSubtotal()
+    const visiting = getVisitingCharge()
+    const service = getServiceCharge()
+    const emergency = getEmergencyCharge()
+    const total = subtotal + visiting + service + emergency
+    
+    console.log('🔍 [Checkout] Total Before Tax Calculation:', {
+      subtotal,
+      visiting,
+      service,
+      emergency,
+      total
+    })
+    
+    return total
   }
 
   const calculateOfferDiscount = () => {
