@@ -7,7 +7,6 @@ import CompleteJobModal from '../../../components/CompleteJobModal.jsx'
 import PauseJobModal from '../../../components/PauseJobModal.jsx'
 import SendQuotationModal from '../../../components/SendQuotationModal.jsx'
 import QuotationDetailsModal from '../../../components/QuotationDetailsModal.jsx'
-import JobPaymentModal from '../../../components/JobPaymentModal.jsx'
 import { exportToExcel } from '../../../utils/excelExport.js'
 import '../../../styles/media-modal.css'
 
@@ -26,7 +25,6 @@ const JobsManagementTab = () => {
   const [selectedQuotation, setSelectedQuotation] = useState(null) // Selected quotation for details
   const [quotations, setQuotations] = useState({}) // Store quotations by bookingId
   const [quotationsLoading, setQuotationsLoading] = useState(false) // Loading state for quotations
-  const [paymentModal, setPaymentModal] = useState(null) // Payment modal state
   const [selectedBookingMedia, setSelectedBookingMedia] = useState(null) // For media modal
   const [showMediaModal, setShowMediaModal] = useState(false)
 
@@ -234,11 +232,7 @@ const JobsManagementTab = () => {
       const response = await partnerApi.completeJob(token, bookingId, formData)
       if (response.success) {
         await fetchBookings()
-        if (response.requiresPayment) {
-          alert('Work marked as completed! Payment is required to finalize the job.')
-        } else {
-          alert('Job completed successfully!')
-        }
+        alert('Work marked as completed successfully!')
       } else {
         throw new Error(response.message || 'Failed to complete job')
       }
@@ -445,37 +439,7 @@ const JobsManagementTab = () => {
     }
   }
 
-  const handlePaymentComplete = async (paymentData) => {
-    try {
-      console.log('[JobsManagement] Payment completed:', paymentData)
-      
-      // Refresh bookings to show updated payment status
-      await fetchBookings()
-      
-      // Show success message
-      if (paymentData.success) {
-        const isFullyCompleted = paymentData.isFullyCompleted || paymentData.jobStatus === 'completed';
-        const baseMessage = paymentData.paymentMethod === 'cash' 
-          ? `Payment of ₹${paymentData.amount.toLocaleString()} completed via wallet. New balance: ₹${paymentData.newWalletBalance?.toLocaleString() || 'N/A'}`
-          : `Payment of ₹${paymentData.amount.toLocaleString()} completed via online payment.`;
-        
-        const statusMessage = isFullyCompleted 
-          ? '\n🎉 Job is now fully completed!'
-          : '\n⏳ Partial payment completed. More payment may be required.';
-        
-        console.log('[JobsManagement] Payment completion status:', {
-          isFullyCompleted,
-          jobStatus: paymentData.jobStatus,
-          paymentStatus: paymentData.paymentStatus
-        });
-        
-        alert(`Payment Successful!\n${baseMessage}${statusMessage}`);
-      }
-    } catch (err) {
-      console.error('Error handling payment completion:', err)
-      alert('Payment completed but failed to refresh data. Please refresh the page.')
-    }
-  }
+
 
   if (loading) {
     return (
@@ -593,11 +557,7 @@ const JobsManagementTab = () => {
                 'Customer Name': b.user?.name || 'N/A',
                 'Customer Phone': b.user?.phone || 'N/A',
                 'Service': b.service?.name || b.subService?.name || b.popularService?.name || b.serviceName || 'N/A',
-                'Amount (₹)': b.amount || 0,
-                'Total Amount (₹)': b.totalAmount || b.amount || 0,
-                'Paid Amount (₹)': b.payamount || 0,
                 'Status': b.status || 'N/A',
-                'Payment Status': b.paymentStatus || 'N/A',
                 'Scheduled Date': b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString('en-IN') : 'N/A',
                 'Scheduled Time': b.scheduledTime || 'N/A',
                 'Location': b.location?.address || 'N/A',
@@ -616,11 +576,7 @@ const JobsManagementTab = () => {
                 { header: 'Customer Name', accessor: 'Customer Name' },
                 { header: 'Customer Phone', accessor: 'Customer Phone' },
                 { header: 'Service', accessor: 'Service' },
-                { header: 'Amount (₹)', accessor: 'Amount (₹)' },
-                { header: 'Total Amount (₹)', accessor: 'Total Amount (₹)' },
-                { header: 'Paid Amount (₹)', accessor: 'Paid Amount (₹)' },
                 { header: 'Status', accessor: 'Status' },
-                { header: 'Payment Status', accessor: 'Payment Status' },
                 { header: 'Scheduled Date', accessor: 'Scheduled Date' },
                 { header: 'Scheduled Time', accessor: 'Scheduled Time' },
                 { header: 'Location', accessor: 'Location' },
@@ -634,7 +590,7 @@ const JobsManagementTab = () => {
                 { header: 'Videos Count', accessor: 'Videos Count' },
                 { header: 'Created At', accessor: 'Created At' }
               ], 'Jobs_Management', 'Jobs', {
-                columnWidths: [15, 20, 15, 25, 15, 15, 15, 12, 12, 15, 12, 30, 20, 20, 20, 12, 30, 15, 10, 10, 20]
+                columnWidths: [15, 20, 15, 25, 12, 15, 12, 30, 20, 20, 20, 12, 30, 15, 10, 10, 20]
               })
             }}
             disabled={filteredBookings.length === 0}
@@ -793,10 +749,12 @@ const JobsManagementTab = () => {
                     {/* Team Member Assignment */}
                     <div className="flex items-center gap-3 flex-wrap mt-3">
                       {booking.teamMember && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold flex items-center gap-1">
-                          <FiUser className="text-xs" />
-                          Team: {booking.teamMember?.name || 'Team Member'}
-                        </span>
+                        <div className="mt-3 pt-3 border-t border-slate-200">
+                          <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold inline-flex items-center gap-2">
+                            <FiUser className="text-sm" />
+                            Assigned to: {booking.teamMember?.name || 'Team Member'}
+                          </span>
+                        </div>
                       )}
                     </div>
                     {/* Assign Team Member Section */}
@@ -828,9 +786,6 @@ const JobsManagementTab = () => {
                     )}
                   </div>
                   <div className="text-left sm:text-right flex-shrink-0">
-                    <p className="text-lg sm:text-xl font-bold text-primary">
-                      ₹{booking.totalAmount?.toLocaleString('en-IN') || booking.amount?.toLocaleString('en-IN') || 0}
-                    </p>
                     <p className="text-xs sm:text-sm text-slate-500">
                       {booking.createdAt
                         ? new Date(booking.createdAt).toLocaleDateString('en-IN')
@@ -931,7 +886,6 @@ const JobsManagementTab = () => {
                             <span className="text-green-800 font-semibold text-sm">Job Completed</span>
                           </div>
                           <div className="text-xs text-green-700">
-                            <p>Total Paid: ₹{(booking.payamount || 0).toLocaleString()}</p>
                             <p>Completed: {booking.completedAt ? new Date(booking.completedAt).toLocaleDateString() : 'N/A'}</p>
                           </div>
                           
@@ -1135,7 +1089,7 @@ const JobsManagementTab = () => {
                             onClick={() => setSelectedQuotation(quotation)}
                           >
                             <p className="text-xs font-semibold text-slate-800">
-                              #{quotation.quotationNumber} - ₹{quotation.totalAmount?.toFixed(2) || '0.00'}
+                              #{quotation.quotationNumber}
                             </p>
                             <div className="flex flex-wrap gap-1 mt-1">
                               <span className={`px-2 py-0.5 rounded text-xs font-semibold ${quotation.customerStatus === 'accepted' ? 'bg-green-100 text-green-800' : quotation.customerStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
@@ -1251,17 +1205,6 @@ const JobsManagementTab = () => {
           onAccept={handleApproveQuotation}
           onReject={handleRejectQuotation}
           userType="partner"
-          token={token}
-        />
-      )}
-
-      {/* Job Payment Modal */}
-      {paymentModal && (
-        <JobPaymentModal
-          booking={paymentModal.booking}
-          quotation={paymentModal.quotation}
-          onClose={() => setPaymentModal(null)}
-          onPaymentComplete={handlePaymentComplete}
           token={token}
         />
       )}
