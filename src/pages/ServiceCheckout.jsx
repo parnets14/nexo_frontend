@@ -188,14 +188,21 @@ const ServiceCheckout = () => {
   // Form state - restore from sessionStorage if available
   const getInitialFormData = () => {
     const savedFormData = sessionStorage.getItem('checkoutFormData')
+    const todayDate = new Date().toISOString().split('T')[0] // Get today's date in YYYY-MM-DD format
+    
     if (savedFormData) {
-      return JSON.parse(savedFormData)
+      const parsedData = JSON.parse(savedFormData)
+      // Always set bookingDate to today, even if there's saved data
+      return {
+        ...parsedData,
+        bookingDate: todayDate
+      }
     }
     return {
       name: user?.name || '',
       email: user?.email || '',
       phone: user?.phone || '',
-      bookingDate: '',
+      bookingDate: todayDate, // Set today as default
       bookingTime: '',
       address: '',
       landmark: '',
@@ -231,6 +238,21 @@ const ServiceCheckout = () => {
       })
     }
   }, [user])
+  
+  // Ensure bookingDate is always set to today on component mount
+  useEffect(() => {
+    const todayDate = new Date().toISOString().split('T')[0]
+    if (formData.bookingDate !== todayDate) {
+      setFormData(prev => {
+        const newData = {
+          ...prev,
+          bookingDate: todayDate
+        }
+        sessionStorage.setItem('checkoutFormData', JSON.stringify(newData))
+        return newData
+      })
+    }
+  }, []) // Run only once on mount
   
   // Validate existing form data on component mount
   useEffect(() => {

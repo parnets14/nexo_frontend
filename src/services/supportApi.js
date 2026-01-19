@@ -1,5 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const buildUrl = (path) => `${API_BASE_URL}/api/support${path}`
 

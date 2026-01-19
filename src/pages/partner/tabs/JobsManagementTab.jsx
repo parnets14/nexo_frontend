@@ -695,12 +695,103 @@ const JobsManagementTab = () => {
                     <p className="text-sm text-slate-600 mb-1">
                       Booking ID: {booking.bookingId || booking._id || 'N/A'}
                     </p>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {booking.user && (
-                        <p className="text-sm text-slate-600">
-                          Customer: {booking.user?.name || booking.userName || 'N/A'}
+                    
+                    {/* Customer Details Section - Always Visible */}
+                    <div className="mt-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                      <h4 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2">
+                        <FiUser className="w-4 h-4" />
+                        Customer Details
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-blue-700 font-semibold mb-1">Name</p>
+                          <p className="text-sm text-slate-800 font-medium">
+                            {booking.user?.name || booking.customerDetails?.name || booking.userName || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-700 font-semibold mb-1">Phone</p>
+                          <p className="text-sm text-slate-800 font-medium">
+                            {booking.user?.phone || booking.customerDetails?.phone || 'N/A'}
+                          </p>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <p className="text-xs text-blue-700 font-semibold mb-1">Address</p>
+                          <p className="text-sm text-slate-800">
+                            {booking.location?.address || booking.address || 'N/A'}
+                            {booking.location?.landmark && ` (Landmark: ${booking.location.landmark})`}
+                            {booking.location?.pincode && ` - ${booking.location.pincode}`}
+                          </p>
+                        </div>
+                        {booking.user?.email && (
+                          <div className="sm:col-span-2">
+                            <p className="text-xs text-blue-700 font-semibold mb-1">Email</p>
+                            <p className="text-sm text-slate-800">{booking.user.email}</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Service Details */}
+                      <div className="mt-4 pt-4 border-t border-blue-200">
+                        <h5 className="text-xs font-bold text-blue-900 mb-2">Service Booked</h5>
+                        <p className="text-sm text-slate-800 font-medium mb-2">
+                          {booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || 'Service'}
                         </p>
-                      )}
+                        
+                        {/* Add-ons */}
+                        {booking.selectedAddOns && booking.selectedAddOns.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-blue-700 font-semibold mb-1">Add-ons:</p>
+                            <ul className="list-disc list-inside text-xs text-slate-700 space-y-1">
+                              {booking.selectedAddOns.map((addon, idx) => (
+                                <li key={idx}>
+                                  {addon.name} - ₹{addon.basePrice || addon.price || 0}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Sub-services */}
+                        {booking.selectedSubServices && booking.selectedSubServices.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-blue-700 font-semibold mb-1">Sub-services:</p>
+                            <ul className="list-disc list-inside text-xs text-slate-700 space-y-1">
+                              {booking.selectedSubServices.map((subSvc, idx) => (
+                                <li key={idx}>
+                                  {subSvc.name} - ₹{subSvc.basePrice || subSvc.price || 0}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Special Instructions */}
+                        {booking.specialInstructions && (
+                          <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                            <p className="text-xs text-yellow-800 font-semibold mb-1">Special Instructions:</p>
+                            <p className="text-xs text-slate-700 italic">{booking.specialInstructions}</p>
+                          </div>
+                        )}
+                        
+                        {/* Scheduled Date & Time */}
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-blue-700 font-semibold mb-1">Scheduled Date</p>
+                            <p className="text-sm text-slate-800">
+                              {booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString('en-IN') : 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-700 font-semibold mb-1">Scheduled Time</p>
+                            <p className="text-sm text-slate-800">{booking.scheduledTime || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Team Member Assignment */}
+                    <div className="flex items-center gap-3 flex-wrap mt-3">
                       {booking.teamMember && (
                         <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold flex items-center gap-1">
                           <FiUser className="text-xs" />
@@ -823,73 +914,14 @@ const JobsManagementTab = () => {
                           </button>
                         </div>
                       )}
-                      {/* Payment button for work completed jobs */}
+                      {/* Work completed status - No payment option for partners */}
                       {booking.status === 'work_completed' && (
-                        (() => {
-                          // Find accepted quotation for this booking
-                          const acceptedQuotation = quotations[booking._id || booking.bookingId]?.find(
-                            q => q.customerStatus === 'accepted'
-                          );
-                          
-                          // Calculate remaining amount
-                          const totalAmount = acceptedQuotation?.totalAmount || booking.totalAmount || booking.amount || 0;
-                          const paidAmount = booking.payamount || 0;
-                          
-                          // Check if booking is already fully paid
-                          const isBookingPaid = booking.paymentStatus === 'completed';
-                          const remainingAmount = isBookingPaid ? 0 : Math.max(0, totalAmount - paidAmount);
-                          
-                          console.log(`[JobsManagement] Payment calculation for booking ${booking._id}:`, {
-                            totalAmount,
-                            paidAmount,
-                            paymentStatus: booking.paymentStatus,
-                            isBookingPaid,
-                            remainingAmount
-                          });
-                          
-                          // Always show payment button for work_completed status
-                          return (
-                            <div className="flex flex-col gap-2">
-                              <div className={`border rounded-lg p-3 mb-2 ${
-                                remainingAmount > 0 
-                                  ? 'bg-orange-50 border-orange-200' 
-                                  : 'bg-green-50 border-green-200'
-                              }`}>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <FiDollarSign className={remainingAmount > 0 ? 'text-orange-600' : 'text-green-600'} />
-                                  <span className={`font-semibold text-sm ${
-                                    remainingAmount > 0 ? 'text-orange-800' : 'text-green-800'
-                                  }`}>
-                                    {remainingAmount > 0 ? 'Payment Required' : 'Payment Complete'}
-                                  </span>
-                                </div>
-                                <div className={`text-xs space-y-1 ${
-                                  remainingAmount > 0 ? 'text-orange-700' : 'text-green-700'
-                                }`}>
-                                  <p>Total: ₹{totalAmount.toLocaleString()}</p>
-                                  <p>Paid: ₹{isBookingPaid ? totalAmount.toLocaleString() : paidAmount.toLocaleString()}</p>
-                                  <p className="font-semibold">Due: ₹{remainingAmount.toLocaleString()}</p>
-                                  {isBookingPaid && (
-                                    <p className="text-green-600 font-medium">✅ Paid during booking</p>
-                                  )}
-                                </div>
-                              </div>
-                              {remainingAmount > 0 && (
-                                <button
-                                  onClick={() => setPaymentModal({ booking, quotation: acceptedQuotation })}
-                                  className="px-2 sm:px-3 py-1 sm:py-1.5 bg-orange-500 text-white rounded-lg text-xs sm:text-sm font-semibold hover:bg-orange-600 transition inline-flex items-center gap-1 sm:gap-2"
-                                >
-                                  <FiDollarSign /> <span className="hidden sm:inline">Pay ₹{remainingAmount.toLocaleString()}</span><span className="sm:hidden">Pay</span>
-                                </button>
-                              )}
-                              {remainingAmount <= 0 && (
-                                <div className="text-xs text-green-600 font-semibold">
-                                  ✅ Payment Complete - Processing final completion
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-center gap-2">
+                            <FiCheckCircle className="text-green-600" />
+                            <span className="text-green-800 font-semibold text-sm">Work Completed</span>
+                          </div>
+                        </div>
                       )}
                       {/* Completed job status */}
                       {booking.status === 'completed' && (
@@ -964,13 +996,6 @@ const JobsManagementTab = () => {
                     </div>
                   </div>
                 </div>
-                {booking.address && (
-                  <div className="mt-4 p-3 bg-slate-50 rounded-lg">
-                    <p className="text-sm text-slate-600">
-                      <strong>Address:</strong> {booking.address}
-                    </p>
-                  </div>
-                )}
                 
                 {/* Photos & Videos Section */}
                 {((booking.photos && booking.photos.length > 0) || (booking.videos && booking.videos.length > 0)) && (

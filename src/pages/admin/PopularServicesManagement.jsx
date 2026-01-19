@@ -62,6 +62,18 @@ const PopularServicesManagement = () => {
     emergencyService: {
       enabled: false,
       extraAmount: 0
+    },
+    seo: {
+      metaTitle: '',
+      metaDescription: '',
+      metaKeywords: [],
+      ogTitle: '',
+      ogDescription: '',
+      ogImage: '',
+      canonicalUrl: '',
+      structuredData: {},
+      focusKeyword: '',
+      altText: ''
     }
   })
   const [addOnForm, setAddOnForm] = useState({
@@ -80,6 +92,9 @@ const PopularServicesManagement = () => {
   })
   const [addOnIncludedItem, setAddOnIncludedItem] = useState('')
   const [addOnExcludedItem, setAddOnExcludedItem] = useState('')
+  const [seoKeywordInput, setSeoKeywordInput] = useState('')
+  const [ogImageFile, setOgImageFile] = useState(null)
+  const [ogImagePreview, setOgImagePreview] = useState(null)
   const [subServiceForm, setSubServiceForm] = useState({
     name: '',
     shortDescription: '',
@@ -163,8 +178,22 @@ const PopularServicesManagement = () => {
         emergencyService: {
           enabled: service.emergencyService?.enabled || false,
           extraAmount: service.emergencyService?.extraAmount || 0
+        },
+        seo: service.seo || {
+          metaTitle: service.name || '',
+          metaDescription: service.description || '',
+          metaKeywords: [],
+          ogTitle: service.name || '',
+          ogDescription: service.description || '',
+          ogImage: '',
+          canonicalUrl: '',
+          structuredData: {},
+          focusKeyword: '',
+          altText: service.name || ''
         }
       })
+      setOgImageFile(null)
+      setOgImagePreview(service.seo?.ogImage || null)
     } else {
       setEditingService(null)
       setFormData({
@@ -192,8 +221,22 @@ const PopularServicesManagement = () => {
         emergencyService: {
           enabled: false,
           extraAmount: 0
+        },
+        seo: {
+          metaTitle: '',
+          metaDescription: '',
+          metaKeywords: [],
+          ogTitle: '',
+          ogDescription: '',
+          ogImage: '',
+          canonicalUrl: '',
+          structuredData: {},
+          focusKeyword: '',
+          altText: ''
         }
       })
+      setOgImageFile(null)
+      setOgImagePreview(null)
     }
     setAddOnForm({
       name: '',
@@ -262,6 +305,8 @@ const PopularServicesManagement = () => {
       price: '',
       icon: 'FaTools'
     })
+    setOgImageFile(null)
+    setOgImagePreview(null)
     setErrorMsg('')
     setSuccessMsg('')
   }
@@ -548,6 +593,30 @@ const PopularServicesManagement = () => {
     }))
   }
 
+  const handleOgImageChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setOgImageFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setOgImagePreview(reader.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleRemoveOgImage = () => {
+    setOgImageFile(null)
+    setOgImagePreview(null)
+    setFormData(prev => ({
+      ...prev,
+      seo: {
+        ...prev.seo,
+        ogImage: ''
+      }
+    }))
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
@@ -555,13 +624,18 @@ const PopularServicesManagement = () => {
     setSuccessMsg('')
 
     try {
+      const submitData = {
+        ...formData,
+        ogImageFile: ogImageFile
+      }
+
       if (editingService) {
         // Update service
-        await adminApi.updatePopularService(token, editingService, formData)
+        await adminApi.updatePopularService(token, editingService, submitData)
         setSuccessMsg('Popular service updated successfully!')
       } else {
         // Create service
-        await adminApi.createPopularService(token, formData)
+        await adminApi.createPopularService(token, submitData)
         setSuccessMsg('Popular service created successfully!')
       }
 
@@ -1630,6 +1704,306 @@ const PopularServicesManagement = () => {
                       <p className="mt-1 text-xs text-slate-500">Additional amount charged for emergency service</p>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* SEO Section */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border-2 border-blue-200">
+                <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  <FiStar className="text-blue-600" />
+                  SEO Settings
+                </h4>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Meta Title <span className="text-xs text-slate-500">(Max 60 characters)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.seo?.metaTitle || ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        seo: { 
+                          ...prev.seo, 
+                          metaTitle: e.target.value.slice(0, 60)
+                        } 
+                      }))}
+                      maxLength={60}
+                      className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      placeholder="e.g., Professional AC Service in Your City | Nexo"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      {(formData.seo?.metaTitle || '').length}/60 characters
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Meta Description <span className="text-xs text-slate-500">(Max 160 characters)</span>
+                    </label>
+                    <textarea
+                      value={formData.seo?.metaDescription || ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        seo: { 
+                          ...prev.seo, 
+                          metaDescription: e.target.value.slice(0, 160)
+                        } 
+                      }))}
+                      maxLength={160}
+                      rows="3"
+                      className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      placeholder="Brief description for search engines..."
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      {(formData.seo?.metaDescription || '').length}/160 characters
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Meta Keywords
+                    </label>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={seoKeywordInput}
+                        onChange={(e) => setSeoKeywordInput(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            if (seoKeywordInput.trim()) {
+                              setFormData(prev => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  metaKeywords: [...(prev.seo?.metaKeywords || []), seoKeywordInput.trim()]
+                                }
+                              }))
+                              setSeoKeywordInput('')
+                            }
+                          }
+                        }}
+                        className="flex-1 px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                        placeholder="Add keyword and press Enter..."
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (seoKeywordInput.trim()) {
+                            setFormData(prev => ({
+                              ...prev,
+                              seo: {
+                                ...prev.seo,
+                                metaKeywords: [...(prev.seo?.metaKeywords || []), seoKeywordInput.trim()]
+                              }
+                            }))
+                            setSeoKeywordInput('')
+                          }
+                        }}
+                        className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-semibold"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(formData.seo?.metaKeywords || []).map((keyword, index) => (
+                        <span 
+                          key={index} 
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm"
+                        >
+                          {keyword}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  metaKeywords: prev.seo?.metaKeywords?.filter((_, i) => i !== index) || []
+                                }
+                              }))
+                            }}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <FiX className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Focus Keyword
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.seo?.focusKeyword || ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        seo: { 
+                          ...prev.seo, 
+                          focusKeyword: e.target.value
+                        } 
+                      }))}
+                      className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      placeholder="e.g., ac service, plumbing repair"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">Primary keyword to target for SEO</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        OG Title <span className="text-xs text-slate-500">(Social Media)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.seo?.ogTitle || ''}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          seo: { 
+                            ...prev.seo, 
+                            ogTitle: e.target.value.slice(0, 60)
+                          } 
+                        }))}
+                        maxLength={60}
+                        className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                        placeholder="Title for social media sharing"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        OG Image <span className="text-xs text-slate-500">(Social Media)</span>
+                      </label>
+                      
+                      {/* Image Preview */}
+                      {ogImagePreview && (
+                        <div className="mb-3 relative">
+                          <img 
+                            src={ogImagePreview} 
+                            alt="OG Image Preview" 
+                            className="w-full h-32 object-cover rounded-lg border-2 border-slate-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRemoveOgImage}
+                            className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-full hover:bg-rose-600 transition"
+                            title="Remove image"
+                          >
+                            <FiX className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* File Upload */}
+                      <div className="space-y-2">
+                        <label className="block">
+                          <div className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-slate-300 rounded-xl hover:border-blue-500 cursor-pointer transition bg-slate-50 hover:bg-blue-50">
+                            <div className="text-center">
+                              <FiPlus className="w-5 h-5 mx-auto text-slate-400 mb-1" />
+                              <span className="text-sm text-slate-600">
+                                {ogImageFile ? 'Change Image' : 'Upload Image'}
+                              </span>
+                            </div>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleOgImageChange}
+                            className="hidden"
+                          />
+                        </label>
+                        
+                        {/* URL Input (Alternative) */}
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">OR</span>
+                          <input
+                            type="text"
+                            value={formData.seo?.ogImage || ''}
+                            onChange={(e) => {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                seo: { 
+                                  ...prev.seo, 
+                                  ogImage: e.target.value
+                                } 
+                              }))
+                              if (e.target.value) {
+                                setOgImagePreview(e.target.value)
+                                setOgImageFile(null)
+                              }
+                            }}
+                            className="w-full pl-12 pr-4 py-2 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-sm"
+                            placeholder="https://example.com/image.jpg"
+                          />
+                        </div>
+                        <p className="text-xs text-slate-500">Upload an image or enter a URL</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      OG Description <span className="text-xs text-slate-500">(Social Media, Max 160 chars)</span>
+                    </label>
+                    <textarea
+                      value={formData.seo?.ogDescription || ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        seo: { 
+                          ...prev.seo, 
+                          ogDescription: e.target.value.slice(0, 160)
+                        } 
+                      }))}
+                      maxLength={160}
+                      rows="2"
+                      className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      placeholder="Description for social media sharing..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Canonical URL
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.seo?.canonicalUrl || ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        seo: { 
+                          ...prev.seo, 
+                          canonicalUrl: e.target.value
+                        } 
+                      }))}
+                      className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      placeholder="https://example.com/service/ac-service"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">Preferred URL for search engines (prevents duplicate content)</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Image Alt Text
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.seo?.altText || ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        seo: { 
+                          ...prev.seo, 
+                          altText: e.target.value
+                        } 
+                      }))}
+                      className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      placeholder="e.g., Professional AC service technician"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">Alternative text for service images (improves accessibility & SEO)</p>
+                  </div>
                 </div>
               </div>
 

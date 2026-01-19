@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fa'
 import { userApi } from '../services/userApi'
 import { supportApi } from '../services/supportApi'
+import DiscountPopup from '../components/DiscountPopup'
 
 // Icon mapping
 const ICON_COMPONENTS = {
@@ -25,10 +26,27 @@ const EmergencyServices = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [supportSettings, setSupportSettings] = useState(null)
+  const [showDiscountPopup, setShowDiscountPopup] = useState(false)
 
   useEffect(() => {
     fetchEmergencyServices()
     fetchSupportSettings()
+  }, [])
+
+  // Show discount popup after page load
+  useEffect(() => {
+    // Check if user has seen the popup in this session
+    const hasSeenPopup = sessionStorage.getItem('hasSeenDiscountPopup');
+    
+    if (!hasSeenPopup) {
+      // Show popup after 3 seconds delay
+      const timer = setTimeout(() => {
+        setShowDiscountPopup(true);
+        sessionStorage.setItem('hasSeenDiscountPopup', 'true');
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
   }, [])
 
   const fetchSupportSettings = async () => {
@@ -164,6 +182,11 @@ const EmergencyServices = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50">
+      {/* Discount Popup */}
+      {showDiscountPopup && (
+        <DiscountPopup onClose={() => setShowDiscountPopup(false)} />
+      )}
+      
       {/* Enhanced Header with animated background */}
       <div className="relative bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white overflow-hidden">
         {/* Animated background elements */}

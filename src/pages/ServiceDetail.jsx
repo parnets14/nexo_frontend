@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   FaWhatsapp,
   FaCheckCircle,
@@ -30,9 +30,14 @@ import {
   FaPercentage,
   FaCreditCard,
   FaMobileAlt,
-  FaCommentDots
+  FaCommentDots,
+  FaTimes,
+  FaTag,
+  FaGift
 } from 'react-icons/fa'
 import SEO from '../components/SEO'
+import DiscountPopup from '../components/DiscountPopup'
+import ReviewCarousel from '../components/ReviewCarousel'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 import { useUserAuth } from '../context/UserAuthContext'
 
@@ -40,6 +45,10 @@ import '../styles/modal-layers.css'
 
 // Custom scrollbar styles
 const customScrollbarStyles = `
+  .custom-scrollbar {
+    scroll-behavior: smooth;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -123,6 +132,9 @@ const ServiceDetail = () => {
   const [showAvailableServices, setShowAvailableServices] = useState(false) // Toggle for available services in cart
   const [amcPlans, setAmcPlans] = useState([]) // AMC plans for the service
   const [amcLoading, setAmcLoading] = useState(false) // AMC plans loading state
+  const [showDiscountPopup, setShowDiscountPopup] = useState(false) // Discount popup visibility
+  const [showTopBanner, setShowTopBanner] = useState(true) // Top offer banner visibility
+  const [activeOffers, setActiveOffers] = useState([]) // Active offers for banner
 
 
   // Load selected city from localStorage
@@ -296,6 +308,44 @@ const ServiceDetail = () => {
 
     fetchAMCPlans()
   }, [service])
+
+  // Fetch active offers for banner
+  useEffect(() => {
+    const fetchOffers = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/user/offers`)
+        const result = await response.json()
+        
+        if (result.success && result.data) {
+          const now = new Date()
+          const active = result.data.filter(offer => {
+            const startDate = new Date(offer.startDate)
+            const endDate = new Date(offer.endDate)
+            return now >= startDate && now <= endDate
+          })
+          setActiveOffers(active)
+        }
+      } catch (error) {
+        console.error('Error fetching offers:', error)
+      }
+    }
+    
+    fetchOffers()
+  }, [])
+
+  // Show discount popup after service loads
+  useEffect(() => {
+    if (service && !loading) {
+      // Show popup after 3 seconds delay (removed session check)
+      console.log('🎁 Service page - Setting timer to show discount popup in 3 seconds...')
+      const timer = setTimeout(() => {
+        console.log('🎁 Showing discount popup now!')
+        setShowDiscountPopup(true);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [service, loading]);
 
   // Log authentication status for debugging
   useEffect(() => {
@@ -824,7 +874,57 @@ const ServiceDetail = () => {
         url={`/service/${serviceName}`}
       />
 
-      <div className="min-h-screen bg-gray-50">
+      {/* Discount Popup */}
+      {showDiscountPopup && (
+        <DiscountPopup onClose={() => setShowDiscountPopup(false)} />
+      )}
+
+      {/* Top Offer Banner - Always Visible */}
+      <AnimatePresence>
+        {showTopBanner && activeOffers.length > 0 && (
+          <motion.div
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className="fixed top-0 left-0 right-0 z-[9998] bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white shadow-2xl"
+          >
+            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <FaGift className="w-6 h-6 flex-shrink-0" />
+                </motion.div>
+                <div className="flex-1">
+                  <p className="font-bold text-lg sm:text-xl">
+                    🎉 {activeOffers[0].offerTitle} - Get {activeOffers[0].discount}% OFF!
+                  </p>
+                  <p className="text-sm opacity-90">
+                    Use code: <span className="font-black bg-white/20 px-2 py-1 rounded">{activeOffers[0].couponCode}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDiscountPopup(true)}
+                className="bg-white text-orange-600 px-4 py-2 rounded-full font-bold hover:bg-orange-50 transition-all flex items-center gap-2 flex-shrink-0"
+              >
+                <FaTag className="w-4 h-4" />
+                View Offer
+              </button>
+              <button
+                onClick={() => setShowTopBanner(false)}
+                className="text-white/80 hover:text-white transition-colors flex-shrink-0"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="min-h-screen bg-gray-50" style={{ marginTop: showTopBanner && activeOffers.length > 0 ? '80px' : '0' }}>
         {/* Modern Hero Section */}
         <section className="relative bg-white border-b border-gray-200 py-4 sm:py-6 lg:py-8 overflow-hidden">
           {/* Subtle Background Accent */}
@@ -2349,51 +2449,7 @@ const ServiceDetail = () => {
                     </div>
                   )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {currentService.reviews.slice(0, 6).map((review, index) => (
-                    <motion.div
-                      key={review._id || index}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, margin: "-50px" }}
-                      transition={{ duration: 0.5, delay: index * 0.1 }}
-                      whileHover={{ y: -4, scale: 1.02 }}
-                      className="bg-white p-4 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all group"
-                    >
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <FaStar
-                              key={i}
-                              className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'
-                                }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-xs font-bold text-gray-600 ml-1">{review.rating}/5</span>
-                      </div>
-                      <p className="text-gray-700 mb-3 text-sm leading-relaxed line-clamp-3">{review.comment}</p>
-                      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center text-white font-bold text-xs">
-                            {(review.user?.name || 'A')[0].toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-gray-900">
-                              {review.user?.name || 'Anonymous'}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Verified Customer
-                            </p>
-                          </div>
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          {new Date(review.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                <ReviewCarousel reviews={currentService.reviews.slice(0, 6)} variant="service" />
               </motion.div>
             </div>
           </section>

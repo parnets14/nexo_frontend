@@ -56,7 +56,11 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
   const cgstAmount = Number(paymentDetails?.cgstAmount) || 0;
   const sgstAmount = Number(paymentDetails?.sgstAmount) || 0;
   const gstAmount = cgstAmount + sgstAmount;
-  const discount = Number(paymentDetails?.discount) || 0;
+  const discount = Number(invoiceData?.discount) || Number(paymentDetails?.discount) || 0;
+  const discountPercentage = Number(invoiceData?.discountPercentage) || 0;
+  const discountType = invoiceData?.discountType || 'none';
+  const offerCode = invoiceData?.offerCode || '';
+  const offerName = invoiceData?.offerName || '';
   const specialDiscount = invoiceData?.specialDiscount?.amount || 0;
   
   // Calculate subtotal before tax (services + visiting + service + emergency charges)
@@ -435,7 +439,17 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
               {/* Discount - Show if exists and > 0 */}
               {discount > 0 && (
                 <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50 px-2 rounded">
-                  <span className="text-green-700 font-medium">Discount Applied:</span>
+                  <div className="flex flex-col">
+                    <span className="text-green-700 font-medium">
+                      {offerName || 'Discount Applied'}
+                      {offerCode && ` (${offerCode})`}:
+                    </span>
+                    {discountPercentage > 0 && (
+                      <span className="text-xs text-green-600 italic mt-0.5">
+                        {discountPercentage}% discount applied
+                      </span>
+                    )}
+                  </div>
                   <span className="font-bold text-green-700">- ₹{formatCurrency(discount)}</span>
                 </div>
               )}

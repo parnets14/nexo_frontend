@@ -37,8 +37,8 @@ const PrintOptions = ({ onPrint, invoiceData }) => {
             }
             
             @page {
-              margin: 0.2in;
-              size: A4;
+              margin: 0.5in;
+              size: A4 portrait;
             }
             
             body {
@@ -60,9 +60,7 @@ const PrintOptions = ({ onPrint, invoiceData }) => {
               margin: 0 auto;
               padding: 15px;
               background: white;
-              transform: scale(0.9);
-              transform-origin: top center;
-              width: 111%;
+              width: 100%;
             }
             
             table {
@@ -240,15 +238,15 @@ const PrintOptions = ({ onPrint, invoiceData }) => {
             .w-12 { width: 2.5rem; }
             .h-12 { height: 2.5rem; }
             
-            /* Force single page */
+            /* Force proper page rendering */
             * {
               page-break-inside: avoid !important;
             }
             
             .invoice-container {
               page-break-inside: avoid !important;
-              max-height: 95vh !important;
-              overflow: hidden !important;
+              height: auto !important;
+              overflow: visible !important;
             }
             
             @media print {
@@ -256,16 +254,14 @@ const PrintOptions = ({ onPrint, invoiceData }) => {
                 font-size: 8px; 
                 margin: 0;
                 padding: 10px;
-                display: flex;
-                justify-content: center;
-                align-items: flex-start;
+                display: block;
               }
               .invoice-container { 
                 padding: 10px;
-                transform: scale(0.88);
-                transform-origin: top center;
-                width: 113.6%;
+                width: 100%;
                 margin: 0 auto;
+                height: auto;
+                overflow: visible;
               }
               
               table {
@@ -289,9 +285,7 @@ const PrintOptions = ({ onPrint, invoiceData }) => {
           </style>
         </head>
         <body>
-          <div style="max-height: 100vh; overflow: hidden; page-break-inside: avoid;">
-            ${invoiceElement.outerHTML}
-          </div>
+          ${invoiceElement.outerHTML}
         </body>
       </html>
     `);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FaWhatsapp, 
   FaTools, 
@@ -19,10 +19,15 @@ import {
   FaFilter,
   FaUserCheck,
   FaCommentDots,
-  FaMapMarkerAlt
+  FaMapMarkerAlt,
+  FaTimes,
+  FaTag,
+  FaGift
 } from 'react-icons/fa'
 import SEO from '../components/SEO'
 import CitySelectionModal from '../components/CitySelectionModal'
+import DiscountPopup from '../components/DiscountPopup'
+import ReviewCarousel from '../components/ReviewCarousel'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 import { useUserAuth } from '../context/UserAuthContext'
 import axios from 'axios'
@@ -65,6 +70,9 @@ const Home = () => {
 
   const [showCityModal, setShowCityModal] = useState(false)
   const [selectedCity, setSelectedCity] = useState(null)
+  const [showDiscountPopup, setShowDiscountPopup] = useState(false)
+  const [showTopBanner, setShowTopBanner] = useState(true)
+  const [activeOffers, setActiveOffers] = useState([])
 
   useEffect(() => {
     // Check if city is already selected
@@ -103,6 +111,42 @@ const Home = () => {
     setSelectedCity(city);
     setShowCityModal(false);
   };
+
+  // Fetch active offers for banner
+  useEffect(() => {
+    const fetchOffers = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/user/offers`)
+        const result = await response.json()
+        
+        if (result.success && result.data) {
+          const now = new Date()
+          const active = result.data.filter(offer => {
+            const startDate = new Date(offer.startDate)
+            const endDate = new Date(offer.endDate)
+            return now >= startDate && now <= endDate
+          })
+          setActiveOffers(active)
+        }
+      } catch (error) {
+        console.error('Error fetching offers:', error)
+      }
+    }
+    
+    fetchOffers()
+  }, [])
+
+  // Show discount popup after city selection or on page load
+  useEffect(() => {
+    // Show popup after 2 seconds delay (removed session check to always show)
+    console.log('🎁 Setting timer to show discount popup in 2 seconds...')
+    const timer = setTimeout(() => {
+      console.log('🎁 Showing discount popup now!')
+      setShowDiscountPopup(true);
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // Periodic check to verify selected city is still enabled
   useEffect(() => {
@@ -311,9 +355,59 @@ const Home = () => {
         onCitySelect={handleCitySelect}
       />
       
+      {/* Discount Popup */}
+      {showDiscountPopup && (
+        <DiscountPopup onClose={() => setShowDiscountPopup(false)} />
+      )}
+      
+      {/* Top Offer Banner - Always Visible */}
+      <AnimatePresence>
+        {showTopBanner && activeOffers.length > 0 && (
+          <motion.div
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className="fixed top-0 left-0 right-0 z-[9998] bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white shadow-2xl"
+          >
+            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <FaGift className="w-6 h-6 flex-shrink-0" />
+                </motion.div>
+                <div className="flex-1">
+                  <p className="font-bold text-lg sm:text-xl">
+                    🎉 {activeOffers[0].offerTitle} - Get {activeOffers[0].discount}% OFF!
+                  </p>
+                  <p className="text-sm opacity-90">
+                    Use code: <span className="font-black bg-white/20 px-2 py-1 rounded">{activeOffers[0].couponCode}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDiscountPopup(true)}
+                className="bg-white text-orange-600 px-4 py-2 rounded-full font-bold hover:bg-orange-50 transition-all flex items-center gap-2 flex-shrink-0"
+              >
+                <FaTag className="w-4 h-4" />
+                View Offer
+              </button>
+              <button
+                onClick={() => setShowTopBanner(false)}
+                className="text-white/80 hover:text-white transition-colors flex-shrink-0"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
       <div className="overflow-x-hidden w-full max-w-full">
         {/* Enhanced Hero Section with Professional Background Animations */}
-        <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary-dark to-primary overflow-hidden w-full max-w-full">
+        <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary-dark to-primary overflow-hidden w-full max-w-full pt-20" style={{ marginTop: showTopBanner && activeOffers.length > 0 ? '80px' : '0' }}>
           {/* Animated Background Pattern with Motion */}
           <div className="absolute inset-0 opacity-10">
             <motion.div
@@ -1088,27 +1182,7 @@ const Home = () => {
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-3 sm:mb-4">Customer Reviews</h2>
             </motion.div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {reviews.map((review, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{ duration: 0.5, delay: index * 0.2 }}
-                  whileHover={{ y: -5 }}
-                  className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border-l-4 border-primary"
-                >
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(review.rating)].map((_, i) => (
-                      <span key={i} className="text-yellow-400 text-lg sm:text-xl">★</span>
-                    ))}
-                  </div>
-                  <p className="text-gray-700 text-base sm:text-lg mb-4 italic">"{review.text}"</p>
-                  <p className="text-primary font-semibold">— {review.author}</p>
-                </motion.div>
-              ))}
-            </div>
+            <ReviewCarousel reviews={reviews} variant="home" />
           </div>
         </section>
       </div>

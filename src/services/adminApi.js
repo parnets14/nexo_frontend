@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_ADMIN_API_BASE_URL ||
-  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
+  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
 
 const buildUrl = (path) => {
   // Handle both /api/admin and /admin routes
@@ -1173,19 +1173,97 @@ export const adminApi = {
   },
 
   async createPopularService(token, serviceData) {
+    const formData = new FormData()
+    
+    // Add all service fields
+    formData.append('name', serviceData.name)
+    formData.append('slug', serviceData.slug)
+    formData.append('icon', serviceData.icon)
+    formData.append('description', serviceData.description || '')
+    formData.append('shortNotes', serviceData.shortNotes || '')
+    formData.append('price', serviceData.price || '')
+    formData.append('basePrice', serviceData.basePrice || 0)
+    formData.append('discount', serviceData.discount || 0)
+    formData.append('discountType', serviceData.discountType || 'percentage')
+    formData.append('cgst', serviceData.cgst || 0)
+    formData.append('sgst', serviceData.sgst || 0)
+    formData.append('serviceCharge', serviceData.serviceCharge || 0)
+    formData.append('serviceChargeType', serviceData.serviceChargeType || 'amount')
+    formData.append('visitingCharge', serviceData.visitingCharge || 0)
+    formData.append('trusted', serviceData.trusted || 'Trusted by thousands of homes')
+    formData.append('order', serviceData.order || 0)
+    formData.append('isActive', serviceData.isActive !== undefined ? serviceData.isActive : true)
+    
+    // Add arrays as JSON strings
+    formData.append('included', JSON.stringify(serviceData.included || []))
+    formData.append('excluded', JSON.stringify(serviceData.excluded || []))
+    formData.append('addOns', JSON.stringify(serviceData.addOns || []))
+    formData.append('cities', JSON.stringify(serviceData.cities || []))
+    formData.append('emergencyService', JSON.stringify(serviceData.emergencyService || { enabled: false, extraAmount: 0 }))
+    
+    // Add SEO fields
+    const seoData = { ...serviceData.seo }
+    if (serviceData.ogImageFile) {
+      formData.append('ogImage', serviceData.ogImageFile)
+      delete seoData.ogImage // Remove URL if file is provided
+    }
+    formData.append('seo', JSON.stringify(seoData))
+
     const response = await fetch(buildUrl('/api/admin/popular-services'), {
       method: 'POST',
-      headers: getDefaultHeaders(token),
-      body: JSON.stringify(serviceData)
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: formData
     })
     return handleResponse(response)
   },
 
   async updatePopularService(token, serviceId, serviceData) {
+    const formData = new FormData()
+    
+    // Add all service fields
+    if (serviceData.name) formData.append('name', serviceData.name)
+    if (serviceData.slug) formData.append('slug', serviceData.slug)
+    if (serviceData.icon) formData.append('icon', serviceData.icon)
+    if (serviceData.description !== undefined) formData.append('description', serviceData.description)
+    if (serviceData.shortNotes !== undefined) formData.append('shortNotes', serviceData.shortNotes)
+    if (serviceData.price !== undefined) formData.append('price', serviceData.price)
+    if (serviceData.basePrice !== undefined) formData.append('basePrice', serviceData.basePrice)
+    if (serviceData.discount !== undefined) formData.append('discount', serviceData.discount)
+    if (serviceData.discountType) formData.append('discountType', serviceData.discountType)
+    if (serviceData.cgst !== undefined) formData.append('cgst', serviceData.cgst)
+    if (serviceData.sgst !== undefined) formData.append('sgst', serviceData.sgst)
+    if (serviceData.serviceCharge !== undefined) formData.append('serviceCharge', serviceData.serviceCharge)
+    if (serviceData.serviceChargeType) formData.append('serviceChargeType', serviceData.serviceChargeType)
+    if (serviceData.visitingCharge !== undefined) formData.append('visitingCharge', serviceData.visitingCharge)
+    if (serviceData.trusted !== undefined) formData.append('trusted', serviceData.trusted)
+    if (serviceData.order !== undefined) formData.append('order', serviceData.order)
+    if (serviceData.isActive !== undefined) formData.append('isActive', serviceData.isActive)
+    
+    // Add arrays as JSON strings
+    if (serviceData.included) formData.append('included', JSON.stringify(serviceData.included))
+    if (serviceData.excluded) formData.append('excluded', JSON.stringify(serviceData.excluded))
+    if (serviceData.addOns) formData.append('addOns', JSON.stringify(serviceData.addOns))
+    if (serviceData.cities) formData.append('cities', JSON.stringify(serviceData.cities))
+    if (serviceData.emergencyService) formData.append('emergencyService', JSON.stringify(serviceData.emergencyService))
+    
+    // Add SEO fields
+    if (serviceData.seo) {
+      const seoData = { ...serviceData.seo }
+      if (serviceData.ogImageFile) {
+        formData.append('ogImage', serviceData.ogImageFile)
+        delete seoData.ogImage // Remove URL if file is provided
+      }
+      formData.append('seo', JSON.stringify(seoData))
+    }
+
     const response = await fetch(buildUrl(`/api/admin/popular-services/${serviceId}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(token),
-      body: JSON.stringify(serviceData)
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: formData
     })
     return handleResponse(response)
   },

@@ -124,7 +124,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
       visitingCharge: visitingChg,
       serviceCharge: serviceChg,
       emergencyCharge: emergencyChg,
-      baseServiceAmount,
+      mainServiceAmount,
       bookingTotalAmount: booking.totalAmount,
       quotationExists: !!quotation,
       quotationStatus: quotation?.customerStatus,
@@ -161,6 +161,11 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
       cgstAmount: Number(booking.cgstAmount) || 0,
       sgstAmount: Number(booking.sgstAmount) || 0,
       subtotalBeforeTax: Number(booking.subtotalBeforeTax) || Number(booking.amount) || 0,
+      discount: Number(booking.discount) || 0,
+      discountPercentage: Number(booking.discountPercentage) || 0,
+      discountType: booking.discountType || 'none',
+      offerCode: booking.offerCode || '',
+      offerName: booking.offerName || '',
       specialDiscount: booking.specialDiscount || null,
       paymentDetails: {
         method: booking.paymentMethod || booking.paymentMode || 'Cash',
@@ -215,7 +220,11 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
   const sgstPercent = Number(actualInvoiceData.sgst) || 9;
   const gstAmount = cgstAmount + sgstAmount;
   
-  const discount = Number(paymentDetails?.discount) || 0;
+  const discount = Number(actualInvoiceData.discount) || Number(paymentDetails?.discount) || 0;
+  const discountPercentage = Number(actualInvoiceData.discountPercentage) || 0;
+  const discountType = actualInvoiceData.discountType || 'none';
+  const offerCode = actualInvoiceData.offerCode || '';
+  const offerName = actualInvoiceData.offerName || '';
   const specialDiscount = actualInvoiceData.specialDiscount?.amount || 0;
   
   // Calculate subtotal before tax (services + visiting + service + emergency charges)
@@ -547,8 +556,18 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
             
             {/* Discount - Show if greater than 0 */}
             {discount > 0 && (
-              <div className="flex justify-between py-2 text-sm border-b border-gray-200">
-                <span className="text-green-700 font-medium">Offer Discount:</span>
+              <div className="flex justify-between py-2 text-sm border-b border-gray-200 bg-green-50 px-2 -mx-2">
+                <div className="flex flex-col">
+                  <span className="text-green-700 font-medium">
+                    {offerName || 'Offer Discount'}
+                    {offerCode && ` (${offerCode})`}:
+                  </span>
+                  {discountPercentage > 0 && (
+                    <span className="text-xs text-green-600 italic">
+                      {discountPercentage}% discount applied
+                    </span>
+                  )}
+                </div>
                 <span className="font-semibold text-green-600">-₹{Number(discount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
