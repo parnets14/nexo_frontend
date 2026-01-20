@@ -28,6 +28,55 @@ const JobsManagementTab = () => {
   const [selectedBookingMedia, setSelectedBookingMedia] = useState(null) // For media modal
   const [showMediaModal, setShowMediaModal] = useState(false)
 
+  // Helper function to calculate partner's visible amount
+  // Partners should only see:
+  // - If service booked: Base service price only (hide visiting charge, GST, discounts)
+  // - If only visiting charge: Visiting charge only
+  const calculatePartnerVisibleAmount = (booking) => {
+    // Check if service is booked
+    const hasService = (booking.baseServiceAmount && booking.baseServiceAmount > 0) || 
+                      (booking.cartTotal && booking.cartTotal > 0) || 
+                      (booking.selectedAddOns && booking.selectedAddOns.length > 0) ||
+                      (booking.selectedSubServices && booking.selectedSubServices.length > 0) ||
+                      (booking.amount && booking.amount > 0 && booking.paymentOption !== 'visiting')
+    
+    if (!hasService && booking.visitingCharge && booking.visitingCharge > 0) {
+      // Case 2: Only visiting charge paid, no service booked
+      return {
+        visibleAmount: booking.visitingCharge,
+        isOnlyVisitingCharge: true,
+        description: 'Visiting Charge Only'
+      }
+    } else {
+      // Case 1: Service is booked - show only service price (hide visiting charge, GST, discounts)
+      const serviceAmount = (booking.baseServiceAmount || 0) + 
+                           (booking.addOnsAmount || 0) + 
+                           (booking.subServicesAmount || 0) ||
+                           (booking.cartTotal || 0) ||
+                           (booking.amount || 0)
+      
+      return {
+        visibleAmount: serviceAmount,
+        isOnlyVisitingCharge: false,
+        description: 'Service Amount'
+      }
+    }
+  }
+
+  // Calculate partner earnings (85% of visible amount, 15% platform commission)
+  const calculatePartnerEarnings = (visibleAmount) => {
+    const commissionRate = 15
+    const commissionAmount = (visibleAmount * commissionRate) / 100
+    const partnerEarning = visibleAmount - commissionAmount
+    
+    return {
+      visibleAmount,
+      commissionRate,
+      commissionAmount,
+      partnerEarning
+    }
+  }
+
   // Helper function to retry failed requests
   const retryWithDelay = async (fn, retries = 2, delay = 1000) => {
     try {
@@ -693,6 +742,110 @@ const JobsManagementTab = () => {
                         <p className="text-sm text-slate-800 font-medium mb-2">
                           {booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || 'Service'}
                         </p>
+                        
+                        {/* Payment Status Section - Partner View */}
+                        {booking.paymentStatus && (() => {
+                          const partnerAmount = calculatePartnerVisibleAmount(booking)
+                          const earnings = calculatePartnerEarnings(partnerAmount.visibleAmount)
+                          
+                          return (
+                            <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
+                              <h6 className="text-xs font-bold text-purple-900 mb-2 flex items-center gap-2">
+                                <FiDollarSign className="w-4 h-4" />
+                                Your Earnings Information
+                              </h6>
+                              
+                              {booking.paymentStatus === 'partial' ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-purple-700 font-semibold">Payment Status:</span>
+                                    <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-bold border border-orange-300">
+                                      ⚠️ PARTIAL PAYMENT
+                                    </span>
+                                  </div>
+                                  <div className="bg-white rounded p-2 space-y-1">
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-gray-600">{partnerAmount.description}:</span>
+                                      <span className="text-blue-600 font-bold">₹{partnerAmount.visibleAmount}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-gray-600">Platform Commission (15%):</span>
+                                      <span className="text-red-600 font-semibold">- ₹{earnings.commissionAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="border-t border-gray-200 pt-1 mt-1">
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-gray-700 font-bold">Your Earning:</span>
+                                        <span className="text-green-600 font-bold text-sm">₹{earnings.partnerEarning.toFixed(2)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="bg-orange-50 border border-orange-200 rounded p-2 mt-2">
+                                    <p className="text-xs text-orange-800 font-medium">
+                                      ⚠️ Customer needs to complete payment
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : booking.paymentStatus === 'completed' ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-purple-700 font-semibold">Payment Status:</span>
+                                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold border border-green-300">
+                                      ✅ PAYMENT COMPLETED
+                                    </span>
+                                  </div>
+                                  <div className="bg-white rounded p-2 space-y-1">
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-gray-600">{partnerAmount.description}:</span>
+                                      <span className="text-blue-600 font-bold">₹{partnerAmount.visibleAmount}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-gray-600">Platform Commission (15%):</span>
+                                      <span className="text-red-600 font-semibold">- ₹{earnings.commissionAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="border-t border-gray-200 pt-1 mt-1">
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-gray-700 font-bold">Your Earning:</span>
+                                        <span className="text-green-600 font-bold text-sm">₹{earnings.partnerEarning.toFixed(2)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {partnerAmount.isOnlyVisitingCharge && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded p-2 mt-2">
+                                      <p className="text-xs text-blue-800 font-medium">
+                                        ℹ️ This is a visiting charge only booking
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-purple-700 font-semibold">Payment Status:</span>
+                                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold border border-yellow-300">
+                                      {booking.paymentStatus?.toUpperCase() || 'PENDING'}
+                                    </span>
+                                  </div>
+                                  <div className="bg-white rounded p-2 space-y-1">
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-gray-600">{partnerAmount.description}:</span>
+                                      <span className="text-blue-600 font-bold">₹{partnerAmount.visibleAmount}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-gray-600">Platform Commission (15%):</span>
+                                      <span className="text-red-600 font-semibold">- ₹{earnings.commissionAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="border-t border-gray-200 pt-1 mt-1">
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-gray-700 font-bold">Your Earning:</span>
+                                        <span className="text-green-600 font-bold text-sm">₹{earnings.partnerEarning.toFixed(2)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
                         
                         {/* Add-ons */}
                         {booking.selectedAddOns && booking.selectedAddOns.length > 0 && (

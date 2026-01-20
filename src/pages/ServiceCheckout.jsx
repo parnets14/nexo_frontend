@@ -103,6 +103,9 @@ const ServiceCheckout = () => {
   const [formErrors, setFormErrors] = useState({})
   const [confirmationDialog, setConfirmationDialog] = useState({ isOpen: false, plan: null, addressData: null })
 
+  // Payment option state - 'visiting' or 'total'
+  const [paymentOption, setPaymentOption] = useState('total')
+
   // Offer/Coupon state
   const [offers, setOffers] = useState([])
   const [offerCode, setOfferCode] = useState('')
@@ -1006,6 +1009,23 @@ const ServiceCheckout = () => {
   }
 
   const calculateFinalAmount = () => {
+    // If paying visiting charge only
+    if (paymentOption === 'visiting') {
+      const visitingCharge = getVisitingCharge()
+      const cgst = serviceData.cgst || 9
+      const sgst = serviceData.sgst || 9
+      const totalGstRate = cgst + sgst
+      const gst = Math.round(visitingCharge * totalGstRate / 100)
+      const total = visitingCharge + gst
+      
+      if (useWallet && walletAmount > 0) {
+        return Math.max(0, total - walletAmount)
+      }
+      
+      return total
+    }
+    
+    // If paying total amount
     const totalAfterDiscount = calculateTotalAfterDiscount()
     const cgst = serviceData.cgst || 9 // Default CGST 9%
     const sgst = serviceData.sgst || 9 // Default SGST 9%
@@ -1025,11 +1045,20 @@ const ServiceCheckout = () => {
     setUseWallet(newUseWallet)
     
     if (newUseWallet) {
-      const totalAfterDiscount = calculateTotalAfterDiscount()
-      const cgst = serviceData.cgst || 9
-      const sgst = serviceData.sgst || 9
-      const totalGstRate = cgst + sgst
-      const total = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+      let total
+      if (paymentOption === 'visiting') {
+        const visitingCharge = getVisitingCharge()
+        const cgst = serviceData.cgst || 9
+        const sgst = serviceData.sgst || 9
+        const totalGstRate = cgst + sgst
+        total = Math.round(visitingCharge * (1 + totalGstRate / 100))
+      } else {
+        const totalAfterDiscount = calculateTotalAfterDiscount()
+        const cgst = serviceData.cgst || 9
+        const sgst = serviceData.sgst || 9
+        const totalGstRate = cgst + sgst
+        total = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+      }
       const maxWalletUse = Math.min(walletBalance, total)
       setWalletAmount(maxWalletUse)
       setCustomWalletAmount('')
@@ -1043,11 +1072,20 @@ const ServiceCheckout = () => {
 
   const handleCustomWalletAmount = (value) => {
     const amount = parseFloat(value) || 0
-    const totalAfterDiscount = calculateTotalAfterDiscount()
-    const cgst = serviceData.cgst || 9
-    const sgst = serviceData.sgst || 9
-    const totalGstRate = cgst + sgst
-    const total = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+    let total
+    if (paymentOption === 'visiting') {
+      const visitingCharge = getVisitingCharge()
+      const cgst = serviceData.cgst || 9
+      const sgst = serviceData.sgst || 9
+      const totalGstRate = cgst + sgst
+      total = Math.round(visitingCharge * (1 + totalGstRate / 100))
+    } else {
+      const totalAfterDiscount = calculateTotalAfterDiscount()
+      const cgst = serviceData.cgst || 9
+      const sgst = serviceData.sgst || 9
+      const totalGstRate = cgst + sgst
+      total = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+    }
     const maxWalletUse = Math.min(walletBalance, total)
     
     if (amount > maxWalletUse) {
@@ -1144,6 +1182,7 @@ const ServiceCheckout = () => {
         isEmergency: serviceData.isEmergency || false,
         useWallet: useWallet,
         walletAmount: walletAmount,
+        paymentOption: paymentOption, // 'visiting' or 'total'
         // Offer information
         appliedOffer: appliedOffer ? {
           offerId: appliedOffer._id,
@@ -1152,6 +1191,18 @@ const ServiceCheckout = () => {
           discountAmount: calculateOfferDiscount()
         } : null
       }
+
+      // Debug logging
+      console.log('🔍 ============================================')
+      console.log('🔍 PAYMENT SUBMISSION DEBUG')
+      console.log('🔍 ============================================')
+      console.log('   Payment Option:', paymentOption)
+      console.log('   Visiting Charge:', getVisitingCharge())
+      console.log('   Total Before Tax:', calculateTotalBeforeTax())
+      console.log('   Wallet Amount:', walletAmount)
+      console.log('   Use Wallet:', useWallet)
+      console.log('   Final Amount to Pay:', calculateFinalAmount())
+      console.log('🔍 ============================================')
 
       // Create booking and initiate PayU payment
       const response = await axios.post(
@@ -1236,6 +1287,7 @@ const ServiceCheckout = () => {
         useWallet: true,
         walletAmount: walletAmount,
         paymentMode: 'wallet',
+        paymentOption: paymentOption, // 'visiting' or 'total'
         // Offer information
         appliedOffer: appliedOffer ? {
           offerId: appliedOffer._id,
@@ -2079,92 +2131,319 @@ const ServiceCheckout = () => {
 
               {/* Price Breakdown */}
               <div className="border-t border-gray-200 pt-4 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Service Subtotal</span>
-                    <span className="font-medium">₹{calculateSubtotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  
-                  {/* Visiting Charge */}
-                  {getVisitingCharge() > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Visiting Charge</span>
-                      <span className="font-medium text-amber-600">+₹{getVisitingCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  
-                  {/* Service Charge */}
-                  {getServiceCharge() > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Platform Fee</span>
-                      <span className="font-medium text-blue-600">+₹{getServiceCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  
-                  {/* Emergency Charge */}
-                  {getEmergencyCharge() > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 flex items-center gap-1">
-                        <span className="text-red-500">🚨</span>
-                        Emergency Service Charge
-                      </span>
-                      <span className="font-medium text-red-600">+₹{getEmergencyCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  
-                  {/* Subtotal Before Tax */}
-                  {(getVisitingCharge() > 0 || getServiceCharge() > 0 || getEmergencyCharge() > 0) && (
-                    <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
-                      <span className="text-gray-700 font-medium">Subtotal (Before Tax)</span>
-                      <span className="font-semibold text-gray-900">₹{calculateTotalBeforeTax().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  
-                  {/* Offer/Discount Section */}
-                  {appliedOffer && (
-                    <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-700 font-medium">Offer Discount ({appliedOffer.discount}%)</span>
-                        <button
-                          onClick={handleRemoveOffer}
-                          className="text-red-500 hover:text-red-700 text-xs"
-                          title="Remove offer"
-                        >
-                          ✕
-                        </button>
+                {/* Payment Option Selection */}
+                {getVisitingCharge() > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Choose Payment Option</h3>
+                    
+                    <div className="space-y-3">
+                      {/* Pay Visiting Charge Only - Highlighted Style */}
+                      <div
+                        onClick={() => {
+                          setPaymentOption('visiting')
+                          if (useWallet) {
+                            const visitingCharge = getVisitingCharge()
+                            const cgst = serviceData.cgst || 9
+                            const sgst = serviceData.sgst || 9
+                            const totalGstRate = cgst + sgst
+                            const total = Math.round(visitingCharge * (1 + totalGstRate / 100))
+                            const maxWalletUse = Math.min(walletBalance, total)
+                            setWalletAmount(maxWalletUse)
+                          }
+                        }}
+                        className={`relative overflow-hidden rounded-xl cursor-pointer transition-all ${
+                          paymentOption === 'visiting'
+                            ? 'shadow-lg scale-[1.02]'
+                            : 'shadow hover:shadow-md'
+                        }`}
+                      >
+                        {/* Gradient Background */}
+                        <div className={`absolute inset-0 ${
+                          paymentOption === 'visiting'
+                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                            : 'bg-gradient-to-br from-blue-400 to-indigo-500 opacity-90'
+                        }`}></div>
+                        
+                        {/* Content */}
+                        <div className="relative p-4 text-white">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-5 h-5 rounded-full border-2 border-white flex items-center justify-center ${
+                                paymentOption === 'visiting' ? 'bg-white' : 'bg-transparent'
+                              }`}>
+                                {paymentOption === 'visiting' && (
+                                  <div className="w-2.5 h-2.5 bg-blue-600 rounded-full"></div>
+                                )}
+                              </div>
+                              <span className="text-xs font-medium bg-white/20 px-2 py-0.5 rounded-full">
+                                Quick Booking
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold">
+                                ₹{(() => {
+                                  const visitingCharge = getVisitingCharge()
+                                  const cgst = serviceData.cgst || 9
+                                  const sgst = serviceData.sgst || 9
+                                  const totalGstRate = cgst + sgst
+                                  const gst = Math.round(visitingCharge * totalGstRate / 100)
+                                  return (visitingCharge + gst).toLocaleString('en-IN')
+                                })()}
+                              </div>
+                              <div className="text-xs opacity-90">Pay Now</div>
+                            </div>
+                          </div>
+                          
+                          <h4 className="text-base font-bold mb-1">
+                            Pay Visiting Charge to Confirm Booking
+                          </h4>
+                          
+                          {paymentOption === 'visiting' && (
+                            <div className="mt-3 pt-3 border-t border-white/30">
+                              <div className="bg-white/10 rounded-lg p-2 space-y-1 text-xs">
+                                <div className="flex justify-between">
+                                  <span>Visiting Charge</span>
+                                  <span>₹{getVisitingCharge()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>GST ({(serviceData.cgst || 9) + (serviceData.sgst || 9)}%)</span>
+                                  <span>₹{(getVisitingCharge() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between pt-1 border-t border-white/30 font-semibold">
+                                  <span>Total Now</span>
+                                  <span>₹{(() => {
+                                    const visitingCharge = getVisitingCharge()
+                                    const cgst = serviceData.cgst || 9
+                                    const sgst = serviceData.sgst || 9
+                                    const totalGstRate = cgst + sgst
+                                    const gst = Math.round(visitingCharge * totalGstRate / 100)
+                                    return (visitingCharge + gst).toFixed(2)
+                                  })()}</span>
+                                </div>
+                              </div>
+                              <div className="mt-2 bg-amber-400/20 rounded-lg p-2 text-xs">
+                                <span className="font-semibold">Pay Later:</span> ₹{(() => {
+                                  const totalAfterDiscount = calculateTotalAfterDiscount()
+                                  const cgst = serviceData.cgst || 9
+                                  const sgst = serviceData.sgst || 9
+                                  const totalGstRate = cgst + sgst
+                                  const totalWithGst = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+                                  const visitingWithGst = Math.round(getVisitingCharge() * (1 + totalGstRate / 100))
+                                  return (totalWithGst - visitingWithGst).toLocaleString('en-IN')
+                                })()} after service
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <span className="font-semibold text-green-600">-₹{calculateOfferDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  
-                  {/* Total After Discount */}
-                  {appliedOffer && (
-                    <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
-                      <span className="text-gray-700 font-medium">Total After Discount</span>
-                      <span className="font-semibold text-gray-900">₹{calculateTotalAfterDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  
-                  {/* Tax Breakdown */}
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-2 mt-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">CGST ({serviceData.cgst || 9}%)</span>
-                      <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.cgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">SGST ({serviceData.sgst || 9}%)</span>
-                      <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.sgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                      <span className="text-gray-700 font-medium">Total GST</span>
-                      <span className="font-semibold text-gray-900">₹{(calculateTotalAfterDiscount() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+
+                      {/* Pay Total Amount - Simple Style */}
+                      <div
+                        onClick={() => {
+                          setPaymentOption('total')
+                          if (useWallet) {
+                            const totalAfterDiscount = calculateTotalAfterDiscount()
+                            const cgst = serviceData.cgst || 9
+                            const sgst = serviceData.sgst || 9
+                            const totalGstRate = cgst + sgst
+                            const total = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+                            const maxWalletUse = Math.min(walletBalance, total)
+                            setWalletAmount(maxWalletUse)
+                          }
+                        }}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                          paymentOption === 'total'
+                            ? 'border-green-500 bg-green-50 shadow-md'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 ${
+                            paymentOption === 'total' 
+                              ? 'border-green-500 bg-green-500' 
+                              : 'border-gray-300'
+                          }`}>
+                            {paymentOption === 'total' && (
+                              <div className="w-2 h-2 bg-white rounded-full"></div>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-semibold text-gray-900">Pay Full Amount</h4>
+                                <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                                  Recommended
+                                </span>
+                              </div>
+                              <span className="text-lg font-bold text-green-600">
+                                ₹{(() => {
+                                  const totalAfterDiscount = calculateTotalAfterDiscount()
+                                  const cgst = serviceData.cgst || 9
+                                  const sgst = serviceData.sgst || 9
+                                  const totalGstRate = cgst + sgst
+                                  const gst = Math.round(totalAfterDiscount * totalGstRate / 100)
+                                  return (totalAfterDiscount + gst).toLocaleString('en-IN')
+                                })()}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-600">
+                              Pay everything now, nothing after service
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                )}
+
+                <div className="space-y-2">
+                  {/* Show different breakdown based on payment option */}
+                  {paymentOption === 'visiting' ? (
+                    // Visiting Charge Only Breakdown
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Visiting Charge</span>
+                        <span className="font-medium">₹{getVisitingCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      
+                      {/* Tax Breakdown for Visiting Charge */}
+                      <div className="bg-gray-50 rounded-lg p-3 space-y-2 mt-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">CGST ({serviceData.cgst || 9}%)</span>
+                          <span className="font-medium text-gray-700">₹{(getVisitingCharge() * (serviceData.cgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">SGST ({serviceData.sgst || 9}%)</span>
+                          <span className="font-medium text-gray-700">₹{(getVisitingCharge() * (serviceData.sgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                          <span className="text-gray-700 font-medium">Total GST</span>
+                          <span className="font-semibold text-gray-900">₹{(getVisitingCharge() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Remaining Amount Info */}
+                      <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                        <div className="flex items-start gap-2">
+                          <FaInfoCircle className="text-amber-600 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs font-semibold text-amber-800 mb-1">Remaining Amount</p>
+                            <p className="text-xs text-amber-700">
+                              ₹{(() => {
+                                const totalAfterDiscount = calculateTotalAfterDiscount()
+                                const cgst = serviceData.cgst || 9
+                                const sgst = serviceData.sgst || 9
+                                const totalGstRate = cgst + sgst
+                                const totalWithGst = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+                                const visitingWithGst = Math.round(getVisitingCharge() * (1 + totalGstRate / 100))
+                                return (totalWithGst - visitingWithGst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                              })()} will be payable after service completion
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Total Amount Breakdown
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Service Subtotal</span>
+                        <span className="font-medium">₹{calculateSubtotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      
+                      {/* Visiting Charge */}
+                      {getVisitingCharge() > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Visiting Charge</span>
+                          <span className="font-medium text-amber-600">+₹{getVisitingCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                      
+                      {/* Service Charge */}
+                      {getServiceCharge() > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Platform Fee</span>
+                          <span className="font-medium text-blue-600">+₹{getServiceCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                      
+                      {/* Emergency Charge */}
+                      {getEmergencyCharge() > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 flex items-center gap-1">
+                            <span className="text-red-500">🚨</span>
+                            Emergency Service Charge
+                          </span>
+                          <span className="font-medium text-red-600">+₹{getEmergencyCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                      
+                      {/* Subtotal Before Tax */}
+                      {(getVisitingCharge() > 0 || getServiceCharge() > 0 || getEmergencyCharge() > 0) && (
+                        <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                          <span className="text-gray-700 font-medium">Subtotal (Before Tax)</span>
+                          <span className="font-semibold text-gray-900">₹{calculateTotalBeforeTax().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                      
+                      {/* Offer/Discount Section */}
+                      {appliedOffer && (
+                        <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <span className="text-green-700 font-medium">Offer Discount ({appliedOffer.discount}%)</span>
+                            <button
+                              onClick={handleRemoveOffer}
+                              className="text-red-500 hover:text-red-700 text-xs"
+                              title="Remove offer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <span className="font-semibold text-green-600">-₹{calculateOfferDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                      
+                      {/* Total After Discount */}
+                      {appliedOffer && (
+                        <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                          <span className="text-gray-700 font-medium">Total After Discount</span>
+                          <span className="font-semibold text-gray-900">₹{calculateTotalAfterDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                      
+                      {/* Tax Breakdown */}
+                      <div className="bg-gray-50 rounded-lg p-3 space-y-2 mt-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">CGST ({serviceData.cgst || 9}%)</span>
+                          <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.cgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">SGST ({serviceData.sgst || 9}%)</span>
+                          <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.sgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                          <span className="text-gray-700 font-medium">Total GST</span>
+                          <span className="font-semibold text-gray-900">₹{(calculateTotalAfterDiscount() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                   
                   {/* Total Before Wallet */}
                   <div className="flex justify-between text-base font-semibold text-gray-900 pt-2 border-t border-gray-200">
-                    <span>Total Amount</span>
-                    <span>₹{(calculateTotalAfterDiscount() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span>{paymentOption === 'visiting' ? 'Visiting Charge Total' : 'Total Amount'}</span>
+                    <span>₹{(() => {
+                      if (paymentOption === 'visiting') {
+                        const visitingCharge = getVisitingCharge()
+                        const cgst = serviceData.cgst || 9
+                        const sgst = serviceData.sgst || 9
+                        const totalGstRate = cgst + sgst
+                        return (visitingCharge * (1 + totalGstRate / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      } else {
+                        return (calculateTotalAfterDiscount() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      }
+                    })()}</span>
                   </div>
                 </div>
                 
@@ -2347,7 +2626,17 @@ const ServiceCheckout = () => {
                               onChange={(e) => handleCustomWalletAmount(e.target.value)}
                               placeholder="Enter amount"
                               min="0"
-                              max={Math.min(walletBalance, Math.round(calculateTotalBeforeTax() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)))}
+                              max={(() => {
+                                if (paymentOption === 'visiting') {
+                                  const visitingCharge = getVisitingCharge()
+                                  const cgst = serviceData.cgst || 9
+                                  const sgst = serviceData.sgst || 9
+                                  const totalGstRate = cgst + sgst
+                                  return Math.min(walletBalance, Math.round(visitingCharge * (1 + totalGstRate / 100)))
+                                } else {
+                                  return Math.min(walletBalance, Math.round(calculateTotalBeforeTax() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)))
+                                }
+                              })()}
                               className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                             />
                           </div>
@@ -2358,7 +2647,17 @@ const ServiceCheckout = () => {
                           </div>
                         )}
                         
-                        {walletAmount >= Math.round(calculateTotalBeforeTax() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)) && (
+                        {walletAmount >= (() => {
+                          if (paymentOption === 'visiting') {
+                            const visitingCharge = getVisitingCharge()
+                            const cgst = serviceData.cgst || 9
+                            const sgst = serviceData.sgst || 9
+                            const totalGstRate = cgst + sgst
+                            return Math.round(visitingCharge * (1 + totalGstRate / 100))
+                          } else {
+                            return Math.round(calculateTotalBeforeTax() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100))
+                          }
+                        })() && (
                           <div className="flex items-start gap-2 bg-blue-50 rounded-lg p-2">
                             <FaInfoCircle className="text-blue-500 mt-0.5 flex-shrink-0" />
                             <p className="text-xs text-blue-700">
@@ -2434,6 +2733,8 @@ const ServiceCheckout = () => {
                 className={`w-full mt-6 text-white py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
                   calculateFinalAmount() === 0 
                     ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700' 
+                    : paymentOption === 'visiting'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
                     : 'bg-gradient-to-r from-primary to-primary-dark'
                 }`}
               >
@@ -2446,6 +2747,11 @@ const ServiceCheckout = () => {
                   <>
                     <FaWallet />
                     Confirm Booking (Pay via Wallet)
+                  </>
+                ) : paymentOption === 'visiting' ? (
+                  <>
+                    <FaCreditCard />
+                    Pay Visiting Charge - ₹{calculateFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </>
                 ) : useWallet && walletAmount > 0 ? (
                   <>
@@ -2465,6 +2771,8 @@ const ServiceCheckout = () => {
                 <span>
                   {calculateFinalAmount() === 0 
                     ? '100% payment via Wallet - Secure & Instant' 
+                    : paymentOption === 'visiting'
+                    ? `Paying visiting charge only - Remaining amount payable after service`
                     : useWallet && walletAmount > 0
                     ? `₹${walletAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} from wallet + ₹${calculateFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2 })} via PayU`
                     : 'Secure payment powered by PayU'}

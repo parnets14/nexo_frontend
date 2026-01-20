@@ -459,45 +459,64 @@ const isCancellationAllowed = (bookingData) => {
     printWindow.document.write('<style>');
     printWindow.document.write(`
       @page {
-        size: A4;
-        margin: 20mm;
+        size: A4 portrait;
+        margin: 0;
+      }
+      
+      html, body { 
+        width: 210mm;
+        height: 297mm;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
       }
       
       body { 
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-        padding: 0;
-        margin: 0;
         color: #333;
-        line-height: 1.4;
+        line-height: 1.1;
+        font-size: 9px;
       }
       
       .invoice-container { 
-        max-width: 800px; 
-        margin: 0 auto; 
+        width: 210mm;
+        height: 297mm;
+        margin: 0;
+        padding: 8mm;
         background: white;
-        border: 2px solid #e5e7eb;
+        border: none;
+        box-sizing: border-box;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
+        page-break-before: avoid !important;
       }
       
       .invoice-header { 
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        padding: 30px;
-        border-bottom: 2px solid #e5e7eb;
+        padding: 8px 0;
+        border-bottom: 1px solid #e5e7eb;
         background: #f9fafb;
+        flex-shrink: 0;
       }
       
       .company-info h1 {
-        font-size: 32px;
+        font-size: 16px;
         font-weight: bold;
         color: #1e40af;
-        margin: 0 0 5px 0;
+        margin: 0 0 2px 0;
+        line-height: 1;
       }
       
       .company-info p {
-        margin: 2px 0;
-        font-size: 12px;
+        margin: 0;
+        font-size: 7px;
         color: #6b7280;
+        line-height: 1.1;
       }
       
       .invoice-title {
@@ -505,43 +524,47 @@ const isCancellationAllowed = (bookingData) => {
       }
       
       .invoice-title h2 {
-        font-size: 36px;
+        font-size: 18px;
         font-weight: bold;
         color: #374151;
         margin: 0;
+        line-height: 1;
       }
       
       .invoice-number {
-        font-size: 14px;
+        font-size: 8px;
         color: #1e40af;
         font-weight: 600;
-        margin: 5px 0;
+        margin: 2px 0 0 0;
       }
       
       .invoice-date {
-        font-size: 12px;
+        font-size: 7px;
         color: #6b7280;
+        margin: 0;
       }
       
       .status-badge {
         display: inline-block;
-        padding: 4px 12px;
+        padding: 1px 6px;
         background: #10b981;
         color: white;
-        font-size: 12px;
+        font-size: 7px;
         font-weight: 600;
-        border-radius: 4px;
-        margin-top: 5px;
+        border-radius: 2px;
+        margin-top: 2px;
       }
       
       .invoice-body {
-        padding: 30px;
+        padding: 8px 0;
+        flex: 1;
+        overflow: hidden;
       }
       
       .billing-section {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 40px;
+        margin-bottom: 8px;
       }
       
       .bill-to, .service-details {
@@ -549,39 +572,39 @@ const isCancellationAllowed = (bookingData) => {
       }
       
       .service-details {
-        margin-left: 40px;
+        margin-left: 15px;
       }
       
       .section-title {
-        font-size: 14px;
+        font-size: 8px;
         font-weight: 600;
         color: #374151;
-        margin-bottom: 15px;
+        margin-bottom: 4px;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.2px;
       }
       
       .customer-info, .service-info {
-        font-size: 13px;
-        line-height: 1.6;
+        font-size: 7px;
+        line-height: 1.2;
       }
       
       .customer-name {
         font-weight: 600;
         color: #111827;
-        font-size: 16px;
-        margin-bottom: 5px;
+        font-size: 9px;
+        margin-bottom: 2px;
       }
       
       .info-row {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 3px;
+        margin-bottom: 1px;
       }
       
       .info-label {
         color: #6b7280;
-        min-width: 120px;
+        min-width: 60px;
       }
       
       .info-value {
@@ -592,26 +615,28 @@ const isCancellationAllowed = (bookingData) => {
       .services-table {
         width: 100%;
         border-collapse: collapse;
-        margin: 30px 0;
+        margin: 6px 0;
         border: 1px solid #e5e7eb;
+        font-size: 7px;
       }
       
       .services-table th {
         background: #f3f4f6;
-        padding: 15px;
+        padding: 3px 4px;
         text-align: left;
         font-weight: 600;
-        font-size: 12px;
+        font-size: 7px;
         color: #374151;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid #e5e7eb;
+        letter-spacing: 0.2px;
+        border-bottom: 1px solid #e5e7eb;
       }
       
       .services-table td {
-        padding: 15px;
+        padding: 3px 4px;
         border-bottom: 1px solid #e5e7eb;
-        font-size: 13px;
+        font-size: 7px;
+        line-height: 1.1;
       }
       
       .services-table .description {
@@ -625,20 +650,20 @@ const isCancellationAllowed = (bookingData) => {
       }
       
       .totals-section {
-        margin-top: 30px;
+        margin-top: 6px;
         display: flex;
         justify-content: flex-end;
       }
       
       .totals-table {
-        width: 300px;
+        width: 200px;
       }
       
       .total-row {
         display: flex;
         justify-content: space-between;
-        padding: 8px 0;
-        font-size: 13px;
+        padding: 2px 0;
+        font-size: 7px;
       }
       
       .total-row.subtotal {
@@ -647,10 +672,10 @@ const isCancellationAllowed = (bookingData) => {
       }
       
       .total-row.final {
-        border-top: 2px solid #374151;
-        padding-top: 15px;
-        margin-top: 10px;
-        font-size: 18px;
+        border-top: 1px solid #374151;
+        padding-top: 4px;
+        margin-top: 3px;
+        font-size: 10px;
         font-weight: bold;
         color: #111827;
       }
@@ -658,40 +683,74 @@ const isCancellationAllowed = (bookingData) => {
       .total-row.final .amount {
         background: #374151;
         color: white;
-        padding: 8px 15px;
-        border-radius: 4px;
+        padding: 3px 8px;
+        border-radius: 2px;
       }
       
       .footer {
-        margin-top: 50px;
+        margin-top: 8px;
         text-align: center;
-        padding-top: 30px;
-        border-top: 2px solid #e5e7eb;
+        padding-top: 6px;
+        border-top: 1px solid #e5e7eb;
+        flex-shrink: 0;
       }
       
       .thank-you {
-        font-size: 18px;
+        font-size: 9px;
         font-weight: 600;
         color: #111827;
-        margin-bottom: 15px;
+        margin-bottom: 4px;
       }
       
       .contact-info {
-        font-size: 12px;
+        font-size: 7px;
         color: #6b7280;
-        line-height: 1.6;
+        line-height: 1.2;
       }
       
       .disclaimer {
-        font-size: 10px;
+        font-size: 6px;
         color: #9ca3af;
-        margin-top: 20px;
+        margin-top: 4px;
         font-style: italic;
       }
       
       @media print {
-        body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-        .invoice-container { border: none; }
+        html, body { 
+          width: 210mm;
+          height: 297mm;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+          print-color-adjust: exact; 
+          -webkit-print-color-adjust: exact;
+        }
+        
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        
+        .invoice-container { 
+          width: 210mm !important;
+          height: 297mm !important;
+          margin: 0 !important;
+          padding: 8mm !important;
+          border: none !important;
+          page-break-inside: avoid !important;
+          page-break-after: avoid !important;
+          page-break-before: avoid !important;
+          overflow: hidden !important;
+          box-sizing: border-box !important;
+        }
+        
+        * {
+          page-break-inside: avoid !important;
+        }
+        
+        .invoice-header, .invoice-body, .footer {
+          page-break-inside: avoid !important;
+        }
       }
     `);
     printWindow.document.write('</style></head><body>');
@@ -924,12 +983,95 @@ const isCancellationAllowed = (bookingData) => {
 
                   {bookingData.amount > 0 && (
                     <div className="pt-4 border-t border-gray-100 mt-4">
-                      <div className="flex justify-between items-center mb-4">
-                        <span className="text-gray-600 font-medium">Total Amount</span>
-                        <span className="text-2xl font-bold text-primary">
-                          ₹{bookingData.amount}
-                        </span>
-                      </div>
+                      {/* Payment Status Display */}
+                      {booking.paymentStatus === 'partial' ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600 font-medium">Payment Status</span>
+                            <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-semibold border-2 border-orange-300">
+                              ⚠️ Partial Payment
+                            </span>
+                          </div>
+                          
+                          <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4 space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Paid (Visiting Charge)</span>
+                              <span className="text-green-600 font-semibold">₹{booking.payamount || 0}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Remaining Amount</span>
+                              <span className="text-orange-600 font-bold text-lg">₹{(booking.totalAmount || booking.amount || 0) - (booking.payamount || 0)}</span>
+                            </div>
+                            <div className="border-t border-orange-300 pt-2 mt-2">
+                              <div className="flex justify-between">
+                                <span className="text-gray-700 font-semibold">Total Amount</span>
+                                <span className="text-gray-900 font-bold text-xl">₹{bookingData.amount}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const token = localStorage.getItem('userToken');
+                                const response = await axios.post(
+                                  `${import.meta.env.VITE_API_URL}/api/user/bookings/${booking._id}/pay-remaining`,
+                                  {},
+                                  { headers: { Authorization: `Bearer ${token}` } }
+                                );
+                                
+                                if (response.data.success && response.data.data.payuData) {
+                                  // Redirect to PayU
+                                  const form = document.createElement('form');
+                                  form.method = 'POST';
+                                  form.action = response.data.data.payuData.action;
+                                  
+                                  Object.keys(response.data.data.payuData.params).forEach(key => {
+                                    const input = document.createElement('input');
+                                    input.type = 'hidden';
+                                    input.name = key;
+                                    input.value = response.data.data.payuData.params[key];
+                                    form.appendChild(input);
+                                  });
+                                  
+                                  document.body.appendChild(form);
+                                  form.submit();
+                                }
+                              } catch (error) {
+                                console.error('Error initiating payment:', error);
+                                alert('Failed to initiate payment. Please try again.');
+                              }
+                            }}
+                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                          >
+                            <FiCheckCircle size={20} />
+                            Pay Remaining Amount ₹{(booking.totalAmount || booking.amount || 0) - (booking.payamount || 0)}
+                          </button>
+                        </div>
+                      ) : booking.paymentStatus === 'completed' ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600 font-medium">Payment Status</span>
+                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold border-2 border-green-300">
+                              ✅ Fully Paid
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">Total Amount</span>
+                            <span className="text-2xl font-bold text-primary">
+                              ₹{bookingData.amount}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 font-medium">Total Amount</span>
+                          <span className="text-2xl font-bold text-primary">
+                            ₹{bookingData.amount}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
