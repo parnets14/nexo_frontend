@@ -73,7 +73,8 @@ const PopularServicesManagement = () => {
       canonicalUrl: '',
       structuredData: {},
       focusKeyword: '',
-      altText: ''
+      altText: '',
+      location: ''
     }
   })
   const [addOnForm, setAddOnForm] = useState({
@@ -189,7 +190,8 @@ const PopularServicesManagement = () => {
           canonicalUrl: '',
           structuredData: {},
           focusKeyword: '',
-          altText: service.name || ''
+          altText: service.name || '',
+          location: ''
         }
       })
       setOgImageFile(null)
@@ -232,7 +234,8 @@ const PopularServicesManagement = () => {
           canonicalUrl: '',
           structuredData: {},
           focusKeyword: '',
-          altText: ''
+          altText: '',
+          location: ''
         }
       })
       setOgImageFile(null)
@@ -1851,6 +1854,26 @@ const PopularServicesManagement = () => {
                       placeholder="e.g., ac service, plumbing repair"
                     />
                     <p className="mt-1 text-xs text-slate-500">Primary keyword to target for SEO</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Location <span className="text-xs text-slate-500">(Target Location)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.seo?.location || ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        seo: { 
+                          ...prev.seo, 
+                          location: e.target.value
+                        } 
+                      }))}
+                      className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                      placeholder="e.g., Mumbai, Delhi, Bangalore"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">Target location for this service (helps with local SEO and service filtering)</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
