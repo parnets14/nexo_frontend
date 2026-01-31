@@ -49,12 +49,12 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
   // Calculate services subtotal from the services array
   const servicesSubtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
   
-  // Get additional charges
-  const visitingCharge = Number(paymentDetails?.visitingCharge) || 0;
-  const serviceCharge = Number(paymentDetails?.serviceCharge) || 0;
-  const emergencyCharge = Number(paymentDetails?.emergencyCharge) || 0;
-  const cgstAmount = Number(paymentDetails?.cgstAmount) || 0;
-  const sgstAmount = Number(paymentDetails?.sgstAmount) || 0;
+  // Get additional charges from invoiceData (not paymentDetails)
+  const visitingCharge = Number(invoiceData?.visitingCharge) || Number(paymentDetails?.visitingCharge) || 0;
+  const serviceCharge = Number(invoiceData?.serviceCharge) || Number(paymentDetails?.serviceCharge) || 0;
+  const emergencyCharge = Number(invoiceData?.emergencyCharge) || Number(paymentDetails?.emergencyCharge) || 0;
+  const cgstAmount = Number(invoiceData?.cgstAmount) || Number(paymentDetails?.cgstAmount) || 0;
+  const sgstAmount = Number(invoiceData?.sgstAmount) || Number(paymentDetails?.sgstAmount) || 0;
   const gstAmount = cgstAmount + sgstAmount;
   const discount = Number(invoiceData?.discount) || Number(paymentDetails?.discount) || 0;
   const discountPercentage = Number(invoiceData?.discountPercentage) || 0;
@@ -328,7 +328,7 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
                   <td className="py-3 px-4 text-sm text-gray-800">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium">{service.description}</span>
+                        <span className="font-medium">{service.name}</span>
                         {service.type === 'quotation_item' && (
                           <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold whitespace-nowrap">
                             Quotation Item
@@ -336,7 +336,7 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
                         )}
                         {service.type === 'service' && (
                           <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-semibold whitespace-nowrap">
-                            Main Service
+                            Service
                           </span>
                         )}
                         {service.type === 'addon' && (
@@ -350,8 +350,8 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
                           </span>
                         )}
                       </div>
-                      {service.details && <p className="text-gray-600 text-xs mt-1">{service.details}</p>}
-                      {service.category && <p className="text-gray-500 text-xs mt-0.5">Category: {service.category}</p>}
+                      {service.description && <p className="text-gray-600 text-xs mt-1">{service.description}</p>}
+                      {service.category && <p className="text-gray-500 text-xs mt-0.5 italic">Category: {service.category}</p>}
                     </div>
                   </td>
                   <td className="py-3 px-4 text-center text-sm text-gray-800">{service.quantity}</td>

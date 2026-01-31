@@ -47,29 +47,34 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
     // Build services array - include main service, add-ons, sub-services, and quotation items
     let services = [];
     
-    // Calculate the main service amount (excluding visiting, emergency, service charges, and GST)
-    let mainServiceAmount = booking.amount || 0;
-    
-    // Subtract all charges and GST from total to get the actual service cost
-    const visitingChg = Number(booking.visitingCharge) || 0;
-    const serviceChg = Number(booking.serviceCharge) || 0;
-    const emergencyChg = Number(booking.emergencyCharge) || 0;
-    const cgstAmt = Number(booking.cgstAmount) || 0;
-    const sgstAmt = Number(booking.sgstAmount) || 0;
-    const totalGst = cgstAmt + sgstAmt;
-    
-    // Main service cost = total amount - visiting - service - emergency - GST
-    mainServiceAmount = mainServiceAmount - visitingChg - serviceChg - emergencyChg - totalGst;
-    
-    // Add main booking service
-    if (booking.subService || booking.service || booking.popularService || booking.serviceName) {
-      services.push({
-        name: booking.service?.name || booking.subService?.name || booking.popularService?.name || booking.serviceName || 'Service',
-        description: booking.subService?.description || booking.description || 'Main service',
-        quantity: 1,
-        rate: mainServiceAmount > 0 ? mainServiceAmount : 0,
-        type: 'service'
+    // Add cart items (sub-services) - these are the actual selected services
+    // DO NOT add mainServiceName as it's just a category, not an actual service
+    if (booking.cartItems && Array.isArray(booking.cartItems) && booking.cartItems.length > 0) {
+      booking.cartItems.forEach(item => {
+        services.push({
+          name: item.name || item.serviceName || 'Service',
+          description: item.description || '',
+          quantity: item.quantity || 1,
+          rate: item.price || item.basePrice || 0,
+          type: 'service'
+          // Removed category field - cart items are the actual services, not sub-items
+        });
       });
+    } else {
+      // Fallback: If no cart items, use the actual sub-service or popular service name
+      // Priority: subService > popularService > serviceName (category - last resort)
+      const actualServiceName = booking.subService?.name || booking.popularService?.name || booking.serviceName || booking.service?.name;
+      const mainServiceAmount = booking.amount || 0;
+      
+      if (actualServiceName && mainServiceAmount > 0) {
+        services.push({
+          name: actualServiceName,
+          description: booking.subService?.description || booking.popularService?.description || booking.description || '',
+          quantity: 1,
+          rate: mainServiceAmount,
+          type: 'service'
+        });
+      }
     }
     
     // Add selected add-ons if they exist
@@ -77,22 +82,22 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
       booking.selectedAddOns.forEach(addon => {
         services.push({
           name: addon.name || 'Add-on',
-          description: addon.description || 'Additional service',
+          description: addon.description || '',
           quantity: 1,
-          rate: addon.basePrice || 0,
+          rate: addon.basePrice || addon.price || 0,
           type: 'addon'
         });
       });
     }
     
-    // Add cart items (sub-services) if they exist
-    if (booking.cartItems && Array.isArray(booking.cartItems) && booking.cartItems.length > 0) {
-      booking.cartItems.forEach(item => {
+    // Add selected sub-services if they exist (for AiSensy bookings)
+    if (booking.selectedSubServices && Array.isArray(booking.selectedSubServices) && booking.selectedSubServices.length > 0) {
+      booking.selectedSubServices.forEach(subService => {
         services.push({
-          name: item.name || item.serviceName || 'Sub-service',
-          description: item.description || 'Additional service item',
-          quantity: item.quantity || 1,
-          rate: item.price || item.basePrice || 0,
+          name: subService.name || subService.addonName || 'Sub-service',
+          description: subService.description || '',
+          quantity: 1,
+          rate: subService.basePrice || subService.price || 0,
           type: 'subservice'
         });
       });
@@ -478,7 +483,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
                           )}
                           {service.type === 'service' && (
                             <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full whitespace-nowrap">
-                              Main Service
+                              Service
                             </span>
                           )}
                           {service.type === 'addon' && (
@@ -493,7 +498,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
                           )}
                         </div>
                         {service.description && <p className="text-gray-600 text-xs mt-1">{service.description}</p>}
-                        {service.category && <p className="text-gray-500 text-xs mt-0.5">Category: {service.category}</p>}
+                        {service.category && <p className="text-gray-500 text-xs mt-0.5 italic">Category: {service.category}</p>}
                       </div>
                     </td>
                     <td className="border border-gray-200 px-3 py-2 text-center text-sm">

@@ -16,14 +16,14 @@ const SinglePageInvoice = ({ invoiceData, onPrint }) => {
   // Calculate services subtotal from the services array
   const servicesSubtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
   
-  // Get additional charges
-  const visitingCharge = Number(paymentDetails?.visitingCharge) || 0;
-  const serviceCharge = Number(paymentDetails?.serviceCharge) || 0;
-  const emergencyCharge = Number(paymentDetails?.emergencyCharge) || 0;
-  const cgstAmount = Number(paymentDetails?.cgstAmount) || 0;
-  const sgstAmount = Number(paymentDetails?.sgstAmount) || 0;
+  // Get additional charges from invoiceData (not paymentDetails)
+  const visitingCharge = Number(invoiceData?.visitingCharge) || Number(paymentDetails?.visitingCharge) || 0;
+  const serviceCharge = Number(invoiceData?.serviceCharge) || Number(paymentDetails?.serviceCharge) || 0;
+  const emergencyCharge = Number(invoiceData?.emergencyCharge) || Number(paymentDetails?.emergencyCharge) || 0;
+  const cgstAmount = Number(invoiceData?.cgstAmount) || Number(paymentDetails?.cgstAmount) || 0;
+  const sgstAmount = Number(invoiceData?.sgstAmount) || Number(paymentDetails?.sgstAmount) || 0;
   const gstAmount = cgstAmount + sgstAmount;
-  const discount = Number(paymentDetails?.discount) || 0;
+  const discount = Number(invoiceData?.discount) || Number(paymentDetails?.discount) || 0;
   
   // Calculate subtotal before tax (services + visiting + service + emergency charges)
   const subtotalBeforeTax = servicesSubtotal + visitingCharge + serviceCharge + emergencyCharge;
@@ -138,7 +138,13 @@ const SinglePageInvoice = ({ invoiceData, onPrint }) => {
             <tbody>
               {services?.map((service, index) => (
                 <tr key={index}>
-                  <td className="border border-gray-300 px-1 py-0.5">{service.description}</td>
+                  <td className="border border-gray-300 px-1 py-0.5">
+                    <div>
+                      <span className="font-medium">{service.name}</span>
+                      {service.description && <span className="text-gray-600 text-xs"> - {service.description}</span>}
+                      {service.category && <span className="text-gray-500 text-xs italic"> ({service.category})</span>}
+                    </div>
+                  </td>
                   <td className="border border-gray-300 px-1 py-0.5 text-center">{service.quantity}</td>
                   <td className="border border-gray-300 px-1 py-0.5 text-center">₹{service.rate}</td>
                   <td className="border border-gray-300 px-1 py-0.5 text-right">₹{service.quantity * service.rate}</td>

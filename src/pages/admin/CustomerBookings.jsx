@@ -34,6 +34,32 @@ import { supportApi } from '../../services/supportApi'
 import SpecialDiscountModal from '../../components/SpecialDiscountModal'
 import '../../styles/media-modal.css'
 
+// Add smooth scrolling styles
+const smoothScrollStyles = `
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
+  
+  .scroll-smooth::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scroll-smooth::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  .scroll-smooth::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+  }
+  
+  .scroll-smooth::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+`
+
 const CustomerBookings = () => {
   const { token } = useAdminAuth()
   const [bookings, setBookings] = useState([])
@@ -562,7 +588,9 @@ const CustomerBookings = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <style>{smoothScrollStyles}</style>
+      <div className="space-y-6 scroll-smooth">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -595,12 +623,13 @@ const CustomerBookings = () => {
                 'Booking ID': b._id?.toString().slice(-8) || 'N/A',
                 'Customer Name': b.customerName || 'N/A',
                 'Customer Phone': b.customerPhone || 'N/A',
+                'Category': b.categoryName || 'N/A',
                 'Service': b.service?.name || b.subService?.name || b.popularService?.name || b.serviceName || 'N/A',
-                'Amount (₹)': b.amount || 0,
                 'Total Amount (₹)': b.totalAmount || b.amount || 0,
-                'Paid Amount (₹)': b.payamount || 0,
-                'Status': b.status || 'N/A',
+                'Paid Amount (₹)': b.paidAmount || 0,
+                'Pending Amount (₹)': b.pendingAmount || 0,
                 'Payment Status': b.paymentStatus || 'N/A',
+                'Status': b.status || 'N/A',
                 'Scheduled Date': b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString('en-IN') : 'N/A',
                 'Scheduled Time': b.scheduledTime || 'N/A',
                 'Location': b.location?.address || 'N/A',
@@ -619,12 +648,13 @@ const CustomerBookings = () => {
                 { header: 'Booking ID', accessor: 'Booking ID' },
                 { header: 'Customer Name', accessor: 'Customer Name' },
                 { header: 'Customer Phone', accessor: 'Customer Phone' },
+                { header: 'Category', accessor: 'Category' },
                 { header: 'Service', accessor: 'Service' },
-                { header: 'Amount (₹)', accessor: 'Amount (₹)' },
                 { header: 'Total Amount (₹)', accessor: 'Total Amount (₹)' },
                 { header: 'Paid Amount (₹)', accessor: 'Paid Amount (₹)' },
-                { header: 'Status', accessor: 'Status' },
+                { header: 'Pending Amount (₹)', accessor: 'Pending Amount (₹)' },
                 { header: 'Payment Status', accessor: 'Payment Status' },
+                { header: 'Status', accessor: 'Status' },
                 { header: 'Scheduled Date', accessor: 'Scheduled Date' },
                 { header: 'Scheduled Time', accessor: 'Scheduled Time' },
                 { header: 'Location', accessor: 'Location' },
@@ -638,7 +668,7 @@ const CustomerBookings = () => {
                 { header: 'Videos Count', accessor: 'Videos Count' },
                 { header: 'Created At', accessor: 'Created At' }
               ], 'Customer_Bookings', 'Customer Bookings', {
-                columnWidths: [15, 20, 15, 25, 15, 15, 15, 12, 12, 15, 12, 30, 20, 20, 12, 30, 15, 12, 10, 10, 20]
+                columnWidths: [15, 20, 15, 20, 25, 15, 15, 15, 15, 12, 15, 12, 30, 20, 20, 12, 30, 15, 12, 10, 10, 20]
               })
             }}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
@@ -726,7 +756,7 @@ const CustomerBookings = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -766,21 +796,6 @@ const CustomerBookings = () => {
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
               <FiCheckCircle className="text-xl text-green-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Page Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">
-                ₹{filteredBookings.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500">Current page total</p>
-            </div>
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <FiDollarSign className="text-xl text-purple-600" />
             </div>
           </div>
         </div>
@@ -832,9 +847,9 @@ const CustomerBookings = () => {
           <h2 className="text-lg font-semibold text-gray-900">All Bookings</h2>
         </div>
         
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto scroll-smooth">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
@@ -846,7 +861,7 @@ const CustomerBookings = () => {
                   Date & Time
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
+                  Payment Details
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -964,8 +979,45 @@ const CustomerBookings = () => {
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        ₹{booking.amount?.toLocaleString() || '0'}
+                      <div className="space-y-1">
+                        {/* Category */}
+                        <div className="text-xs text-gray-500">
+                          <span className="font-medium">Category:</span> {booking.categoryName || 'N/A'}
+                        </div>
+                        
+                        {/* Total Amount */}
+                        <div className="text-sm font-bold text-gray-900">
+                          Total: ₹{(booking.totalAmount || booking.amount || 0).toLocaleString()}
+                        </div>
+                        
+                        {/* Paid Amount */}
+                        <div className="text-xs text-green-600 flex items-center gap-1">
+                          <FiCheckCircle className="text-xs" />
+                          <span className="font-medium">Paid:</span> ₹{(booking.paidAmount || 0).toLocaleString()}
+                        </div>
+                        
+                        {/* Pending Amount */}
+                        {booking.pendingAmount > 0 && (
+                          <div className="text-xs text-orange-600 flex items-center gap-1">
+                            <FiClock className="text-xs" />
+                            <span className="font-medium">Pending:</span> ₹{(booking.pendingAmount || 0).toLocaleString()}
+                          </div>
+                        )}
+                        
+                        {/* Payment Status Badge */}
+                        <div className="mt-1">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            booking.paymentStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                            booking.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                            booking.paymentStatus === 'pending' ? 'bg-orange-100 text-orange-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {booking.paymentStatus === 'completed' ? 'Fully Paid' :
+                             booking.paymentStatus === 'partial' ? 'Partially Paid' :
+                             booking.paymentStatus === 'pending' ? 'Payment Pending' :
+                             booking.paymentStatus}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     
@@ -1381,7 +1433,7 @@ const CustomerBookings = () => {
       {/* Partner Assignment Modal */}
       {showAssignModal && selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto scroll-smooth">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">
                 Assign Partner - {selectedBooking.serviceName}
@@ -1544,7 +1596,7 @@ const CustomerBookings = () => {
                     <span>Loading partners...</span>
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <div className="space-y-3 max-h-96 overflow-y-auto scroll-smooth">
                     {filteredAndSortedPartners.map((partner) => {
                       const remainingLeads = calculateRemainingLeads(partner)
                       const usagePercentage = calculateLeadUsagePercentage(partner)
@@ -1726,7 +1778,7 @@ const CustomerBookings = () => {
       {/* Media Modal */}
       {showMediaModal && selectedBookingMedia && (
         <div className="fixed inset-0 bg-black bg-opacity-75 media-modal-overlay flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto media-modal-content">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto scroll-smooth media-modal-content">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h3 className="text-lg font-semibold text-gray-900">
                 Photos & Videos - {selectedBookingMedia.booking.serviceName}
@@ -1898,6 +1950,7 @@ const CustomerBookings = () => {
         />
       )}
     </div>
+    </>
   )
 }
 

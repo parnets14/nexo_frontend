@@ -15,14 +15,14 @@ const PrintOnlyInvoice = ({ invoiceData }) => {
   // Calculate services subtotal from the services array
   const servicesSubtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
   
-  // Get additional charges
-  const visitingCharge = Number(paymentDetails?.visitingCharge) || 0;
-  const serviceCharge = Number(paymentDetails?.serviceCharge) || 0;
-  const emergencyCharge = Number(paymentDetails?.emergencyCharge) || 0;
-  const cgstAmount = Number(paymentDetails?.cgstAmount) || 0;
-  const sgstAmount = Number(paymentDetails?.sgstAmount) || 0;
+  // Get additional charges from invoiceData (not paymentDetails)
+  const visitingCharge = Number(invoiceData?.visitingCharge) || Number(paymentDetails?.visitingCharge) || 0;
+  const serviceCharge = Number(invoiceData?.serviceCharge) || Number(paymentDetails?.serviceCharge) || 0;
+  const emergencyCharge = Number(invoiceData?.emergencyCharge) || Number(paymentDetails?.emergencyCharge) || 0;
+  const cgstAmount = Number(invoiceData?.cgstAmount) || Number(paymentDetails?.cgstAmount) || 0;
+  const sgstAmount = Number(invoiceData?.sgstAmount) || Number(paymentDetails?.sgstAmount) || 0;
   const gstAmount = cgstAmount + sgstAmount;
-  const discount = Number(paymentDetails?.discount) || 0;
+  const discount = Number(invoiceData?.discount) || Number(paymentDetails?.discount) || 0;
   
   // Calculate subtotal before tax (services + visiting + service + emergency charges)
   const subtotalBeforeTax = servicesSubtotal + visitingCharge + serviceCharge + emergencyCharge;
@@ -411,7 +411,13 @@ const PrintOnlyInvoice = ({ invoiceData }) => {
               <tbody>
                 {services?.map((service, index) => (
                   <tr key={index}>
-                    <td>{service.description}</td>
+                    <td>
+                      <div>
+                        <span style={{fontWeight: '500'}}>{service.name}</span>
+                        {service.description && <span style={{color: '#6b7280', fontSize: '9px'}}> - {service.description}</span>}
+                        {service.category && <span style={{color: '#9ca3af', fontSize: '9px', fontStyle: 'italic'}}> ({service.category})</span>}
+                      </div>
+                    </td>
                     <td className="text-center">{service.quantity}</td>
                     <td className="text-center">₹{service.rate}</td>
                     <td className="text-right">₹{service.quantity * service.rate}</td>

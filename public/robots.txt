@@ -1,0 +1,18 @@
+# Robots.txt for Nexo
+User-agent: *
+Allow: /
+
+# Disallow private areas
+Disallow: /admin/
+Disallow: /partner/dashboard/
+Disallow: /user/dashboard/
+Disallow: /user/profile/
+Disallow: /partner/profile/
+Disallow: /payment/
+Disallow: /checkout/
+
+# Sitemap location
+Sitemap: https://nexo.works/sitemap.xml
+
+# Crawl-delay (optional)
+Crawl-delay: 1
