@@ -983,95 +983,128 @@ const isCancellationAllowed = (bookingData) => {
 
                   {bookingData.amount > 0 && (
                     <div className="pt-4 border-t border-gray-100 mt-4">
-                      {/* Payment Status Display */}
-                      {booking.paymentStatus === 'partial' ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-600 font-medium">Payment Status</span>
-                            <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-semibold border-2 border-orange-300">
-                              ⚠️ Partial Payment
-                            </span>
-                          </div>
-                          
-                          <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4 space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Paid (Visiting Charge)</span>
-                              <span className="text-green-600 font-semibold">₹{booking.payamount || 0}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Remaining Amount</span>
-                              <span className="text-orange-600 font-bold text-lg">₹{(booking.totalAmount || booking.amount || 0) - (booking.payamount || 0)}</span>
-                            </div>
-                            <div className="border-t border-orange-300 pt-2 mt-2">
-                              <div className="flex justify-between">
-                                <span className="text-gray-700 font-semibold">Total Amount</span>
-                                <span className="text-gray-900 font-bold text-xl">₹{bookingData.amount}</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const token = localStorage.getItem('userToken');
-                                const response = await axios.post(
-                                  `${import.meta.env.VITE_API_URL}/api/user/bookings/${booking._id}/pay-remaining`,
-                                  {},
-                                  { headers: { Authorization: `Bearer ${token}` } }
-                                );
-                                
-                                if (response.data.success && response.data.data.payuData) {
-                                  // Redirect to PayU
-                                  const form = document.createElement('form');
-                                  form.method = 'POST';
-                                  form.action = response.data.data.payuData.action;
-                                  
-                                  Object.keys(response.data.data.payuData.params).forEach(key => {
-                                    const input = document.createElement('input');
-                                    input.type = 'hidden';
-                                    input.name = key;
-                                    input.value = response.data.data.payuData.params[key];
-                                    form.appendChild(input);
-                                  });
-                                  
-                                  document.body.appendChild(form);
-                                  form.submit();
-                                }
-                              } catch (error) {
-                                console.error('Error initiating payment:', error);
-                                alert('Failed to initiate payment. Please try again.');
-                              }
-                            }}
-                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                          >
-                            <FiCheckCircle size={20} />
-                            Pay Remaining Amount ₹{(booking.totalAmount || booking.amount || 0) - (booking.payamount || 0)}
-                          </button>
-                        </div>
-                      ) : booking.paymentStatus === 'completed' ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-600 font-medium">Payment Status</span>
-                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold border-2 border-green-300">
-                              ✅ Fully Paid
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Total Amount</span>
-                            <span className="text-2xl font-bold text-primary">
-                              ₹{bookingData.amount}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 font-medium">Total Amount</span>
-                          <span className="text-2xl font-bold text-primary">
-                            ₹{bookingData.amount}
+                      {/* Enhanced Payment Status Display */}
+                      <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-semibold">Payment Status</span>
+                          <span className={`px-4 py-2 rounded-full text-sm font-bold border-2 ${
+                            booking.paymentStatus === 'completed' ? 'bg-green-100 text-green-800 border-green-300' :
+                            booking.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                            booking.paymentStatus === 'pending' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                            booking.paymentStatus === 'failed' ? 'bg-red-100 text-red-800 border-red-300' :
+                            'bg-gray-100 text-gray-800 border-gray-300'
+                          }`}>
+                            {booking.paymentStatus === 'completed' ? '✅ Fully Paid' :
+                             booking.paymentStatus === 'partial' ? '⚠️ Partially Paid' :
+                             booking.paymentStatus === 'pending' ? '⏳ Payment Pending' :
+                             booking.paymentStatus === 'failed' ? '❌ Payment Failed' :
+                             booking.paymentStatus || 'Unknown'}
                           </span>
                         </div>
-                      )}
+                        
+                        {/* Payment Breakdown */}
+                        <div className="space-y-2">
+                          {/* Total Amount */}
+                          <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                            <span className="text-gray-600 font-medium">Total Amount</span>
+                            <span className="text-xl font-bold text-gray-900">₹{bookingData.amount.toLocaleString()}</span>
+                          </div>
+                          
+                          {/* Paid Amount */}
+                          <div className="flex justify-between items-center">
+                            <span className="text-green-600 font-medium flex items-center gap-1">
+                              <FiCheckCircle className="w-4 h-4" />
+                              Amount Paid
+                            </span>
+                            <span className="text-lg font-bold text-green-700">
+                              ₹{(booking.paidAmount || booking.payamount || 0).toLocaleString()}
+                            </span>
+                          </div>
+                          
+                          {/* Due Amount */}
+                          {(() => {
+                            const totalAmount = booking.totalAmount || booking.amount || bookingData.amount;
+                            const paidAmount = booking.paidAmount || booking.payamount || 0;
+                            const dueAmount = totalAmount - paidAmount;
+                            
+                            return dueAmount > 0 ? (
+                              <div className="flex justify-between items-center">
+                                <span className="text-orange-600 font-medium flex items-center gap-1">
+                                  <FiClock className="w-4 h-4" />
+                                  Amount Due
+                                </span>
+                                <span className="text-lg font-bold text-orange-700">
+                                  ₹{dueAmount.toLocaleString()}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex justify-between items-center">
+                                <span className="text-green-600 font-medium flex items-center gap-1">
+                                  <FiCheckCircle className="w-4 h-4" />
+                                  Payment Complete
+                                </span>
+                                <span className="text-green-700 font-semibold">All Clear! ✅</span>
+                              </div>
+                            );
+                          })()}
+                          
+                          {/* Payment Mode */}
+                          <div className="flex justify-between items-center text-sm text-gray-500 pt-2 border-t border-gray-200">
+                            <span>Payment Mode:</span>
+                            <span className="capitalize font-medium">{booking.paymentMode || 'N/A'}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Payment Action Button for Partial Payments */}
+                        {booking.paymentStatus === 'partial' && (() => {
+                          const totalAmount = booking.totalAmount || booking.amount || bookingData.amount;
+                          const paidAmount = booking.paidAmount || booking.payamount || 0;
+                          const remainingAmount = totalAmount - paidAmount;
+                          
+                          return remainingAmount > 0 ? (
+                            <div className="pt-3 border-t border-gray-300">
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const token = localStorage.getItem('userToken');
+                                    const response = await axios.post(
+                                      `${import.meta.env.VITE_API_URL}/api/user/bookings/${booking._id}/pay-remaining`,
+                                      {},
+                                      { headers: { Authorization: `Bearer ${token}` } }
+                                    );
+                                    
+                                    if (response.data.success && response.data.data.payuData) {
+                                      // Redirect to PayU
+                                      const form = document.createElement('form');
+                                      form.method = 'POST';
+                                      form.action = response.data.data.payuData.action;
+                                      
+                                      Object.keys(response.data.data.payuData.params).forEach(key => {
+                                        const input = document.createElement('input');
+                                        input.type = 'hidden';
+                                        input.name = key;
+                                        input.value = response.data.data.payuData.params[key];
+                                        form.appendChild(input);
+                                      });
+                                      
+                                      document.body.appendChild(form);
+                                      form.submit();
+                                    }
+                                  } catch (error) {
+                                    console.error('Error initiating payment:', error);
+                                    alert('Failed to initiate payment. Please try again.');
+                                  }
+                                }}
+                                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                              >
+                                <FiCheckCircle size={20} />
+                                Pay Remaining Amount ₹{remainingAmount.toLocaleString()}
+                              </button>
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
                     </div>
                   )}
 

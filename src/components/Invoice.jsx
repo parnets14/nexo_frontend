@@ -47,17 +47,45 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
     // Build services array - include main service, add-ons, sub-services, and quotation items
     let services = [];
     
-    // Add cart items (sub-services) - these are the actual selected services
-    // DO NOT add mainServiceName as it's just a category, not an actual service
+    // Helper function to determine correct service type based on context and origin
+    const determineServiceType = (itemName, originalType, itemContext = {}) => {
+      // If the item comes from currentService.subServices, it's a Main Service
+      // These are the core services offered under a service category (like AC Service)
+      if (originalType === 'subservice') {
+        return 'service'; // Main Service - these are the primary services under a category
+      }
+      
+      // If the item comes from currentService.addOns, it's an Add-on
+      if (originalType === 'addon') {
+        return 'addon'; // Add-on - these are optional extras
+      }
+      
+      // If the item comes from addon.subServices, it's also an Add-on
+      if (originalType === 'addon-subservice') {
+        return 'addon'; // Add-on - these are sub-services of add-ons
+      }
+      
+      // For backward compatibility - check name patterns for special cases
+      const name = (itemName || '').toLowerCase();
+      if (name.includes('inspection') || name.includes('diagnosis') || name.includes('checkup') || name.includes('assessment')) {
+        return 'service'; // Main Service for inspection-type services
+      }
+      
+      // Default fallback - if we can't determine, treat as add-on to be safe
+      return 'addon';
+    };
+
+    // Process cart items with correct categorization
     if (booking.cartItems && Array.isArray(booking.cartItems) && booking.cartItems.length > 0) {
       booking.cartItems.forEach(item => {
+        const correctType = determineServiceType(item.name || item.serviceName, item.type, item);
+        
         services.push({
           name: item.name || item.serviceName || 'Service',
           description: item.description || '',
           quantity: item.quantity || 1,
           rate: item.price || item.basePrice || 0,
-          type: 'service'
-          // Removed category field - cart items are the actual services, not sub-items
+          type: correctType
         });
       });
     } else {
@@ -67,38 +95,45 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
       const mainServiceAmount = booking.amount || 0;
       
       if (actualServiceName && mainServiceAmount > 0) {
+        // If it's from subService, it's a main service
+        const correctType = booking.subService ? 'service' : determineServiceType(actualServiceName, 'service');
+        
         services.push({
           name: actualServiceName,
           description: booking.subService?.description || booking.popularService?.description || booking.description || '',
           quantity: 1,
           rate: mainServiceAmount,
-          type: 'service'
+          type: correctType
         });
       }
     }
     
-    // Add selected add-ons if they exist
+    // Add selected add-ons if they exist (these should remain as add-ons)
     if (booking.selectedAddOns && Array.isArray(booking.selectedAddOns) && booking.selectedAddOns.length > 0) {
       booking.selectedAddOns.forEach(addon => {
+        const correctType = determineServiceType(addon.name, 'addon', addon);
+        
         services.push({
           name: addon.name || 'Add-on',
           description: addon.description || '',
           quantity: 1,
           rate: addon.basePrice || addon.price || 0,
-          type: 'addon'
+          type: correctType
         });
       });
     }
     
-    // Add selected sub-services if they exist (for AiSensy bookings)
+    // Add selected sub-services if they exist (for AiSensy bookings) - these are main services
     if (booking.selectedSubServices && Array.isArray(booking.selectedSubServices) && booking.selectedSubServices.length > 0) {
       booking.selectedSubServices.forEach(subService => {
+        const correctType = determineServiceType(subService.name || subService.addonName, 'subservice', subService);
+        
         services.push({
-          name: subService.name || subService.addonName || 'Sub-service',
+          name: subService.name || subService.addonName || 'Service',
           description: subService.description || '',
           quantity: 1,
           rate: subService.basePrice || subService.price || 0,
-          type: 'subservice'
+          type: correctType
         });
       });
     }
@@ -235,8 +270,49 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
   // Calculate subtotal before tax (services + visiting + service + emergency charges)
   const subtotalBeforeTax = servicesSubtotal + visitingCharge + serviceCharge + emergencyCharge;
   
+  // Debug GST calculation
+  console.log('GST Calculation Debug:', {
+    servicesSubtotal,
+    visitingCharge,
+    serviceCharge,
+    emergencyCharge,
+    subtotalBeforeTax,
+    cgstAmount,
+    sgstAmount,
+    gstAmount,
+    bookingSubtotalBeforeTax: actualInvoiceData.subtotalBeforeTax,
+    bookingAmount: booking?.amount,
+    bookingTotalAmount: booking?.totalAmount
+  });
+  
+  // Use booking's calculated GST amounts if available, otherwise calculate
+  let finalCgstAmount = cgstAmount;
+  let finalSgstAmount = sgstAmount;
+  let finalGstAmount = gstAmount;
+  
+  // CRITICAL FIX: If GST amounts are suspiciously low, recalculate based on full subtotal
+  // This handles cases where GST was calculated only on visiting charge due to payment option
+  const expectedGstAmount = subtotalBeforeTax * 0.18; // 18% GST
+  const gstDiscrepancyThreshold = expectedGstAmount * 0.5; // If actual GST is less than 50% of expected
+  
+  if (gstAmount < gstDiscrepancyThreshold && subtotalBeforeTax > 0) {
+    console.warn('⚠️ GST amount seems incorrect. Recalculating based on full subtotal.');
+    console.warn('Original GST:', gstAmount, 'Expected GST:', expectedGstAmount);
+    
+    finalGstAmount = Math.round(subtotalBeforeTax * 0.18);
+    finalCgstAmount = Math.round(subtotalBeforeTax * 0.09);
+    finalSgstAmount = Math.round(subtotalBeforeTax * 0.09);
+    
+    console.log('Recalculated GST:', {
+      originalGst: gstAmount,
+      correctedGst: finalGstAmount,
+      finalCgstAmount,
+      finalSgstAmount
+    });
+  }
+  
   // Calculate the correct total amount
-  let totalAmount = subtotalBeforeTax + gstAmount - discount - specialDiscount;
+  let totalAmount = subtotalBeforeTax + finalGstAmount - discount - specialDiscount;
   
   // If quotation exists, add quotation amount to the total
   if (actualInvoiceData.quotationDetails && paymentDetails?.quotationAmount) {
@@ -281,9 +357,9 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
     emergencyCharge,
     isEmergency,
     subtotalBeforeTax,
-    cgstAmount,
-    sgstAmount,
-    gstAmount,
+    cgstAmount: finalCgstAmount,
+    sgstAmount: finalSgstAmount,
+    gstAmount: finalGstAmount,
     totalAmount,
     servicesCount: services?.length,
     hasQuotation: !!actualInvoiceData.quotationDetails
@@ -470,7 +546,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
                   <tr key={index} className={
                     service.type === 'quotation_item' ? 'bg-blue-50' : 
                     service.type === 'addon' ? 'bg-purple-50' :
-                    service.type === 'subservice' ? 'bg-yellow-50' : ''
+                    service.type === 'additional_service' ? 'bg-yellow-50' : ''
                   }>
                     <td className="border border-gray-200 px-3 py-2 text-sm">
                       <div>
@@ -483,7 +559,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
                           )}
                           {service.type === 'service' && (
                             <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full whitespace-nowrap">
-                              Service
+                              Main Service
                             </span>
                           )}
                           {service.type === 'addon' && (
@@ -491,9 +567,9 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
                               Add-on
                             </span>
                           )}
-                          {service.type === 'subservice' && (
+                          {service.type === 'additional_service' && (
                             <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full whitespace-nowrap">
-                              Sub-service
+                              Additional Service
                             </span>
                           )}
                         </div>
@@ -591,20 +667,20 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
             )}
             
             {/* GST Breakdown - only if GST exists */}
-            {gstAmount > 0 && (
+            {finalGstAmount > 0 && (
               <div className="bg-blue-50 rounded-lg p-3 space-y-2 mt-2 border border-blue-100">
                 <div className="text-xs font-semibold text-blue-800 mb-1">GST Breakdown</div>
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-600">CGST ({cgstPercent}%):</span>
-                  <span className="font-medium text-gray-700">₹{Number(cgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="font-medium text-gray-700">₹{Number(finalCgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-600">SGST ({sgstPercent}%):</span>
-                  <span className="font-medium text-gray-700">₹{Number(sgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="font-medium text-gray-700">₹{Number(finalSgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-sm pt-2 border-t border-blue-200">
                   <span className="text-gray-700 font-medium">Total GST:</span>
-                  <span className="font-semibold text-gray-900">₹{Number(gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="font-semibold text-gray-900">₹{Number(finalGstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             )}

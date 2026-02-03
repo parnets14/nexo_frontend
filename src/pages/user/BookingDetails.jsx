@@ -448,48 +448,166 @@ const BookingDetails = () => {
         </div>
       )}
 
-      {/* Payment Information */}
+      {/* Enhanced Payment Information */}
       {bookingData.totalAmount > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Details</h3>
-          <div className="space-y-3">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+          <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <FiDollarSign className="text-primary" />
+            Payment Details
+          </h3>
+          
+          {/* Payment Status Badge */}
+          <div className="mb-6">
+            <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-bold border-2 ${
+              bookingData.paymentStatus === 'completed' ? 'bg-green-100 text-green-800 border-green-300' :
+              bookingData.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+              bookingData.paymentStatus === 'pending' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+              bookingData.paymentStatus === 'failed' ? 'bg-red-100 text-red-800 border-red-300' :
+              'bg-gray-100 text-gray-800 border-gray-300'
+            }`}>
+              {bookingData.paymentStatus === 'completed' ? '✅ Payment Completed' :
+               bookingData.paymentStatus === 'partial' ? '⚠️ Partially Paid' :
+               bookingData.paymentStatus === 'pending' ? '⏳ Payment Pending' :
+               bookingData.paymentStatus === 'failed' ? '❌ Payment Failed' :
+               `Payment: ${bookingData.paymentStatus}`}
+            </span>
+          </div>
+          
+          {/* Payment Breakdown */}
+          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+            {/* Subtotal */}
             <div className="flex justify-between text-gray-600">
-              <span>Subtotal</span>
-              <span>₹{bookingData.amount}</span>
+              <span>Service Amount</span>
+              <span className="font-medium">₹{bookingData.amount.toLocaleString()}</span>
             </div>
+            
+            {/* GST */}
             {bookingData.gstAmount > 0 && (
               <div className="flex justify-between text-gray-600">
                 <span>GST</span>
-                <span>₹{bookingData.gstAmount}</span>
+                <span className="font-medium">₹{bookingData.gstAmount.toLocaleString()}</span>
               </div>
             )}
+            
+            {/* Wallet Used */}
             {bookingData.usewallet > 0 && (
-              <div className="flex justify-between text-green-600">
+              <div className="flex justify-between text-blue-600">
                 <span>Wallet Used</span>
-                <span>- ₹{bookingData.usewallet}</span>
+                <span className="font-medium">-₹{bookingData.usewallet.toLocaleString()}</span>
               </div>
             )}
+            
+            {/* Discount */}
             {bookingData.discount > 0 && (
               <div className="flex justify-between text-green-600">
                 <span>Discount</span>
-                <span>- ₹{bookingData.discount}</span>
+                <span className="font-medium">-₹{bookingData.discount.toLocaleString()}</span>
               </div>
             )}
-            <div className="pt-3 border-t">
+            
+            {/* Total Amount */}
+            <div className="pt-3 border-t border-gray-300">
               <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold text-gray-800">Total Amount</span>
-                <span className="text-2xl font-bold text-gray-800">₹{bookingData.totalAmount}</span>
-              </div>
-              <div className="mt-2">
-                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium capitalize ${
-                  bookingData.paymentStatus === 'completed' ? 'bg-green-100 text-green-800' :
-                  bookingData.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  Payment: {bookingData.paymentStatus}
-                </span>
+                <span className="text-lg font-bold text-gray-800">Total Amount</span>
+                <span className="text-2xl font-bold text-gray-900">₹{bookingData.totalAmount.toLocaleString()}</span>
               </div>
             </div>
+            
+            {/* Payment Status Details */}
+            <div className="pt-3 border-t border-gray-300 space-y-2">
+              {/* Amount Paid */}
+              <div className="flex justify-between items-center">
+                <span className="text-green-600 font-medium flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  Amount Paid
+                </span>
+                <span className="text-lg font-bold text-green-700">
+                  ₹{(booking.paidAmount || booking.payamount || 0).toLocaleString()}
+                </span>
+              </div>
+              
+              {/* Amount Due */}
+              {(() => {
+                const totalAmount = bookingData.totalAmount;
+                const paidAmount = booking.paidAmount || booking.payamount || 0;
+                const dueAmount = totalAmount - paidAmount;
+                
+                return dueAmount > 0 ? (
+                  <div className="flex justify-between items-center">
+                    <span className="text-orange-600 font-medium flex items-center gap-1">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      Amount Due
+                    </span>
+                    <span className="text-lg font-bold text-orange-700">
+                      ₹{dueAmount.toLocaleString()}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <span className="text-green-600 font-medium flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      Payment Status
+                    </span>
+                    <span className="text-green-700 font-bold">Fully Paid ✅</span>
+                  </div>
+                );
+              })()}
+              
+              {/* Payment Mode */}
+              <div className="flex justify-between items-center text-sm text-gray-500 pt-2 border-t border-gray-200">
+                <span>Payment Mode:</span>
+                <span className="capitalize font-medium">{booking.paymentMode || 'N/A'}</span>
+              </div>
+            </div>
+            
+            {/* Payment Action for Partial Payments */}
+            {bookingData.paymentStatus === 'partial' && (() => {
+              const totalAmount = bookingData.totalAmount;
+              const paidAmount = booking.paidAmount || booking.payamount || 0;
+              const remainingAmount = totalAmount - paidAmount;
+              
+              return remainingAmount > 0 ? (
+                <div className="pt-4 border-t border-gray-300">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const token = localStorage.getItem('userToken');
+                        const response = await axios.post(
+                          `${import.meta.env.VITE_API_URL}/api/user/bookings/${booking._id}/pay-remaining`,
+                          {},
+                          { headers: { Authorization: `Bearer ${token}` } }
+                        );
+                        
+                        if (response.data.success && response.data.data.payuData) {
+                          // Redirect to PayU
+                          const form = document.createElement('form');
+                          form.method = 'POST';
+                          form.action = response.data.data.payuData.action;
+                          
+                          Object.keys(response.data.data.payuData.params).forEach(key => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = key;
+                            input.value = response.data.data.payuData.params[key];
+                            form.appendChild(input);
+                          });
+                          
+                          document.body.appendChild(form);
+                          form.submit();
+                        }
+                      } catch (error) {
+                        console.error('Error initiating payment:', error);
+                        alert('Failed to initiate payment. Please try again.');
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  >
+                    <FiDollarSign size={20} />
+                    Pay Remaining Amount ₹{remainingAmount.toLocaleString()}
+                  </button>
+                </div>
+              ) : null;
+            })()}
           </div>
         </div>
       )}

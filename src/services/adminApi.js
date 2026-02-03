@@ -384,6 +384,14 @@ export const adminApi = {
     return handleResponse(response)
   },
 
+  async markBookingPaymentComplete(token, bookingId) {
+    const response = await fetch(buildUrl(`/api/admin/bookings/${bookingId}/mark-payment-complete`), {
+      method: 'PUT',
+      headers: getDefaultHeaders(token)
+    })
+    return handleResponse(response)
+  },
+
   async createManualBooking(token, bookingData) {
     const response = await fetch(buildUrl('/api/admin/bookings/create'), {
       method: 'POST',

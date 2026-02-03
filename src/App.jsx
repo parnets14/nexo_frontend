@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { ComingSoonProvider } from './contexts/ComingSoonContext'
 import ScrollToTop from './components/ScrollToTop'
+import SpecialOfferPopup from './components/SpecialOfferPopup'
 import Home from './pages/Home'
 import ServiceDetail from './pages/ServiceDetail'
 import ServiceCheckout from './pages/ServiceCheckout'
@@ -87,6 +88,7 @@ function App() {
     <ComingSoonProvider>
       <Router>
       <ScrollToTop />
+      <SpecialOfferPopup />
       <NotificationPermissionPrompt />
       <Toaster 
         position="top-right"

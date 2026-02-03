@@ -336,7 +336,7 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
                         )}
                         {service.type === 'service' && (
                           <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-semibold whitespace-nowrap">
-                            Service
+                            Main Service
                           </span>
                         )}
                         {service.type === 'addon' && (
@@ -346,7 +346,12 @@ const ProfessionalInvoice = ({ invoiceData, onPrint }) => {
                         )}
                         {service.type === 'subservice' && (
                           <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full font-semibold whitespace-nowrap">
-                            Sub-service
+                            Additional Service
+                          </span>
+                        )}
+                        {service.type === 'additional_service' && (
+                          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full font-semibold whitespace-nowrap">
+                            Additional Service
                           </span>
                         )}
                       </div>

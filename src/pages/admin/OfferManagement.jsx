@@ -15,7 +15,12 @@ const OfferManagement = () => {
     startDate: '',
     endDate: '',
     offerTitle: '',
-    promotionalImage: null
+    promotionalImage: null,
+    offerType: 'coupon',
+    targetService: '',
+    originalPrice: '',
+    offerPrice: '',
+    isPopupEnabled: false
   })
   const [imagePreview, setImagePreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -38,7 +43,12 @@ const OfferManagement = () => {
         startDate: offer.startDate ? new Date(offer.startDate).toISOString().split('T')[0] : '',
         endDate: offer.endDate ? new Date(offer.endDate).toISOString().split('T')[0] : '',
         offerTitle: offer.offerTitle || '',
-        promotionalImage: null
+        promotionalImage: null,
+        offerType: offer.offerType || 'coupon',
+        targetService: offer.targetService || '',
+        originalPrice: offer.originalPrice || '',
+        offerPrice: offer.offerPrice || '',
+        isPopupEnabled: offer.isPopupEnabled || false
       })
       setImagePreview(offer.promotionalImage || null)
     } else {
@@ -49,7 +59,12 @@ const OfferManagement = () => {
         startDate: '',
         endDate: '',
         offerTitle: '',
-        promotionalImage: null
+        promotionalImage: null,
+        offerType: 'coupon',
+        targetService: '',
+        originalPrice: '',
+        offerPrice: '',
+        isPopupEnabled: false
       })
       setImagePreview(null)
     }
@@ -67,7 +82,12 @@ const OfferManagement = () => {
       startDate: '',
       endDate: '',
       offerTitle: '',
-      promotionalImage: null
+      promotionalImage: null,
+      offerType: 'coupon',
+      targetService: '',
+      originalPrice: '',
+      offerPrice: '',
+      isPopupEnabled: false
     })
     setImagePreview(null)
     setSuccessMsg('')
@@ -200,7 +220,19 @@ const OfferManagement = () => {
                 <div className="p-5 space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-slate-900">{offer.offerTitle}</h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-lg font-semibold text-slate-900">{offer.offerTitle}</h3>
+                        {offer.offerType === 'special_offer' && (
+                          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                            Special Offer
+                          </span>
+                        )}
+                        {offer.isPopupEnabled && (
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                            Popup
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-mono font-bold">
                         <FiTag className="text-xs" />
                         {offer.couponCode}
@@ -224,10 +256,32 @@ const OfferManagement = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-2xl font-bold text-primary">
-                    <FiPercent className="text-xl" />
-                    {offer.discount}% OFF
-                  </div>
+                  {offer.offerType === 'special_offer' ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-600">Original Price:</span>
+                        <span className="text-sm line-through text-slate-500">₹{offer.originalPrice}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-600">Offer Price:</span>
+                        <span className="text-lg font-bold text-primary">₹{offer.offerPrice}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-600">You Save:</span>
+                        <span className="text-sm font-medium text-green-600">₹{offer.originalPrice - offer.offerPrice}</span>
+                      </div>
+                      {offer.targetService && (
+                        <div className="text-sm text-slate-600">
+                          <span className="font-medium">Service:</span> {offer.targetService.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-2xl font-bold text-primary">
+                      <FiPercent className="text-xl" />
+                      {offer.discount}% OFF
+                    </div>
+                  )}
 
                   <div className="space-y-2 text-sm text-slate-600">
                     <div className="flex items-center gap-2">
@@ -286,6 +340,21 @@ const OfferManagement = () => {
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Offer Type *
+                </label>
+                <select
+                  value={formData.offerType}
+                  onChange={(e) => setFormData({ ...formData, offerType: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  required
+                >
+                  <option value="coupon">Regular Coupon</option>
+                  <option value="special_offer">Special Offer (Popup)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Offer Title *
                 </label>
                 <input
@@ -315,6 +384,74 @@ const OfferManagement = () => {
                   <p className="mt-1 text-xs text-slate-500">Coupon code cannot be changed after creation</p>
                 )}
               </div>
+
+              {formData.offerType === 'special_offer' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Target Service *
+                    </label>
+                    <select
+                      value={formData.targetService}
+                      onChange={(e) => setFormData({ ...formData, targetService: e.target.value })}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      required
+                    >
+                      <option value="">Select Service</option>
+                      <option value="ac-service">AC Service</option>
+                      <option value="refrigerator-service">Refrigerator Service</option>
+                      <option value="washing-machine-service">Washing Machine Service</option>
+                      <option value="microwave-service">Microwave Service</option>
+                      <option value="geyser-service">Geyser Service</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Original Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.originalPrice}
+                        onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="e.g., 999"
+                        min="0"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Offer Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.offerPrice}
+                        onChange={(e) => setFormData({ ...formData, offerPrice: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="e.g., 499"
+                        min="0"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="isPopupEnabled"
+                      checked={formData.isPopupEnabled}
+                      onChange={(e) => setFormData({ ...formData, isPopupEnabled: e.target.checked })}
+                      className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                    />
+                    <label htmlFor="isPopupEnabled" className="text-sm font-medium text-slate-700">
+                      Enable as popup offer for first-time visitors
+                    </label>
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">

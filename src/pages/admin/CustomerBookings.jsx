@@ -979,45 +979,104 @@ const CustomerBookings = () => {
                     </td>
                     
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         {/* Category */}
                         <div className="text-xs text-gray-500">
                           <span className="font-medium">Category:</span> {booking.categoryName || 'N/A'}
                         </div>
                         
-                        {/* Total Amount */}
-                        <div className="text-sm font-bold text-gray-900">
-                          Total: ₹{(booking.totalAmount || booking.amount || 0).toLocaleString()}
-                        </div>
-                        
-                        {/* Paid Amount */}
-                        <div className="text-xs text-green-600 flex items-center gap-1">
-                          <FiCheckCircle className="text-xs" />
-                          <span className="font-medium">Paid:</span> ₹{(booking.paidAmount || 0).toLocaleString()}
-                        </div>
-                        
-                        {/* Pending Amount */}
-                        {booking.pendingAmount > 0 && (
-                          <div className="text-xs text-orange-600 flex items-center gap-1">
-                            <FiClock className="text-xs" />
-                            <span className="font-medium">Pending:</span> ₹{(booking.pendingAmount || 0).toLocaleString()}
-                          </div>
-                        )}
-                        
-                        {/* Payment Status Badge */}
-                        <div className="mt-1">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            booking.paymentStatus === 'completed' ? 'bg-green-100 text-green-800' :
-                            booking.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800' :
-                            booking.paymentStatus === 'pending' ? 'bg-orange-100 text-orange-800' :
-                            'bg-gray-100 text-gray-800'
+                        {/* Payment Status Badge - More Prominent */}
+                        <div className="mb-2">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border-2 ${
+                            booking.paymentStatus === 'completed' ? 'bg-green-100 text-green-800 border-green-300' :
+                            booking.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                            booking.paymentStatus === 'pending' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                            booking.paymentStatus === 'failed' ? 'bg-red-100 text-red-800 border-red-300' :
+                            'bg-gray-100 text-gray-800 border-gray-300'
                           }`}>
-                            {booking.paymentStatus === 'completed' ? 'Fully Paid' :
-                             booking.paymentStatus === 'partial' ? 'Partially Paid' :
-                             booking.paymentStatus === 'pending' ? 'Payment Pending' :
-                             booking.paymentStatus}
+                            {booking.paymentStatus === 'completed' ? '✅ Fully Paid' :
+                             booking.paymentStatus === 'partial' ? '⚠️ Partially Paid' :
+                             booking.paymentStatus === 'pending' ? '⏳ Payment Pending' :
+                             booking.paymentStatus === 'failed' ? '❌ Payment Failed' :
+                             booking.paymentStatus || 'Unknown'}
                           </span>
                         </div>
+                        
+                        {/* Payment Breakdown */}
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                          {/* Total Amount */}
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-medium text-gray-600">Total Amount:</span>
+                            <span className="text-sm font-bold text-gray-900">₹{(booking.totalAmount || booking.amount || 0).toLocaleString()}</span>
+                          </div>
+                          
+                          {/* Paid Amount */}
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-medium text-green-600">Paid Amount:</span>
+                            <span className="text-sm font-semibold text-green-700">₹{(booking.paidAmount || booking.payamount || 0).toLocaleString()}</span>
+                          </div>
+                          
+                          {/* Pending Amount */}
+                          {(() => {
+                            const totalAmount = booking.totalAmount || booking.amount || 0;
+                            const paidAmount = booking.paidAmount || booking.payamount || 0;
+                            const pendingAmount = booking.pendingAmount || (totalAmount - paidAmount);
+                            
+                            return pendingAmount > 0 ? (
+                              <div className="flex justify-between items-center border-t border-gray-200 pt-1">
+                                <span className="text-xs font-medium text-orange-600">Due Amount:</span>
+                                <span className="text-sm font-bold text-orange-700">₹{pendingAmount.toLocaleString()}</span>
+                              </div>
+                            ) : null;
+                          })()}
+                          
+                          {/* Payment Mode */}
+                          <div className="flex justify-between items-center text-xs text-gray-500 border-t border-gray-200 pt-1">
+                            <span>Payment Mode:</span>
+                            <span className="capitalize">{booking.paymentMode || 'N/A'}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Payment Actions for Partial Payments */}
+                        {booking.paymentStatus === 'partial' && (
+                          <div className="mt-2">
+                            <button
+                              onClick={async () => {
+                                const totalAmount = booking.totalAmount || booking.amount || 0;
+                                const paidAmount = booking.paidAmount || booking.payamount || 0;
+                                const pendingAmount = totalAmount - paidAmount;
+                                
+                                if (window.confirm(`Mark remaining amount of ₹${pendingAmount.toLocaleString()} as paid?\n\nThis will update the booking payment status to "Fully Paid".`)) {
+                                  try {
+                                    const response = await adminApi.markBookingPaymentComplete(token, booking._id);
+                                    if (response.success) {
+                                      // Update the booking in the list
+                                      setBookings(prev => prev.map(b => 
+                                        b._id === booking._id 
+                                          ? { 
+                                              ...b, 
+                                              paymentStatus: 'completed',
+                                              paidAmount: totalAmount,
+                                              payamount: totalAmount,
+                                              pendingAmount: 0,
+                                              remainingAmount: 0
+                                            }
+                                          : b
+                                      ));
+                                      alert('Payment marked as complete successfully!');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error marking payment as complete:', error);
+                                    alert('Failed to mark payment as complete: ' + (error.message || 'Unknown error'));
+                                  }
+                                }
+                              }}
+                              className="w-full px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition"
+                            >
+                              Mark as Fully Paid
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                     

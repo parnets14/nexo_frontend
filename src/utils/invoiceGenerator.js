@@ -153,6 +153,34 @@ export const generateInvoiceFromBooking = (booking) => {
     quotationNumber: quotation?.quotationNumber || 'N/A'
   });
 
+  // Helper function to determine correct service type based on context and origin
+  const determineServiceType = (itemName, originalType, itemContext = {}) => {
+    // If the item comes from currentService.subServices, it's a Main Service
+    // These are the core services offered under a service category (like AC Service)
+    if (originalType === 'subservice') {
+      return 'service'; // Main Service - these are the primary services under a category
+    }
+    
+    // If the item comes from currentService.addOns, it's an Add-on
+    if (originalType === 'addon') {
+      return 'addon'; // Add-on - these are optional extras
+    }
+    
+    // If the item comes from addon.subServices, it's also an Add-on
+    if (originalType === 'addon-subservice') {
+      return 'addon'; // Add-on - these are sub-services of add-ons
+    }
+    
+    // For backward compatibility - check name patterns for special cases
+    const name = (itemName || '').toLowerCase();
+    if (name.includes('inspection') || name.includes('diagnosis') || name.includes('checkup') || name.includes('assessment')) {
+      return 'service'; // Main Service for inspection-type services
+    }
+    
+    // Default fallback - if we can't determine, treat as add-on to be safe
+    return 'addon';
+  };
+
   // Build services array - include main service, add-ons, sub-services, and quotation items
   let services = [];
   
@@ -168,6 +196,9 @@ export const generateInvoiceFromBooking = (booking) => {
       'title'
     ], 'Service');
     
+    // If it's from subService, it's a main service
+    const correctType = booking.subService ? 'service' : determineServiceType(serviceName, 'service');
+    
     services.push({
       description: serviceName,
       details: extractField(booking, [
@@ -179,11 +210,11 @@ export const generateInvoiceFromBooking = (booking) => {
       quantity: 1,
       rate: booking.amount || 0,
       amount: booking.amount || 0,
-      type: 'service'
+      type: correctType
     });
   }
 
-  // Add selected add-ons if they exist
+  // Add selected add-ons if they exist - apply correct categorization
   if (booking.selectedAddOns && Array.isArray(booking.selectedAddOns) && booking.selectedAddOns.length > 0) {
     console.log('📋 Adding add-ons to invoice:', booking.selectedAddOns.length);
     booking.selectedAddOns.forEach(addon => {
@@ -193,15 +224,17 @@ export const generateInvoiceFromBooking = (booking) => {
       
       // Only add add-ons with price > 1 (skip placeholder/incorrect data)
       if (numericPrice > 1) {
+        const correctType = determineServiceType(addon.name, 'addon', addon);
+        
         services.push({
           description: addon.name || 'Add-on',
           details: addon.description || 'Additional service',
           quantity: 1,
           rate: numericPrice,
           amount: numericPrice,
-          type: 'addon'
+          type: correctType
         });
-        console.log(`  ✅ Added add-on: ${addon.name} - ₹${numericPrice}`);
+        console.log(`  ✅ Added add-on: ${addon.name} - ₹${numericPrice} [${correctType}]`);
       } else {
         console.warn(`  ⚠️ Skipped add-on with invalid price (₹${numericPrice}): ${addon.name}`);
         console.warn(`     This add-on has incorrect pricing data and will not appear in the invoice.`);
@@ -211,7 +244,7 @@ export const generateInvoiceFromBooking = (booking) => {
     console.log('📋 No selectedAddOns found in booking');
   }
 
-  // Add cart items (sub-services) if they exist
+  // Add cart items (sub-services) if they exist - apply correct categorization
   if (booking.cartItems && Array.isArray(booking.cartItems) && booking.cartItems.length > 0) {
     console.log('📋 Adding cart items to invoice:', booking.cartItems.length);
     booking.cartItems.forEach(item => {
@@ -220,15 +253,17 @@ export const generateInvoiceFromBooking = (booking) => {
       const amount = quantity * price;
       
       if (price > 0) {
+        const correctType = determineServiceType(item.name || item.serviceName, item.type, item);
+        
         services.push({
-          description: item.name || item.serviceName || 'Sub-service',
-          details: item.description || 'Additional service item',
+          description: item.name || item.serviceName || 'Service Item',
+          details: item.description || 'Service item',
           quantity: quantity,
           rate: price,
           amount: amount,
-          type: 'subservice'
+          type: correctType
         });
-        console.log(`  ✅ Added cart item: ${item.name || item.serviceName} - ₹${price} x ${quantity}`);
+        console.log(`  ✅ Added cart item: ${item.name || item.serviceName} - ₹${price} x ${quantity} [${correctType}]`);
       } else {
         console.warn(`  ⚠️ Skipped cart item with zero price: ${item.name || item.serviceName}`);
       }
