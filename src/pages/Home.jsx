@@ -27,11 +27,12 @@ import {
 import SEO from '../components/SEO'
 import CitySelectionModal from '../components/CitySelectionModal'
 import DiscountPopup from '../components/DiscountPopup'
+import SpecialOfferPopup from '../components/SpecialOfferPopup'
 import ReviewCarousel from '../components/ReviewCarousel'
 import { useWhatsAppClick } from '../hooks/useWhatsAppClick'
 import { useUserAuth } from '../context/UserAuthContext'
-import axios from 'axios'
 import cityService from '../services/cityService'
+import { determineOfferToDisplay, getActiveBannerOffers } from '../utils/offerDisplayUtils'
 
 // Icon mapping utility
 const iconMap = {
@@ -58,10 +59,9 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const Home = () => {
-  const whatsappNumber = "+15558136145"
   const handleWhatsAppClick = useWhatsAppClick()
   const navigate = useNavigate()
   const { isAuthenticated, user } = useUserAuth()
@@ -70,9 +70,12 @@ const Home = () => {
 
   const [showCityModal, setShowCityModal] = useState(false)
   const [selectedCity, setSelectedCity] = useState(null)
-  const [showDiscountPopup, setShowDiscountPopup] = useState(false)
   const [showTopBanner, setShowTopBanner] = useState(true)
   const [activeOffers, setActiveOffers] = useState([])
+  
+  // Offer popup state
+  const [offerToDisplay, setOfferToDisplay] = useState(null)
+  const [showOfferPopup, setShowOfferPopup] = useState(false)
 
   useEffect(() => {
     // Check if city is already selected
@@ -112,7 +115,7 @@ const Home = () => {
     setShowCityModal(false);
   };
 
-  // Fetch active offers for banner
+  // Fetch active offers for banner and popup
   useEffect(() => {
     const fetchOffers = async () => {
       try {
@@ -120,13 +123,13 @@ const Home = () => {
         const result = await response.json()
         
         if (result.success && result.data) {
-          const now = new Date()
-          const active = result.data.filter(offer => {
-            const startDate = new Date(offer.startDate)
-            const endDate = new Date(offer.endDate)
-            return now >= startDate && now <= endDate
-          })
-          setActiveOffers(active)
+          // Get active offers for banner (all active offers)
+          const bannerOffers = getActiveBannerOffers(result.data)
+          setActiveOffers(bannerOffers)
+          
+          // Determine which offer type to display in popup
+          const offerDisplay = determineOfferToDisplay(result.data)
+          setOfferToDisplay(offerDisplay)
         }
       } catch (error) {
         console.error('Error fetching offers:', error)
@@ -136,17 +139,18 @@ const Home = () => {
     fetchOffers()
   }, [])
 
-  // Show discount popup after city selection or on page load
+  // Show offer popup after 2 seconds delay
   useEffect(() => {
-    // Show popup after 2 seconds delay (removed session check to always show)
-    console.log('🎁 Setting timer to show discount popup in 2 seconds...')
-    const timer = setTimeout(() => {
-      console.log('🎁 Showing discount popup now!')
-      setShowDiscountPopup(true);
-    }, 2000);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    if (offerToDisplay) {
+      console.log('🎁 Setting timer to show offer popup in 2 seconds...')
+      const timer = setTimeout(() => {
+        console.log('🎁 Showing offer popup now!', offerToDisplay)
+        setShowOfferPopup(true)
+      }, 2000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [offerToDisplay])
 
   // Periodic check to verify selected city is still enabled
   useEffect(() => {
@@ -264,7 +268,7 @@ const Home = () => {
   useEffect(() => {
     const fetchFeaturedReviews = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'https://nexo.works'
+        const apiUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'http://localhost:9088'
         const response = await fetch(`${apiUrl}/api/public/featured-reviews`)
         const data = await response.json()
         
@@ -355,9 +359,21 @@ const Home = () => {
         onCitySelect={handleCitySelect}
       />
       
-      {/* Discount Popup */}
-      {showDiscountPopup && (
-        <DiscountPopup onClose={() => setShowDiscountPopup(false)} />
+      {/* Offer Popups - Only one will show based on offer type */}
+      {showOfferPopup && offerToDisplay && (
+        <>
+          {offerToDisplay.type === 'special' ? (
+            <SpecialOfferPopup 
+              offer={offerToDisplay.data} 
+              onClose={() => setShowOfferPopup(false)} 
+            />
+          ) : (
+            <DiscountPopup 
+              offers={offerToDisplay.data} 
+              onClose={() => setShowOfferPopup(false)} 
+            />
+          )}
+        </>
       )}
       
       {/* Top Offer Banner - Always Visible */}
@@ -388,7 +404,7 @@ const Home = () => {
                 </div>
               </div>
               <button
-                onClick={() => setShowDiscountPopup(true)}
+                onClick={() => setShowOfferPopup(true)}
                 className="bg-white text-orange-600 px-4 py-2 rounded-full font-bold hover:bg-orange-50 transition-all flex items-center gap-2 flex-shrink-0"
               >
                 <FaTag className="w-4 h-4" />

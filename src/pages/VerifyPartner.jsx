@@ -16,7 +16,7 @@ const VerifyPartner = () => {
   const fetchPartnerDetails = async () => {
     try {
       setLoading(true)
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://nexo.works'
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:9088'
       const response = await fetch(`${API_BASE_URL}/api/partner/verify/${partnerId}`)
       const data = await response.json()
 
@@ -66,7 +66,7 @@ const VerifyPartner = () => {
   const profileImage = partner.profilePicture
     ? (partner.profilePicture.startsWith('http') 
         ? partner.profilePicture 
-        : `https://nexo.works/uploads/profiles/${partner.profilePicture}`)
+        : `http://localhost:9088/uploads/profiles/${partner.profilePicture}`)
     : null
 
   return (

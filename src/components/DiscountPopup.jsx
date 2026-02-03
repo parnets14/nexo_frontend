@@ -2,60 +2,19 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FaTimes, FaTag, FaPercent, FaGift, FaClock, FaCheckCircle } from 'react-icons/fa'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
-
-const DiscountPopup = ({ onClose }) => {
-  const [offers, setOffers] = useState([])
-  const [loading, setLoading] = useState(true)
+const DiscountPopup = ({ offers, onClose }) => {
   const [currentOfferIndex, setCurrentOfferIndex] = useState(0)
   const [showCopiedToast, setShowCopiedToast] = useState(false)
 
-  useEffect(() => {
-    fetchActiveOffers()
-  }, [])
-
   // Auto-rotate offers every 5 seconds
   useEffect(() => {
-    if (offers.length > 1) {
+    if (offers && offers.length > 1) {
       const interval = setInterval(() => {
         setCurrentOfferIndex((prev) => (prev + 1) % offers.length)
       }, 5000)
       return () => clearInterval(interval)
     }
-  }, [offers.length])
-
-  const fetchActiveOffers = async () => {
-    try {
-      console.log('🎁 Fetching offers from:', `${API_BASE_URL}/api/user/offers`)
-      const response = await fetch(`${API_BASE_URL}/api/user/offers`)
-      const result = await response.json()
-      
-      console.log('🎁 Offers response:', result)
-      
-      if (result.success && result.data) {
-        // Filter active offers (current date between start and end date)
-        const now = new Date()
-        const activeOffers = result.data.filter(offer => {
-          const startDate = new Date(offer.startDate)
-          const endDate = new Date(offer.endDate)
-          const isActive = now >= startDate && now <= endDate
-          console.log(`🎁 Offer "${offer.offerTitle}": ${isActive ? '✅ Active' : '❌ Inactive'}`, {
-            now: now.toISOString(),
-            start: startDate.toISOString(),
-            end: endDate.toISOString()
-          })
-          return isActive
-        })
-        console.log('🎁 Active offers count:', activeOffers.length)
-        setOffers(activeOffers)
-      }
-    } catch (error) {
-      console.error('🎁 Error fetching offers:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [offers])
 
   const calculateTimeLeft = (endDate) => {
     const now = new Date()
@@ -78,7 +37,7 @@ const DiscountPopup = ({ onClose }) => {
     setTimeout(() => setShowCopiedToast(false), 2000)
   }
 
-  if (loading || offers.length === 0) return null
+  if (!offers || offers.length === 0) return null
 
   const currentOffer = offers[currentOfferIndex]
 

@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_ADMIN_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const buildUrl = (path) => {
   // Handle both /api/admin and /admin routes
@@ -254,7 +254,7 @@ export const adminApi = {
 
   async updatePartnerProfile(token, partnerId, profileData) {
     // Use buildUrl to ensure correct URL construction
-    // The buildUrl function will prepend API_BASE_URL which is https://nexo.works in dev
+    // The buildUrl function will prepend API_BASE_URL which is http://localhost:9088 in dev
     const url = buildUrl(`/api/admin/updatePartnerProfile/${partnerId}`)
     const response = await fetch(url, {
       method: 'PUT',
@@ -1939,7 +1939,7 @@ export const adminApi = {
 
   // Offer Management
   async fetchOffers(token) {
-    const response = await fetch(buildUrl('/services/offers'), {
+    const response = await fetch(buildUrl('/api/admin/services/offers'), {
       headers: getDefaultHeaders(token)
     })
     return handleResponse(response)
@@ -1947,16 +1947,30 @@ export const adminApi = {
 
   async createOffer(token, offerData) {
     const formData = new FormData()
-    formData.append('couponCode', offerData.couponCode)
-    formData.append('discount', offerData.discount)
+    
+    // Common fields
+    formData.append('offerTitle', offerData.offerTitle)
     formData.append('startDate', offerData.startDate)
     formData.append('endDate', offerData.endDate)
-    formData.append('offerTitle', offerData.offerTitle)
+    formData.append('offerType', offerData.offerType)
+    
     if (offerData.promotionalImage) {
       formData.append('promotionalImage', offerData.promotionalImage)
     }
+    
+    // Fields specific to offer type
+    if (offerData.offerType === 'special_offer') {
+      formData.append('targetService', offerData.targetService)
+      formData.append('offerPrice', offerData.offerPrice)
+      formData.append('isPopupEnabled', offerData.isPopupEnabled)
+    } else {
+      // Regular offer fields
+      formData.append('couponCode', offerData.couponCode)
+      formData.append('discount', offerData.discount)
+      formData.append('targetServices', JSON.stringify(offerData.targetServices || []))
+    }
 
-    const response = await fetch(buildUrl('/services/offers'), {
+    const response = await fetch(buildUrl('/api/admin/services/offers'), {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`
@@ -1968,16 +1982,30 @@ export const adminApi = {
 
   async updateOffer(token, offerId, offerData) {
     const formData = new FormData()
-    if (offerData.couponCode) formData.append('couponCode', offerData.couponCode)
-    if (offerData.discount) formData.append('discount', offerData.discount)
+    
+    // Common fields
+    if (offerData.offerTitle) formData.append('offerTitle', offerData.offerTitle)
     if (offerData.startDate) formData.append('startDate', offerData.startDate)
     if (offerData.endDate) formData.append('endDate', offerData.endDate)
-    if (offerData.offerTitle) formData.append('offerTitle', offerData.offerTitle)
+    if (offerData.offerType) formData.append('offerType', offerData.offerType)
+    
     if (offerData.promotionalImage) {
       formData.append('promotionalImage', offerData.promotionalImage)
     }
+    
+    // Fields specific to offer type
+    if (offerData.offerType === 'special_offer') {
+      if (offerData.targetService) formData.append('targetService', offerData.targetService)
+      if (offerData.offerPrice !== undefined) formData.append('offerPrice', offerData.offerPrice)
+      if (offerData.isPopupEnabled !== undefined) formData.append('isPopupEnabled', offerData.isPopupEnabled)
+    } else {
+      // Regular offer fields
+      if (offerData.couponCode) formData.append('couponCode', offerData.couponCode)
+      if (offerData.discount !== undefined) formData.append('discount', offerData.discount)
+      if (offerData.targetServices) formData.append('targetServices', JSON.stringify(offerData.targetServices))
+    }
 
-    const response = await fetch(buildUrl(`/services/offers/${offerId}`), {
+    const response = await fetch(buildUrl(`/api/admin/services/offers/${offerId}`), {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${token}`
@@ -1988,7 +2016,7 @@ export const adminApi = {
   },
 
   async deleteOffer(token, offerId) {
-    const response = await fetch(buildUrl(`/services/offers/${offerId}`), {
+    const response = await fetch(buildUrl(`/api/admin/services/offers/${offerId}`), {
       method: 'DELETE',
       headers: getDefaultHeaders(token)
     })

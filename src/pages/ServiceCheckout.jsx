@@ -22,7 +22,7 @@ import CustomAlert from '../components/CustomAlert'
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 // Custom scrollbar styles for cart items
 const customScrollbarStyles = `
@@ -82,6 +82,20 @@ const ServiceCheckout = () => {
     return savedData ? JSON.parse(savedData) : {}
   }
   
+  const getAppliedOffer = () => {
+    const stateData = location.state?.appliedOffer
+    console.log('🔍 [Checkout] Getting Applied Offer from location.state:', stateData)
+    if (stateData) {
+      sessionStorage.setItem('checkoutAppliedOffer', JSON.stringify(stateData))
+      console.log('✅ [Checkout] Saved offer to sessionStorage:', stateData)
+      return stateData
+    }
+    const savedData = sessionStorage.getItem('checkoutAppliedOffer')
+    const parsedData = savedData ? JSON.parse(savedData) : null
+    console.log('🔍 [Checkout] Retrieved offer from sessionStorage:', parsedData)
+    return parsedData
+  }
+  
   const [cartData] = useState(getCartData())
   const [serviceData] = useState(getServiceData())
   const [loading, setLoading] = useState(false)
@@ -109,7 +123,7 @@ const ServiceCheckout = () => {
   // Offer/Coupon state
   const [offers, setOffers] = useState([])
   const [offerCode, setOfferCode] = useState('')
-  const [appliedOffer, setAppliedOffer] = useState(null)
+  const [appliedOffer, setAppliedOffer] = useState(getAppliedOffer()) // Initialize with passed offer
   const [offerLoading, setOfferLoading] = useState(false)
   const [showOfferInput, setShowOfferInput] = useState(false)
 
@@ -226,6 +240,16 @@ const ServiceCheckout = () => {
     }
   }, [isAuthenticated, user])
   
+  // Debug: Log appliedOffer state
+  useEffect(() => {
+    console.log('🔍 [Checkout] Applied Offer State:', appliedOffer)
+    if (appliedOffer) {
+      console.log('  - Offer Type:', appliedOffer.offerType)
+      console.log('  - Offer Price:', appliedOffer.offerPrice)
+      console.log('  - Offer Title:', appliedOffer.offerTitle)
+    }
+  }, [appliedOffer])
+  
   // Update formData when user data becomes available
   useEffect(() => {
     if (user && !formData.name && !formData.email && !formData.phone) {
@@ -277,6 +301,7 @@ const ServiceCheckout = () => {
         sessionStorage.removeItem('checkoutCartData')
         sessionStorage.removeItem('checkoutServiceData')
         sessionStorage.removeItem('checkoutFormData')
+        sessionStorage.removeItem('checkoutAppliedOffer')
       }
     }
   }, [])
@@ -363,7 +388,7 @@ const ServiceCheckout = () => {
 
   // Apply offer code
   const handleApplyOffer = async () => {
-    if (!offerCode.trim()) {
+    if (!offerCode || !offerCode.trim()) {
       showAlert('warning', 'Enter Offer Code', 'Please enter a valid offer code')
       return
     }
@@ -372,7 +397,7 @@ const ServiceCheckout = () => {
     try {
       // Find matching offer
       const matchingOffer = offers.find(
-        offer => offer.couponCode.toLowerCase() === offerCode.trim().toLowerCase()
+        offer => offer.couponCode && offer.couponCode.toLowerCase() === offerCode.trim().toLowerCase()
       )
 
       if (!matchingOffer) {
@@ -390,6 +415,16 @@ const ServiceCheckout = () => {
         showAlert('error', 'Offer Expired', 'This offer is no longer valid')
         setOfferLoading(false)
         return
+      }
+
+      // Check if offer applies to current service (for regular offers with targetServices)
+      if (matchingOffer.offerType === 'coupon' && matchingOffer.targetServices && matchingOffer.targetServices.length > 0) {
+        const currentServiceSlug = serviceName || serviceData?.slug
+        if (!matchingOffer.targetServices.includes(currentServiceSlug)) {
+          showAlert('error', 'Offer Not Applicable', 'This offer does not apply to the selected service')
+          setOfferLoading(false)
+          return
+        }
       }
 
       // Apply the offer
@@ -979,6 +1014,12 @@ const ServiceCheckout = () => {
   }
 
   const calculateTotalBeforeTax = () => {
+    // For special offers, return the offer price directly
+    if (appliedOffer && appliedOffer.offerType === 'special_offer') {
+      console.log('🔍 [Checkout] Using Special Offer Price:', appliedOffer.offerPrice)
+      return appliedOffer.offerPrice
+    }
+    
     const subtotal = calculateSubtotal()
     const visiting = getVisitingCharge()
     const service = getServiceCharge()
@@ -998,17 +1039,43 @@ const ServiceCheckout = () => {
 
   const calculateOfferDiscount = () => {
     if (!appliedOffer) return 0
+    
+    // For special offers, calculate discount as difference between original and offer price
+    if (appliedOffer.offerType === 'special_offer') {
+      const originalTotal = (() => {
+        const subtotal = calculateSubtotal()
+        const visiting = getVisitingCharge()
+        const service = getServiceCharge()
+        const emergency = getEmergencyCharge()
+        return subtotal + visiting + service + emergency
+      })()
+      const discount = originalTotal - appliedOffer.offerPrice
+      return Math.max(0, discount)
+    }
+    
+    // For coupon-based offers, calculate percentage discount
     const totalBeforeTax = calculateTotalBeforeTax()
     return Math.round(totalBeforeTax * appliedOffer.discount / 100)
   }
 
   const calculateTotalAfterDiscount = () => {
+    // For special offers, return the offer price directly
+    if (appliedOffer && appliedOffer.offerType === 'special_offer') {
+      return appliedOffer.offerPrice
+    }
+    
     const totalBeforeTax = calculateTotalBeforeTax()
     const discount = calculateOfferDiscount()
     return totalBeforeTax - discount
   }
 
   const calculateFinalAmount = () => {
+    console.log('🔍 [calculateFinalAmount] Starting calculation')
+    console.log('  - Payment Option:', paymentOption)
+    console.log('  - Applied Offer:', appliedOffer)
+    console.log('  - Offer Type:', appliedOffer?.offerType)
+    console.log('  - Offer Price:', appliedOffer?.offerPrice)
+    
     // If paying visiting charge only
     if (paymentOption === 'visiting') {
       const visitingCharge = getVisitingCharge()
@@ -1018,6 +1085,8 @@ const ServiceCheckout = () => {
       const gst = Math.round(visitingCharge * totalGstRate / 100)
       const total = visitingCharge + gst
       
+      console.log('  - Visiting Charge Mode: Total =', total)
+      
       if (useWallet && walletAmount > 0) {
         return Math.max(0, total - walletAmount)
       }
@@ -1025,13 +1094,28 @@ const ServiceCheckout = () => {
       return total
     }
     
-    // If paying total amount
+    // For special offers, offerPrice is the FINAL price (already includes GST)
+    if (appliedOffer && appliedOffer.offerType === 'special_offer') {
+      const finalPrice = appliedOffer.offerPrice
+      
+      console.log('  - Special Offer Mode: Final Price =', finalPrice)
+      
+      if (useWallet && walletAmount > 0) {
+        return Math.max(0, finalPrice - walletAmount)
+      }
+      
+      return finalPrice
+    }
+    
+    // If paying total amount (regular pricing or coupon offers)
     const totalAfterDiscount = calculateTotalAfterDiscount()
     const cgst = serviceData.cgst || 9 // Default CGST 9%
     const sgst = serviceData.sgst || 9 // Default SGST 9%
     const totalGstRate = cgst + sgst
     const gst = Math.round(totalAfterDiscount * totalGstRate / 100)
     const total = totalAfterDiscount + gst
+    
+    console.log('  - Regular Mode: Total After Discount =', totalAfterDiscount, ', GST =', gst, ', Final =', total)
     
     if (useWallet && walletAmount > 0) {
       return Math.max(0, total - walletAmount)
@@ -1052,6 +1136,9 @@ const ServiceCheckout = () => {
         const sgst = serviceData.sgst || 9
         const totalGstRate = cgst + sgst
         total = Math.round(visitingCharge * (1 + totalGstRate / 100))
+      } else if (appliedOffer && appliedOffer.offerType === 'special_offer') {
+        // For special offers, use the offer price directly (already includes GST)
+        total = appliedOffer.offerPrice
       } else {
         const totalAfterDiscount = calculateTotalAfterDiscount()
         const cgst = serviceData.cgst || 9
@@ -1079,6 +1166,9 @@ const ServiceCheckout = () => {
       const sgst = serviceData.sgst || 9
       const totalGstRate = cgst + sgst
       total = Math.round(visitingCharge * (1 + totalGstRate / 100))
+    } else if (appliedOffer && appliedOffer.offerType === 'special_offer') {
+      // For special offers, use the offer price directly (already includes GST)
+      total = appliedOffer.offerPrice
     } else {
       const totalAfterDiscount = calculateTotalAfterDiscount()
       const cgst = serviceData.cgst || 9
@@ -1308,6 +1398,7 @@ const ServiceCheckout = () => {
         sessionStorage.removeItem('checkoutCartData')
         sessionStorage.removeItem('checkoutServiceData')
         sessionStorage.removeItem('checkoutFormData')
+        sessionStorage.removeItem('checkoutAppliedOffer')
         showAlert('success', 'Booking Confirmed!', 'Your booking has been confirmed and payment deducted from wallet.')
         setTimeout(() => {
           navigate('/user/dashboard/bookings')
@@ -1352,6 +1443,23 @@ const ServiceCheckout = () => {
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
           <p className="text-gray-600 mt-2">Complete your booking details</p>
+          
+          {/* DEBUG: Show applied offer info */}
+          {appliedOffer && (
+            <div className="mt-4 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+              <div className="text-sm font-mono">
+                <div className="font-bold text-yellow-800 mb-2">🐛 DEBUG INFO (Remove in production)</div>
+                <div><strong>Offer Applied:</strong> {appliedOffer.offerTitle}</div>
+                <div><strong>Offer Type:</strong> {appliedOffer.offerType}</div>
+                <div><strong>Offer Price:</strong> ₹{appliedOffer.offerPrice}</div>
+                <div><strong>Coupon Code:</strong> {appliedOffer.couponCode || 'N/A'}</div>
+                <div className="mt-2 text-xs text-yellow-700">
+                  If you see this, the offer IS being passed to checkout correctly.
+                  Check browser console for calculation logs.
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Form Progress Indicator */}
           <div className="mt-4 bg-white rounded-lg p-4 shadow-sm border">
@@ -2242,11 +2350,17 @@ const ServiceCheckout = () => {
                         onClick={() => {
                           setPaymentOption('total')
                           if (useWallet) {
-                            const totalAfterDiscount = calculateTotalAfterDiscount()
-                            const cgst = serviceData.cgst || 9
-                            const sgst = serviceData.sgst || 9
-                            const totalGstRate = cgst + sgst
-                            const total = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+                            let total
+                            if (appliedOffer && appliedOffer.offerType === 'special_offer') {
+                              // For special offers, use the offer price directly (already includes GST)
+                              total = appliedOffer.offerPrice
+                            } else {
+                              const totalAfterDiscount = calculateTotalAfterDiscount()
+                              const cgst = serviceData.cgst || 9
+                              const sgst = serviceData.sgst || 9
+                              const totalGstRate = cgst + sgst
+                              total = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+                            }
                             const maxWalletUse = Math.min(walletBalance, total)
                             setWalletAmount(maxWalletUse)
                           }
@@ -2347,94 +2461,156 @@ const ServiceCheckout = () => {
                   ) : (
                     // Total Amount Breakdown
                     <>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Service Subtotal</span>
-                        <span className="font-medium">₹{calculateSubtotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                      
-                      {/* Visiting Charge */}
-                      {getVisitingCharge() > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Visiting Charge</span>
-                          <span className="font-medium text-amber-600">+₹{getVisitingCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-                      
-                      {/* Service Charge */}
-                      {getServiceCharge() > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Platform Fee</span>
-                          <span className="font-medium text-blue-600">+₹{getServiceCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-                      
-                      {/* Emergency Charge */}
-                      {getEmergencyCharge() > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600 flex items-center gap-1">
-                            <span className="text-red-500">🚨</span>
-                            Emergency Service Charge
-                          </span>
-                          <span className="font-medium text-red-600">+₹{getEmergencyCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-                      
-                      {/* Subtotal Before Tax */}
-                      {(getVisitingCharge() > 0 || getServiceCharge() > 0 || getEmergencyCharge() > 0) && (
-                        <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
-                          <span className="text-gray-700 font-medium">Subtotal (Before Tax)</span>
-                          <span className="font-semibold text-gray-900">₹{calculateTotalBeforeTax().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-                      
-                      {/* Offer/Discount Section */}
-                      {appliedOffer && (
-                        <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
-                          <div className="flex items-center gap-2">
-                            <span className="text-green-700 font-medium">Offer Discount ({appliedOffer.discount}%)</span>
-                            <button
-                              onClick={handleRemoveOffer}
-                              className="text-red-500 hover:text-red-700 text-xs"
-                              title="Remove offer"
-                            >
-                              ✕
-                            </button>
+                      {/* For special offers, show offer price directly without breakdown */}
+                      {appliedOffer && appliedOffer.offerType === 'special_offer' ? (
+                        <>
+                          {/* PROMINENT SPECIAL OFFER PRICE DISPLAY */}
+                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 mb-4 border-2 border-green-500">
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-2 mb-2">
+                                <span className="text-3xl">🎉</span>
+                                <span className="text-sm font-bold text-green-800 uppercase tracking-wide">Special Offer Price</span>
+                              </div>
+                              <div className="text-5xl font-black text-green-600 mb-2">
+                                ₹{appliedOffer.offerPrice}
+                              </div>
+                              <div className="text-xs text-green-700 font-medium">
+                                {appliedOffer.offerTitle}
+                              </div>
+                              {(() => {
+                                const originalTotal = calculateSubtotal() + getVisitingCharge() + getServiceCharge() + getEmergencyCharge()
+                                const savings = originalTotal - appliedOffer.offerPrice
+                                if (savings > 0) {
+                                  return (
+                                    <div className="mt-2 inline-block bg-white rounded-full px-3 py-1 border border-green-300">
+                                      <span className="text-xs text-gray-600">You save </span>
+                                      <span className="text-sm font-bold text-green-600">₹{savings.toLocaleString('en-IN')}</span>
+                                    </div>
+                                  )
+                                }
+                              })()}
+                            </div>
                           </div>
-                          <span className="font-semibold text-green-600">-₹{calculateOfferDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-                      
-                      {/* Total After Discount */}
-                      {appliedOffer && (
-                        <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
-                          <span className="text-gray-700 font-medium">Total After Discount</span>
-                          <span className="font-semibold text-gray-900">₹{calculateTotalAfterDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
+                          
+                          {/* Subtotal Before Tax - using offer price */}
+                          <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                            <span className="text-gray-700 font-medium">Service Amount (Before Tax)</span>
+                            <span className="font-semibold text-gray-900">₹{appliedOffer.offerPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Regular price breakdown for non-special-offer cases */}
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Service Subtotal</span>
+                            <span className="font-medium">₹{calculateSubtotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          
+                          {/* Visiting Charge */}
+                          {getVisitingCharge() > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Visiting Charge</span>
+                              <span className="font-medium text-amber-600">+₹{getVisitingCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          
+                          {/* Service Charge */}
+                          {getServiceCharge() > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Platform Fee</span>
+                              <span className="font-medium text-blue-600">+₹{getServiceCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          
+                          {/* Emergency Charge */}
+                          {getEmergencyCharge() > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600 flex items-center gap-1">
+                                <span className="text-red-500">🚨</span>
+                                Emergency Service Charge
+                              </span>
+                              <span className="font-medium text-red-600">+₹{getEmergencyCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          
+                          {/* Subtotal Before Tax */}
+                          {(getVisitingCharge() > 0 || getServiceCharge() > 0 || getEmergencyCharge() > 0) && (
+                            <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                              <span className="text-gray-700 font-medium">Subtotal (Before Tax)</span>
+                              <span className="font-semibold text-gray-900">₹{calculateTotalBeforeTax().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          
+                          {/* Offer/Discount Section - Only for coupon-based offers */}
+                          {appliedOffer && appliedOffer.offerType === 'coupon' && (
+                            <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                              <div className="flex items-center gap-2">
+                                <span className="text-green-700 font-medium">Offer Discount ({appliedOffer.discount}%)</span>
+                                <button
+                                  onClick={handleRemoveOffer}
+                                  className="text-red-500 hover:text-red-700 text-xs"
+                                  title="Remove offer"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                              <span className="font-semibold text-green-600">-₹{calculateOfferDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          
+                          {/* Total After Discount - Only for coupon-based offers */}
+                          {appliedOffer && appliedOffer.offerType === 'coupon' && (
+                            <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                              <span className="text-gray-700 font-medium">Total After Discount</span>
+                              <span className="font-semibold text-gray-900">₹{calculateTotalAfterDiscount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                        </>
                       )}
                       
                       {/* Tax Breakdown */}
-                      <div className="bg-gray-50 rounded-lg p-3 space-y-2 mt-2">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-600">CGST ({serviceData.cgst || 9}%)</span>
-                          <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.cgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      {appliedOffer && appliedOffer.offerType === 'special_offer' ? (
+                        // For special offers, GST is already included in the offer price
+                        <div className="bg-green-50 rounded-lg p-3 mt-2 border border-green-200">
+                          <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+                            <FaCheckCircle className="text-green-500" />
+                            <span className="font-medium">GST (18%) already included in offer price</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-600">SGST ({serviceData.sgst || 9}%)</span>
-                          <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.sgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      ) : (
+                        // Regular tax breakdown for non-special-offer cases
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-2 mt-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">CGST ({serviceData.cgst || 9}%)</span>
+                            <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.cgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">SGST ({serviceData.sgst || 9}%)</span>
+                            <span className="font-medium text-gray-700">₹{(calculateTotalAfterDiscount() * (serviceData.sgst || 9) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                            <span className="text-gray-700 font-medium">Total GST</span>
+                            <span className="font-semibold text-gray-900">₹{(calculateTotalAfterDiscount() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                          <span className="text-gray-700 font-medium">Total GST</span>
-                          <span className="font-semibold text-gray-900">₹{(calculateTotalAfterDiscount() * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      </div>
+                      )}
                     </>
                   )}
                   
                   {/* Total Before Wallet */}
                   <div className="flex justify-between text-base font-semibold text-gray-900 pt-2 border-t border-gray-200">
-                    <span>{paymentOption === 'visiting' ? 'Visiting Charge Total' : 'Total Amount'}</span>
+                    <span>
+                      {appliedOffer && appliedOffer.offerType === 'special_offer' 
+                        ? 'Total Amount (with GST)' 
+                        : paymentOption === 'visiting' 
+                        ? 'Visiting Charge Total' 
+                        : 'Total Amount'}
+                    </span>
                     <span>₹{(() => {
-                      if (paymentOption === 'visiting') {
+                      if (appliedOffer && appliedOffer.offerType === 'special_offer') {
+                        // For special offers, show the offer price directly (already includes GST)
+                        return appliedOffer.offerPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      } else if (paymentOption === 'visiting') {
                         const visitingCharge = getVisitingCharge()
                         const cgst = serviceData.cgst || 9
                         const sgst = serviceData.sgst || 9
@@ -2449,46 +2625,75 @@ const ServiceCheckout = () => {
                 
                 {/* Offer Code Section */}
                 <div className="pt-3 border-t border-gray-200 mt-3">
-                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-3 mb-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">🎁</span>
-                        <span className="text-sm font-semibold text-gray-800">Have an Offer Code?</span>
+                  {/* Special Offer Display - Auto-applied */}
+                  {appliedOffer && appliedOffer.offerType === 'special_offer' ? (
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-3 mb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">🎉</span>
+                        <span className="text-sm font-semibold text-gray-800">Special Offer Applied!</span>
                       </div>
-                      {!appliedOffer && (
-                        <button
-                          onClick={() => setShowOfferInput(!showOfferInput)}
-                          className="text-primary hover:text-primary-dark font-medium text-xs"
-                        >
-                          {showOfferInput ? 'Hide' : 'Apply'}
-                        </button>
-                      )}
-                    </div>
-                    
-                    {appliedOffer ? (
                       <div className="bg-white rounded-lg p-3 border-2 border-green-500">
                         <div className="flex items-center justify-between">
-                          <div>
+                          <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-green-600 font-bold text-sm">{appliedOffer.couponCode}</span>
+                              <span className="text-green-600 font-bold text-sm">{appliedOffer.offerTitle}</span>
                               <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                                {appliedOffer.discount}% OFF
+                                SPECIAL OFFER
                               </span>
                             </div>
-                            <p className="text-xs text-gray-600">{appliedOffer.offerTitle}</p>
-                            <p className="text-xs text-green-600 font-medium mt-1">
-                              You save ₹{calculateOfferDiscount().toLocaleString('en-IN')}
-                            </p>
+                            <p className="text-xs text-gray-600 mb-2">This special offer has been automatically applied to your order</p>
+                            <div className="flex items-center gap-3 text-xs">
+                              <div>
+                                <span className="text-gray-500">Offer Price: </span>
+                                <span className="text-green-600 font-bold text-lg">₹{appliedOffer.offerPrice?.toLocaleString('en-IN')}</span>
+                              </div>
+                            </div>
                           </div>
-                          <button
-                            onClick={handleRemoveOffer}
-                            className="text-red-500 hover:text-red-700 font-medium text-sm"
-                          >
-                            Remove
-                          </button>
                         </div>
                       </div>
-                    ) : showOfferInput ? (
+                    </div>
+                  ) : (
+                    /* Regular Coupon Code Section */
+                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-3 mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">🎁</span>
+                          <span className="text-sm font-semibold text-gray-800">Have an Offer Code?</span>
+                        </div>
+                        {!appliedOffer && (
+                          <button
+                            onClick={() => setShowOfferInput(!showOfferInput)}
+                            className="text-primary hover:text-primary-dark font-medium text-xs"
+                          >
+                            {showOfferInput ? 'Hide' : 'Apply'}
+                          </button>
+                        )}
+                      </div>
+                      
+                      {appliedOffer ? (
+                        <div className="bg-white rounded-lg p-3 border-2 border-green-500">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-green-600 font-bold text-sm">{appliedOffer.couponCode || 'N/A'}</span>
+                                <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                                  {appliedOffer.discount}% OFF
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-600">{appliedOffer.offerTitle}</p>
+                              <p className="text-xs text-green-600 font-medium mt-1">
+                                You save ₹{calculateOfferDiscount().toLocaleString('en-IN')}
+                              </p>
+                            </div>
+                            <button
+                              onClick={handleRemoveOffer}
+                              className="text-red-500 hover:text-red-700 font-medium text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : showOfferInput ? (
                       <div className="space-y-2 animate-fade-in">
                         <div className="flex items-center gap-2">
                           <input
@@ -2505,7 +2710,7 @@ const ServiceCheckout = () => {
                           />
                           <button
                             onClick={handleApplyOffer}
-                            disabled={offerLoading || !offerCode.trim()}
+                            disabled={offerLoading || !offerCode?.trim()}
                             className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {offerLoading ? (
@@ -2525,14 +2730,16 @@ const ServiceCheckout = () => {
                                 <div
                                   key={offer._id}
                                   onClick={() => {
-                                    setOfferCode(offer.couponCode)
+                                    if (offer.couponCode) {
+                                      setOfferCode(offer.couponCode)
+                                    }
                                   }}
                                   className="bg-white rounded-lg p-2 border border-gray-200 hover:border-primary cursor-pointer transition"
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1">
                                       <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-primary font-bold text-xs">{offer.couponCode}</span>
+                                        <span className="text-primary font-bold text-xs">{offer.couponCode || 'N/A'}</span>
                                         <span className="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-medium">
                                           {offer.discount}% OFF
                                         </span>
@@ -2542,8 +2749,10 @@ const ServiceCheckout = () => {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        setOfferCode(offer.couponCode)
-                                        handleApplyOffer()
+                                        if (offer.couponCode) {
+                                          setOfferCode(offer.couponCode)
+                                          handleApplyOffer()
+                                        }
                                       }}
                                       className="text-xs text-primary hover:text-primary-dark font-medium"
                                     >
@@ -2561,7 +2770,8 @@ const ServiceCheckout = () => {
                         Click "Apply" to enter your offer code and save on your order
                       </p>
                     )}
-                  </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Wallet Section - Always show if user is authenticated */}
@@ -2633,6 +2843,9 @@ const ServiceCheckout = () => {
                                   const sgst = serviceData.sgst || 9
                                   const totalGstRate = cgst + sgst
                                   return Math.min(walletBalance, Math.round(visitingCharge * (1 + totalGstRate / 100)))
+                                } else if (appliedOffer && appliedOffer.offerType === 'special_offer') {
+                                  // For special offers, use the offer price directly (already includes GST)
+                                  return Math.min(walletBalance, appliedOffer.offerPrice)
                                 } else {
                                   return Math.min(walletBalance, Math.round(calculateTotalBeforeTax() * (1 + ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100)))
                                 }
@@ -2672,9 +2885,35 @@ const ServiceCheckout = () => {
                 
                 {/* Final Amount to Pay */}
                 <div className="flex justify-between text-lg font-bold pt-3 border-t-2 border-gray-300">
-                  <span className="text-gray-900">Amount to Pay</span>
+                  <span className="text-gray-900">
+                    {appliedOffer && appliedOffer.offerType === 'special_offer' ? 'Total Amount (with GST)' : 'Amount to Pay'}
+                  </span>
                   <span className="text-primary text-xl">₹{calculateFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+                
+                {/* Special Offer Breakdown Info */}
+                {appliedOffer && appliedOffer.offerType === 'special_offer' && (
+                  <div className="bg-green-50 rounded-lg p-3 text-xs text-green-700 mt-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FaCheckCircle className="text-green-500" />
+                      <span className="font-semibold">Special Offer Applied!</span>
+                    </div>
+                    <div className="ml-5 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Offer Price:</span>
+                        <span className="font-bold">₹{appliedOffer.offerPrice}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>GST ({((serviceData.cgst || 9) + (serviceData.sgst || 9))}%):</span>
+                        <span className="font-medium">₹{(appliedOffer.offerPrice * ((serviceData.cgst || 9) + (serviceData.sgst || 9)) / 100).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t border-green-200 font-bold">
+                        <span>Total to Pay:</span>
+                        <span>₹{calculateFinalAmount().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Payment Method Info */}
                 {useWallet && walletAmount > 0 && calculateFinalAmount() > 0 && (

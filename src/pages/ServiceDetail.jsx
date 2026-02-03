@@ -108,7 +108,7 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const ServiceDetail = () => {
   const { serviceName } = useParams()
@@ -154,23 +154,41 @@ const ServiceDetail = () => {
   // Check for offer in URL parameters
   useEffect(() => {
     const offerCode = searchParams.get('offer')
+    console.log('🔍 [ServiceDetail] URL offer parameter:', offerCode)
     if (offerCode) {
+      console.log('✅ [ServiceDetail] Fetching offer details for:', offerCode)
       fetchOfferDetails(offerCode)
+    } else {
+      console.log('ℹ️ [ServiceDetail] No offer parameter in URL')
     }
-  }, [searchParams])
+  }, [searchParams, serviceName])
 
   // Fetch offer details by coupon code
   const fetchOfferDetails = async (couponCode) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/offers`)
+      console.log('🔍 [ServiceDetail] Fetching offer details for coupon:', couponCode)
+      console.log('🔍 [ServiceDetail] Current serviceName:', serviceName)
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/offers`)
       const data = await response.json()
       
+      console.log('🔍 [ServiceDetail] Offers API response:', data)
+      
       if (data.success) {
+        console.log('🔍 [ServiceDetail] All offers:', data.data.map(o => ({
+          couponCode: o.couponCode,
+          offerType: o.offerType,
+          targetService: o.targetService,
+          offerPrice: o.offerPrice
+        })))
+        
         const offer = data.data.find(offer => 
           offer.couponCode === couponCode && 
           offer.offerType === 'special_offer' &&
           offer.targetService === serviceName
         )
+        
+        console.log('🔍 [ServiceDetail] Found matching offer:', offer)
         
         if (offer) {
           // Check if offer is active
@@ -178,16 +196,30 @@ const ServiceDetail = () => {
           const startDate = new Date(offer.startDate)
           const endDate = new Date(offer.endDate)
           
+          console.log('🔍 [ServiceDetail] Offer date check:', {
+            now: now.toISOString(),
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            isActive: now >= startDate && now <= endDate
+          })
+          
           if (now >= startDate && now <= endDate) {
+            console.log('✅ [ServiceDetail] Setting applied offer:', offer)
             setAppliedOffer(offer)
             // Calculate discount amount based on offer price vs original price
             const discountAmount = offer.originalPrice - offer.offerPrice
             setOfferDiscount(discountAmount)
+            console.log('✅ [ServiceDetail] Offer discount:', discountAmount)
+          } else {
+            console.log('❌ [ServiceDetail] Offer is not active (expired or not started)')
           }
+        } else {
+          console.log('❌ [ServiceDetail] No matching offer found')
+          console.log('   Looking for: couponCode =', couponCode, ', offerType = special_offer, targetService =', serviceName)
         }
       }
     } catch (error) {
-      console.error('Error fetching offer details:', error)
+      console.error('❌ [ServiceDetail] Error fetching offer details:', error)
     }
   }
 
@@ -580,6 +612,11 @@ const ServiceDetail = () => {
 
   // Calculate total cart value (includes all items)
   const calculateCartTotal = () => {
+    // For special offers, always return the offer price regardless of selected options
+    if (appliedOffer && appliedOffer.offerType === 'special_offer') {
+      return appliedOffer.offerPrice
+    }
+    
     let total = calculateSubServiceTotal() + calculateAddOnTotal() + calculateAddOnSubServicesTotal()
     
     // Exclude visiting charge for AC service
@@ -599,9 +636,10 @@ const ServiceDetail = () => {
       }
     }
     
-    // Apply special offer discount if available
-    if (appliedOffer && offerDiscount > 0) {
-      total = Math.max(0, total - offerDiscount)
+    // Apply regular offer discount if available (not special offer)
+    if (appliedOffer && appliedOffer.offerType === 'coupon' && appliedOffer.discount > 0) {
+      const discountAmount = total * (appliedOffer.discount / 100)
+      total = Math.max(0, total - discountAmount)
     }
     
     return total
@@ -869,6 +907,12 @@ const ServiceDetail = () => {
 
   // Function to proceed to checkout
   const proceedToCheckout = (cartData, serviceData) => {
+    console.log('🚀 [ServiceDetail] Proceeding to checkout with:')
+    console.log('  - Cart Data:', cartData)
+    console.log('  - Service Data:', serviceData)
+    console.log('  - Applied Offer:', appliedOffer)
+    console.log('  - Offer Discount:', offerDiscount)
+    
     navigate(`/service/${serviceName}/checkout`, {
       state: {
         cartData: cartData,
@@ -954,6 +998,23 @@ const ServiceDetail = () => {
                     Use code: <span className="font-black bg-white/20 px-2 py-1 rounded">{activeOffers[0].couponCode}</span>
                   </p>
                 </div>
+      
+      {/* DEBUG: Applied Offer Indicator */}
+      {appliedOffer && (
+        <div className="fixed top-20 left-4 right-4 z-[9997] bg-yellow-400 border-4 border-yellow-600 rounded-lg p-4 shadow-2xl max-w-md">
+          <div className="text-sm font-mono text-black">
+            <div className="font-bold text-lg mb-2">🐛 DEBUG: OFFER APPLIED IN SERVICE DETAIL</div>
+            <div><strong>Offer Title:</strong> {appliedOffer.offerTitle}</div>
+            <div><strong>Offer Type:</strong> {appliedOffer.offerType}</div>
+            <div><strong>Offer Price:</strong> ₹{appliedOffer.offerPrice}</div>
+            <div><strong>Target Service:</strong> {appliedOffer.targetService}</div>
+            <div><strong>Coupon Code:</strong> {appliedOffer.couponCode}</div>
+            <div className="mt-2 text-xs bg-green-200 p-2 rounded">
+              ✅ This offer WILL be passed to checkout when you click "Proceed to Checkout"
+            </div>
+          </div>
+        </div>
+      )}
               </div>
               <button
                 onClick={() => setShowDiscountPopup(true)}
@@ -1721,21 +1782,12 @@ const ServiceDetail = () => {
                                 <span className="font-medium text-gray-800">{appliedOffer.offerTitle}</span>
                               </div>
                               <div className="flex justify-between items-center">
-                                <span className="text-gray-600">Code:</span>
-                                <span className="font-mono font-bold text-primary">{appliedOffer.couponCode}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-gray-600">Original Price:</span>
-                                <span className="line-through text-gray-500">₹{appliedOffer.originalPrice}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-gray-600">Offer Price:</span>
+                                <span className="text-gray-600">Final Price:</span>
                                 <span className="font-bold text-green-600">₹{appliedOffer.offerPrice}</span>
                               </div>
-                              <div className="flex justify-between items-center border-t border-green-200 pt-2">
-                                <span className="font-semibold text-green-800">You Save:</span>
-                                <span className="font-bold text-green-600">₹{offerDiscount}</span>
-                              </div>
+                              <p className="text-xs text-gray-600 mt-2 italic">
+                                This is your final price - select any options you need!
+                              </p>
                             </div>
                           </div>
                         )}
@@ -3307,8 +3359,8 @@ const ServiceDetail = () => {
                       <span className="text-sm font-semibold text-green-800">Special Offer Applied!</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="text-gray-600">Code: <span className="font-mono font-bold text-primary">{appliedOffer.couponCode}</span></div>
-                      <div className="text-right text-green-600 font-bold">Save ₹{offerDiscount}</div>
+                      <div className="text-gray-600">{appliedOffer.offerTitle}</div>
+                      <div className="text-right text-green-600 font-bold">Final Price: ₹{appliedOffer.offerPrice}</div>
                     </div>
                   </div>
                 )}
@@ -3361,7 +3413,10 @@ const ServiceDetail = () => {
                 </p>
                 {appliedOffer && (
                   <p className="text-xs text-green-600 font-medium">
-                    Save ₹{offerDiscount} with {appliedOffer.couponCode}
+                    {appliedOffer.offerType === 'special_offer' 
+                      ? `Special Offer: ₹${appliedOffer.offerPrice}` 
+                      : `Save ${appliedOffer.discount}% with ${appliedOffer.couponCode}`
+                    }
                   </p>
                 )}
               </div>
