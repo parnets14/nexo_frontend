@@ -980,29 +980,91 @@ const ServiceDetail = () => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="fixed top-0 left-0 right-0 z-[9998] bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white shadow-2xl"
+            className="fixed left-0 right-0 z-[9998] bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white shadow-2xl"
+            style={{ top: '80px' }}
           >
-            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
+            <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
+              {/* Mobile Layout */}
+              <div className="flex md:hidden items-center justify-between gap-2">
                 <motion.div
                   animate={{ rotate: [0, 10, -10, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
+                  className="flex-shrink-0"
                 >
-                  <FaGift className="w-6 h-6 flex-shrink-0" />
+                  <FaGift className="w-5 h-5" />
                 </motion.div>
-                <div className="flex-1">
-                  <p className="font-bold text-lg sm:text-xl">
-                    🎉 {activeOffers[0].offerTitle} - Get {activeOffers[0].discount}% OFF!
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm leading-tight truncate">
+                    🎉 {activeOffers[0].offerTitle}
                   </p>
-                  <p className="text-sm opacity-90">
-                    Use code: <span className="font-black bg-white/20 px-2 py-1 rounded">{activeOffers[0].couponCode}</span>
+                  <p className="text-xs opacity-90 truncate">
+                    {activeOffers[0].discount}% OFF - Code: <span className="font-black">{activeOffers[0].couponCode}</span>
                   </p>
                 </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => setShowDiscountPopup(true)}
+                    className="bg-white text-orange-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-orange-50 transition-all whitespace-nowrap"
+                  >
+                    View
+                  </button>
+                  <button
+                    onClick={() => setShowTopBanner(false)}
+                    className="text-white/80 hover:text-white transition-colors p-1"
+                    aria-label="Close banner"
+                  >
+                    <FaTimes className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Desktop Layout */}
+              <div className="hidden md:flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <motion.div
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="flex-shrink-0"
+                  >
+                    <FaGift className="w-6 h-6" />
+                  </motion.div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-lg lg:text-xl leading-tight">
+                      🎉 {activeOffers[0].offerTitle} - Get {activeOffers[0].discount}% OFF!
+                    </p>
+                    <p className="text-sm opacity-90 mt-0.5">
+                      Use code: <span className="font-black bg-white/20 px-2 py-1 rounded">{activeOffers[0].couponCode}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button
+                    onClick={() => setShowDiscountPopup(true)}
+                    className="bg-white text-orange-600 px-5 py-2.5 rounded-full font-bold hover:bg-orange-50 hover:scale-105 transition-all flex items-center gap-2 shadow-lg"
+                  >
+                    <FaTag className="w-4 h-4" />
+                    View Offer
+                  </button>
+                  <button
+                    onClick={() => setShowTopBanner(false)}
+                    className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-full"
+                    aria-label="Close banner"
+                  >
+                    <FaTimes className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* DEBUG: Applied Offer Indicator */}
       {appliedOffer && (
-        <div className="fixed top-20 left-4 right-4 z-[9997] bg-yellow-400 border-4 border-yellow-600 rounded-lg p-4 shadow-2xl max-w-md">
-          <div className="text-sm font-mono text-black">
+        <div 
+          className="fixed left-4 right-4 z-[9997] bg-yellow-400 border-4 border-yellow-600 rounded-lg p-4 shadow-2xl max-w-md"
+          style={{ top: showTopBanner && activeOffers.length > 0 ? 'calc(80px + 80px + 1rem)' : 'calc(80px + 1rem)' }}
+        >          <div className="text-sm font-mono text-black">
             <div className="font-bold text-lg mb-2">🐛 DEBUG: OFFER APPLIED IN SERVICE DETAIL</div>
             <div><strong>Offer Title:</strong> {appliedOffer.offerTitle}</div>
             <div><strong>Offer Type:</strong> {appliedOffer.offerType}</div>
@@ -1015,28 +1077,17 @@ const ServiceDetail = () => {
           </div>
         </div>
       )}
-              </div>
-              <button
-                onClick={() => setShowDiscountPopup(true)}
-                className="bg-white text-orange-600 px-4 py-2 rounded-full font-bold hover:bg-orange-50 transition-all flex items-center gap-2 flex-shrink-0"
-              >
-                <FaTag className="w-4 h-4" />
-                View Offer
-              </button>
-              <button
-                onClick={() => setShowTopBanner(false)}
-                className="text-white/80 hover:text-white transition-colors flex-shrink-0"
-              >
-                <FaTimes className="w-5 h-5" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      <div className="min-h-screen bg-gray-50" style={{ marginTop: showTopBanner && activeOffers.length > 0 ? '80px' : '0' }}>
+      {/* Main container with proper spacing for navbar and banner */}
+      <div 
+        className="min-h-screen bg-gray-50" 
+        style={{ 
+          paddingTop: showTopBanner && activeOffers.length > 0 ? 'calc(80px + 80px)' : '80px',
+          transition: 'padding-top 0.3s ease'
+        }}
+      >
         {/* Modern Hero Section */}
-        <section className="relative bg-white border-b border-gray-200 py-4 sm:py-6 lg:py-8 overflow-hidden">
+        <section className="relative bg-white border-b border-gray-200 py-6 sm:py-8 lg:py-10 overflow-hidden">
           {/* Subtle Background Accent */}
           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5"></div>
           
@@ -1054,27 +1105,27 @@ const ServiceDetail = () => {
               {/* Top Row: Icon, Title & WhatsApp Button */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 {/* Left: Icon & Title */}
-                <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 w-full sm:w-auto">
                   <motion.div
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.5 }}
-                    className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 bg-gradient-to-br from-primary to-primary-dark rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg"
+                    className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 bg-gradient-to-br from-primary to-primary-dark rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg"
                   >
-                    <IconComponent className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 text-white" />
+                    <IconComponent className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 text-white" />
                   </motion.div>
                   <div className="flex-1 min-w-0">
-                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight mb-1 sm:mb-2">
+                    <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-900 leading-tight mb-1 sm:mb-2">
                       <span className="block sm:inline">{currentService.name}</span>
                       {isEmergency && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-red-600 text-white ml-0 sm:ml-2 mt-2 sm:mt-0">
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-red-600 text-white ml-0 sm:ml-2 mt-1 sm:mt-0">
                           <FaBolt className="w-3 h-3 mr-1" />
                           EMERGENCY
                         </span>
                       )}
                     </h1>
                     {currentService.trusted && (
-                      <p className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed">{currentService.trusted}</p>
+                      <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-2">{currentService.trusted}</p>
                     )}
                   </div>          
                 </div>
@@ -1084,24 +1135,24 @@ const ServiceDetail = () => {
                   onClick={handleWhatsAppClick}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="hidden sm:flex bg-[#25D366] text-white px-6 lg:px-8 py-3 lg:py-3.5 rounded-lg lg:rounded-xl text-sm lg:text-base font-bold shadow-lg hover:shadow-xl transition-all duration-300 items-center gap-2 flex-shrink-0"
+                  className="hidden sm:flex bg-[#25D366] text-white px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 lg:py-3.5 rounded-lg lg:rounded-xl text-sm lg:text-base font-bold shadow-lg hover:shadow-xl transition-all duration-300 items-center gap-2 flex-shrink-0 whitespace-nowrap"
                 >
-                  <FaWhatsapp className="w-5 h-5 lg:w-6 lg:h-6" />
+                  <FaWhatsapp className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
                   <span>Book on WhatsApp</span>
                 </motion.button>
               </div>
 
               {/* Bottom Row: Trust Badges */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 pb-2">
                 {currentService.averageRating && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.2 }}
-                    className="flex items-center gap-1.5 bg-yellow-50 border border-yellow-200 px-3 py-2 rounded-lg"
+                    className="flex items-center gap-1.5 bg-yellow-50 border border-yellow-200 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg"
                   >
-                    <FaStar className="text-yellow-500 text-sm flex-shrink-0" />
-                    <span className="text-sm font-bold text-gray-900">{currentService.averageRating}</span>
+                    <FaStar className="text-yellow-500 text-xs sm:text-sm flex-shrink-0" />
+                    <span className="text-xs sm:text-sm font-bold text-gray-900">{currentService.averageRating}</span>
                     <span className="text-xs text-gray-600 whitespace-nowrap">({currentService.totalReviews})</span>
                   </motion.div>
                 )}
@@ -1109,19 +1160,19 @@ const ServiceDetail = () => {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3, delay: 0.25 }}
-                  className="flex items-center gap-1.5 bg-green-50 border border-green-200 px-3 py-2 rounded-lg"
+                  className="flex items-center gap-1.5 bg-green-50 border border-green-200 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg"
                 >
-                  <FaShieldAlt className="text-green-600 text-sm flex-shrink-0" />
-                  <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">Verified</span>
+                  <FaShieldAlt className="text-green-600 text-xs sm:text-sm flex-shrink-0" />
+                  <span className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap">Verified</span>
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3, delay: 0.3 }}
-                  className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 px-3 py-2 rounded-lg"
+                  className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg"
                 >
-                  <FaClock className="text-blue-600 text-sm flex-shrink-0" />
-                  <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">Quick</span>
+                  <FaClock className="text-blue-600 text-xs sm:text-sm flex-shrink-0" />
+                  <span className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap">Quick</span>
                 </motion.div>
               </div>
 
@@ -1130,7 +1181,7 @@ const ServiceDetail = () => {
                 onClick={handleWhatsAppClick}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="sm:hidden w-full bg-[#25D366] text-white px-6 py-3.5 rounded-lg text-base font-bold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
+                className="sm:hidden w-full bg-[#25D366] text-white px-6 py-4 rounded-xl text-base font-bold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 mt-2"
               >
                 <FaWhatsapp className="w-5 h-5" />
                 <span>Book on WhatsApp</span>
@@ -1156,7 +1207,7 @@ const ServiceDetail = () => {
         </section>
 
         {/* Main Content Layout: Service Info | Add-ons | Cart */}
-        <section className="pt-6 pb-5 sm:pt-8 sm:pb-8 lg:pb-12 bg-gradient-to-b from-gray-50 via-white to-gray-50">
+        <section className="pt-4 pb-5 sm:pt-6 sm:pb-8 lg:pt-8 lg:pb-12 bg-gradient-to-b from-gray-50 via-white to-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
               {/* First Column: Service Description & Add-On Services */}

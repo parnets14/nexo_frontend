@@ -26,6 +26,8 @@ const OfferManagement = () => {
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  const [popularServices, setPopularServices] = useState([])
+  const [loadingServices, setLoadingServices] = useState(false)
 
   const { data: offersData, isLoading, error, refresh } = useAdminData(
     (token) => adminApi.fetchOffers(token),
@@ -33,6 +35,27 @@ const OfferManagement = () => {
   )
 
   const offers = offersData?.data || []
+
+  // Fetch popular services on component mount
+  useEffect(() => {
+    const fetchServices = async () => {
+      if (!token) return
+      
+      setLoadingServices(true)
+      try {
+        const response = await adminApi.fetchPopularServices(token)
+        if (response.success && response.data) {
+          setPopularServices(response.data)
+        }
+      } catch (err) {
+        console.error('Error fetching popular services:', err)
+      } finally {
+        setLoadingServices(false)
+      }
+    }
+
+    fetchServices()
+  }, [token])
 
   const handleOpenModal = (offer = null) => {
     if (offer) {
@@ -264,7 +287,9 @@ const OfferManagement = () => {
                       </div>
                       {offer.targetService && (
                         <div className="text-sm text-slate-600">
-                          <span className="font-medium">Service:</span> {offer.targetService.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          <span className="font-medium">Service:</span>{' '}
+                          {popularServices.find(s => s.slug === offer.targetService)?.name || 
+                           offer.targetService.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </div>
                       )}
                     </div>
@@ -399,14 +424,28 @@ const OfferManagement = () => {
                       onChange={(e) => setFormData({ ...formData, targetService: e.target.value })}
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                       required
+                      disabled={loadingServices}
                     >
-                      <option value="">Select Service</option>
-                      <option value="ac-service">AC Service</option>
-                      <option value="refrigerator-service">Refrigerator Service</option>
-                      <option value="washing-machine-service">Washing Machine Service</option>
-                      <option value="microwave-service">Microwave Service</option>
-                      <option value="geyser-service">Geyser Service</option>
+                      <option value="">
+                        {loadingServices ? 'Loading services...' : 'Select Service'}
+                      </option>
+                      {popularServices.map((service) => (
+                        <option key={service._id} value={service.slug}>
+                          {service.name}
+                        </option>
+                      ))}
                     </select>
+                    {loadingServices && (
+                      <p className="mt-1 text-xs text-slate-500 flex items-center gap-1">
+                        <FiRefreshCw className="animate-spin" />
+                        Loading services...
+                      </p>
+                    )}
+                    {!loadingServices && popularServices.length === 0 && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        No services found. Please add popular services first.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -465,27 +504,38 @@ const OfferManagement = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Target Services *
                     </label>
-                    <div className="space-y-2 max-h-48 overflow-y-auto border border-slate-300 rounded-lg p-3">
-                      {['ac-service', 'refrigerator-service', 'washing-machine-service', 'microwave-service', 'geyser-service'].map(service => (
-                        <label key={service} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-2 rounded">
-                          <input
-                            type="checkbox"
-                            checked={formData.targetServices.includes(service)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setFormData({ ...formData, targetServices: [...formData.targetServices, service] })
-                              } else {
-                                setFormData({ ...formData, targetServices: formData.targetServices.filter(s => s !== service) })
-                              }
-                            }}
-                            className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
-                          />
-                          <span className="text-sm text-slate-700">
-                            {service.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                    {loadingServices ? (
+                      <div className="flex items-center justify-center py-8 text-slate-500">
+                        <FiRefreshCw className="animate-spin mr-2" />
+                        Loading services...
+                      </div>
+                    ) : popularServices.length === 0 ? (
+                      <div className="text-center py-8 text-amber-600 text-sm">
+                        No services found. Please add popular services first.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-48 overflow-y-auto border border-slate-300 rounded-lg p-3">
+                        {popularServices.map(service => (
+                          <label key={service._id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-2 rounded">
+                            <input
+                              type="checkbox"
+                              checked={formData.targetServices.includes(service.slug)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFormData({ ...formData, targetServices: [...formData.targetServices, service.slug] })
+                                } else {
+                                  setFormData({ ...formData, targetServices: formData.targetServices.filter(s => s !== service.slug) })
+                                }
+                              }}
+                              className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-slate-700">
+                              {service.name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                     <p className="mt-1 text-xs text-slate-500">
                       Select services where this offer will apply
                     </p>

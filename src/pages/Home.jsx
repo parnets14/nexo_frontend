@@ -384,38 +384,79 @@ const Home = () => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="fixed top-0 left-0 right-0 z-[9998] bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white shadow-2xl"
+            className="fixed top-0 left-0 right-0 z-[10000] bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white shadow-2xl"
           >
-            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
+            <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
+              {/* Mobile Layout */}
+              <div className="flex md:hidden items-center justify-between gap-2">
                 <motion.div
                   animate={{ rotate: [0, 10, -10, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
+                  className="flex-shrink-0"
                 >
-                  <FaGift className="w-6 h-6 flex-shrink-0" />
+                  <FaGift className="w-5 h-5" />
                 </motion.div>
-                <div className="flex-1">
-                  <p className="font-bold text-lg sm:text-xl">
-                    🎉 {activeOffers[0].offerTitle} - Get {activeOffers[0].discount}% OFF!
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm leading-tight truncate">
+                    🎉 {activeOffers[0].offerTitle}
                   </p>
-                  <p className="text-sm opacity-90">
-                    Use code: <span className="font-black bg-white/20 px-2 py-1 rounded">{activeOffers[0].couponCode}</span>
+                  <p className="text-xs opacity-90 truncate">
+                    {activeOffers[0].discount}% OFF - Code: <span className="font-black">{activeOffers[0].couponCode}</span>
                   </p>
                 </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => setShowOfferPopup(true)}
+                    className="bg-white text-orange-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-orange-50 transition-all whitespace-nowrap"
+                  >
+                    View
+                  </button>
+                  <button
+                    onClick={() => setShowTopBanner(false)}
+                    className="text-white/80 hover:text-white transition-colors p-1"
+                    aria-label="Close banner"
+                  >
+                    <FaTimes className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => setShowOfferPopup(true)}
-                className="bg-white text-orange-600 px-4 py-2 rounded-full font-bold hover:bg-orange-50 transition-all flex items-center gap-2 flex-shrink-0"
-              >
-                <FaTag className="w-4 h-4" />
-                View Offer
-              </button>
-              <button
-                onClick={() => setShowTopBanner(false)}
-                className="text-white/80 hover:text-white transition-colors flex-shrink-0"
-              >
-                <FaTimes className="w-5 h-5" />
-              </button>
+
+              {/* Desktop Layout */}
+              <div className="hidden md:flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <motion.div
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="flex-shrink-0"
+                  >
+                    <FaGift className="w-6 h-6" />
+                  </motion.div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-lg lg:text-xl leading-tight">
+                      🎉 {activeOffers[0].offerTitle} - Get {activeOffers[0].discount}% OFF!
+                    </p>
+                    <p className="text-sm opacity-90 mt-0.5">
+                      Use code: <span className="font-black bg-white/20 px-2 py-1 rounded">{activeOffers[0].couponCode}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button
+                    onClick={() => setShowOfferPopup(true)}
+                    className="bg-white text-orange-600 px-5 py-2.5 rounded-full font-bold hover:bg-orange-50 hover:scale-105 transition-all flex items-center gap-2 shadow-lg"
+                  >
+                    <FaTag className="w-4 h-4" />
+                    View Offer
+                  </button>
+                  <button
+                    onClick={() => setShowTopBanner(false)}
+                    className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-full"
+                    aria-label="Close banner"
+                  >
+                    <FaTimes className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
