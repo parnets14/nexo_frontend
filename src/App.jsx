@@ -82,6 +82,7 @@ import TestPartnerWalletPayment from './pages/TestPartnerWalletPayment.jsx'
 import InvoicePage from './pages/InvoicePage.jsx'
 import InvoiceViewer from './components/InvoiceViewer.jsx'
 import AdminInvoiceViewer from './components/AdminInvoiceViewer.jsx'
+import FixServiceSlug from './pages/admin/FixServiceSlug.jsx'
 
 function App() {
   return (
@@ -190,6 +191,7 @@ function App() {
             <Route path="/admin/support" element={<SupportManagement />} />
             <Route path="/admin/whatsapp-settings" element={<WhatsAppSettings />} />
             <Route path="/admin/invoice" element={<AdminInvoiceViewer />} />
+            <Route path="/admin/fix-slug" element={<FixServiceSlug />} />
           </Route>
         </Route>
 
