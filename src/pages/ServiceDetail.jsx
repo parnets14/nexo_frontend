@@ -1032,9 +1032,10 @@ const ServiceDetail = () => {
                     <p className="font-bold text-lg lg:text-xl leading-tight">
                       🎉 {activeOffers[0].offerTitle} - Get {activeOffers[0].discount}% OFF!
                     </p>
-                    <p className="text-sm opacity-90 mt-0.5">
+                    {activeOffers[0].couponCode >0 &&    <p className="text-sm opacity-90 mt-0.5">
                       Use code: <span className="font-black bg-white/20 px-2 py-1 rounded">{activeOffers[0].couponCode}</span>
-                    </p>
+                    </p>}
+
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">

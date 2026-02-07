@@ -11,7 +11,7 @@ const SpecialOfferPopup = ({ offer, onClose }) => {
       
       // For special offers, navigate to preventive-maintenance service
       if (offer.offerType === 'special_offer') {
-        navigate(`/service/preventive-maintenance-services?offer=${offer.couponCode || ''}`)
+        navigate(`/service/preventive-maintenance-services-ac?offer=${offer.couponCode || ''}`)
       } else if (offer.targetService) {
         // For regular offers, navigate to target service
         navigate(`/service/${offer.targetService}?offer=${offer.couponCode || ''}`)

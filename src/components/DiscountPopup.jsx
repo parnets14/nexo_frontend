@@ -43,7 +43,7 @@ const DiscountPopup = ({ offers, onClose }) => {
     if (currentOffer) {
       onClose()
       // Navigate to Preventive Maintenance service with offer code
-      navigate(`/service/preventive-maintenance-services?offer=${currentOffer.couponCode || ''}`)
+      navigate(`/service/preventive-maintenance-services-ac?offer=${currentOffer.couponCode || ''}`)
     }
   }
 
