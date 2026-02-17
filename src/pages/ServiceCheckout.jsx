@@ -22,7 +22,7 @@ import CustomAlert from '../components/CustomAlert'
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 // Custom scrollbar styles for cart items
 const customScrollbarStyles = `
@@ -240,15 +240,7 @@ const ServiceCheckout = () => {
     }
   }, [isAuthenticated, user])
   
-  // Debug: Log appliedOffer state
-  useEffect(() => {
-    console.log('🔍 [Checkout] Applied Offer State:', appliedOffer)
-    if (appliedOffer) {
-      console.log('  - Offer Type:', appliedOffer.offerType)
-      console.log('  - Offer Price:', appliedOffer.offerPrice)
-      console.log('  - Offer Title:', appliedOffer.offerTitle)
-    }
-  }, [appliedOffer])
+
   
   // Update formData when user data becomes available
   useEffect(() => {
@@ -341,8 +333,7 @@ const ServiceCheckout = () => {
   const fetchWalletBalance = async () => {
     try {
       const token = localStorage.getItem('userToken')
-      console.log('🔍 Fetching wallet balance for user:', user._id)
-      console.log('🔍 API URL:', `${API_BASE_URL}/api/user/wallet/${user._id}`)
+
       
       const response = await axios.get(`${API_BASE_URL}/api/user/wallet/${user._id}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -451,10 +442,7 @@ const ServiceCheckout = () => {
     try {
       setAmcLoading(true)
       
-      // Debug: Log service data to understand structure
-      console.log('🔍 [Checkout] Service Data:', serviceData)
-      console.log('🔍 [Checkout] Service Name from URL:', serviceName)
-      console.log('🔍 [Checkout] Cart Data:', cartData)
+
       
       const response = await fetch(`${API_BASE_URL}/api/amc-plans`)
       const result = await response.json()
@@ -493,10 +481,7 @@ const ServiceCheckout = () => {
     // Combine all service names
     const allServiceNames = [...new Set([mainServiceName, ...cartServiceNames])].filter(Boolean)
     
-    console.log('🔍 [Checkout] Filtering AMC plans')
-    console.log('🔍 [Checkout] All services:', allServiceNames)
-    console.log('🔍 [Checkout] Available plans:', plans.length)
-    console.log('🔍 [Checkout] User type:', userType)
+  
     
     // First filter by service - match AMC plans to cart services
     let servicePlans = plans.filter(plan => {
@@ -759,8 +744,7 @@ const ServiceCheckout = () => {
       )
 
       if (response.data.success) {
-        console.log('✅ AMC subscription order created, initiating PayU payment...')
-        console.log('PayU Data:', response.data.payuData)
+
         
         // Redirect to PayU payment page
         const payuData = response.data.payuData
@@ -982,9 +966,6 @@ const ServiceCheckout = () => {
 
 
 
-  const calculateTotal = () => {
-    return cartData.total || 0
-  }
 
   const calculateSubtotal = () => {
     // Calculate subtotal without visiting charge and service charge
@@ -1021,17 +1002,17 @@ const ServiceCheckout = () => {
     }
     
     const subtotal = calculateSubtotal()
-    const visiting = getVisitingCharge()
+    // Never include visiting charge in total calculation
     const service = getServiceCharge()
     const emergency = getEmergencyCharge()
-    const total = subtotal + visiting + service + emergency
+    const total = subtotal + service + emergency
     
     console.log('🔍 [Checkout] Total Before Tax Calculation:', {
       subtotal,
-      visiting,
       service,
       emergency,
-      total
+      total,
+      visitingChargeExcluded: getVisitingCharge()
     })
     
     return total
@@ -1044,10 +1025,10 @@ const ServiceCheckout = () => {
     if (appliedOffer.offerType === 'special_offer') {
       const originalTotal = (() => {
         const subtotal = calculateSubtotal()
-        const visiting = getVisitingCharge()
+        // Never include visiting charge in total calculation
         const service = getServiceCharge()
         const emergency = getEmergencyCharge()
-        return subtotal + visiting + service + emergency
+        return subtotal + service + emergency
       })()
       const discount = originalTotal - appliedOffer.offerPrice
       return Math.max(0, discount)
@@ -1070,11 +1051,7 @@ const ServiceCheckout = () => {
   }
 
   const calculateFinalAmount = () => {
-    console.log('🔍 [calculateFinalAmount] Starting calculation')
-    console.log('  - Payment Option:', paymentOption)
-    console.log('  - Applied Offer:', appliedOffer)
-    console.log('  - Offer Type:', appliedOffer?.offerType)
-    console.log('  - Offer Price:', appliedOffer?.offerPrice)
+
     
     // If paying visiting charge only
     if (paymentOption === 'visiting') {
@@ -1282,17 +1259,7 @@ const ServiceCheckout = () => {
         } : null
       }
 
-      // Debug logging
-      console.log('🔍 ============================================')
-      console.log('🔍 PAYMENT SUBMISSION DEBUG')
-      console.log('🔍 ============================================')
-      console.log('   Payment Option:', paymentOption)
-      console.log('   Visiting Charge:', getVisitingCharge())
-      console.log('   Total Before Tax:', calculateTotalBeforeTax())
-      console.log('   Wallet Amount:', walletAmount)
-      console.log('   Use Wallet:', useWallet)
-      console.log('   Final Amount to Pay:', calculateFinalAmount())
-      console.log('🔍 ============================================')
+  
 
       // Create booking and initiate PayU payment
       const response = await axios.post(
@@ -1302,8 +1269,7 @@ const ServiceCheckout = () => {
       )
 
       if (response.data.success) {
-        console.log('✅ Booking created, initiating PayU payment...')
-        console.log('PayU Data:', response.data.payuData)
+ 
         
         // Redirect to PayU payment page
         const payuData = response.data.payuData
@@ -2330,15 +2296,51 @@ const ServiceCheckout = () => {
                                 </div>
                               </div>
                               <div className="mt-2 bg-amber-400/20 rounded-lg p-2 text-xs">
-                                <span className="font-semibold">Pay Later:</span> ₹{(() => {
-                                  const totalAfterDiscount = calculateTotalAfterDiscount()
-                                  const cgst = serviceData.cgst || 9
-                                  const sgst = serviceData.sgst || 9
-                                  const totalGstRate = cgst + sgst
-                                  const totalWithGst = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
-                                  const visitingWithGst = Math.round(getVisitingCharge() * (1 + totalGstRate / 100))
-                                  return (totalWithGst - visitingWithGst).toLocaleString('en-IN')
-                                })()} after service
+                                <div className="space-y-1">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-semibold">Pay Later:</span>
+                                    <span className="font-semibold">₹{(() => {
+                                      // Pay Later = Full Amount - Visiting Charge
+                                      const totalBeforeTax = calculateTotalBeforeTax()
+                                      const cgst = serviceData.cgst || 9
+                                      const sgst = serviceData.sgst || 9
+                                      const totalGstRate = cgst + sgst
+                                      const fullAmount = Math.round(totalBeforeTax * (1 + totalGstRate / 100))
+                                      const visitingWithGst = Math.round(getVisitingCharge() * (1 + totalGstRate / 100))
+                                      const payLater = fullAmount - visitingWithGst
+                                      
+                                      return payLater.toLocaleString('en-IN')
+                                    })()}</span>
+                                  </div>
+                                  <div className="text-[10px] opacity-80 pl-2 border-l-2 border-amber-500/30">
+                                    <div className="flex justify-between">
+                                      <span>Full Amount (Service):</span>
+                                      <span>₹{(() => {
+                                        // Full amount = Service Total (without visiting charge)
+                                        const totalBeforeTax = calculateTotalBeforeTax()
+                                        const cgst = serviceData.cgst || 9
+                                        const sgst = serviceData.sgst || 9
+                                        const totalGstRate = cgst + sgst
+                                        const fullAmount = Math.round(totalBeforeTax * (1 + totalGstRate / 100))
+                                        return fullAmount.toLocaleString('en-IN')
+                                      })()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span>- Visiting Charge Paid:</span>
+                                      <span>₹{(() => {
+                                        const visiting = getVisitingCharge()
+                                        const cgst = serviceData.cgst || 9
+                                        const sgst = serviceData.sgst || 9
+                                        const totalGstRate = cgst + sgst
+                                        const visitingWithGst = Math.round(visiting * (1 + totalGstRate / 100))
+                                        return visitingWithGst.toLocaleString('en-IN')
+                                      })()}</span>
+                                    </div>
+                                    <div className="text-[9px] text-amber-800 mt-1 italic">
+                                      (Visiting charge already paid upfront)
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -2392,6 +2394,7 @@ const ServiceCheckout = () => {
                               </div>
                               <span className="text-lg font-bold text-green-600">
                                 ₹{(() => {
+                                  // Show service total without visiting charge
                                   const totalAfterDiscount = calculateTotalAfterDiscount()
                                   const cgst = serviceData.cgst || 9
                                   const sgst = serviceData.sgst || 9
@@ -2445,13 +2448,16 @@ const ServiceCheckout = () => {
                             <p className="text-xs font-semibold text-amber-800 mb-1">Remaining Amount</p>
                             <p className="text-xs text-amber-700">
                               ₹{(() => {
-                                const totalAfterDiscount = calculateTotalAfterDiscount()
+                                // Remaining = Full Amount - Visiting Charge
+                                const totalBeforeTax = calculateTotalBeforeTax()
                                 const cgst = serviceData.cgst || 9
                                 const sgst = serviceData.sgst || 9
                                 const totalGstRate = cgst + sgst
-                                const totalWithGst = Math.round(totalAfterDiscount * (1 + totalGstRate / 100))
+                                const fullAmount = Math.round(totalBeforeTax * (1 + totalGstRate / 100))
                                 const visitingWithGst = Math.round(getVisitingCharge() * (1 + totalGstRate / 100))
-                                return (totalWithGst - visitingWithGst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                const remaining = fullAmount - visitingWithGst
+                                
+                                return remaining.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                               })()} will be payable after service completion
                             </p>
                           </div>
@@ -2478,7 +2484,11 @@ const ServiceCheckout = () => {
                                 {appliedOffer.offerTitle}
                               </div>
                               {(() => {
-                                const originalTotal = calculateSubtotal() + getVisitingCharge() + getServiceCharge() + getEmergencyCharge()
+                                const subtotal = calculateSubtotal()
+                                // Never include visiting charge in total calculation
+                                const service = getServiceCharge()
+                                const emergency = getEmergencyCharge()
+                                const originalTotal = subtotal + service + emergency
                                 const savings = originalTotal - appliedOffer.offerPrice
                                 if (savings > 0) {
                                   return (
@@ -2506,14 +2516,6 @@ const ServiceCheckout = () => {
                             <span className="font-medium">₹{calculateSubtotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                           
-                          {/* Visiting Charge */}
-                          {getVisitingCharge() > 0 && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Visiting Charge</span>
-                              <span className="font-medium text-amber-600">+₹{getVisitingCharge().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                          )}
-                          
                           {/* Service Charge */}
                           {getServiceCharge() > 0 && (
                             <div className="flex justify-between text-sm">
@@ -2534,7 +2536,7 @@ const ServiceCheckout = () => {
                           )}
                           
                           {/* Subtotal Before Tax */}
-                          {(getVisitingCharge() > 0 || getServiceCharge() > 0 || getEmergencyCharge() > 0) && (
+                          {(getServiceCharge() > 0 || getEmergencyCharge() > 0) && (
                             <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
                               <span className="text-gray-700 font-medium">Subtotal (Before Tax)</span>
                               <span className="font-semibold text-gray-900">₹{calculateTotalBeforeTax().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

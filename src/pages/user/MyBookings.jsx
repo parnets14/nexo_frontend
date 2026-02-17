@@ -983,24 +983,98 @@ const isCancellationAllowed = (bookingData) => {
 
                   {bookingData.amount > 0 && (
                     <div className="pt-4 border-t border-gray-100 mt-4">
-                      {/* Enhanced Payment Status Display */}
-                      <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-700 font-semibold">Payment Status</span>
-                          <span className={`px-4 py-2 rounded-full text-sm font-bold border-2 ${
-                            booking.paymentStatus === 'completed' ? 'bg-green-100 text-green-800 border-green-300' :
-                            booking.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                            booking.paymentStatus === 'pending' ? 'bg-orange-100 text-orange-800 border-orange-300' :
-                            booking.paymentStatus === 'failed' ? 'bg-red-100 text-red-800 border-red-300' :
-                            'bg-gray-100 text-gray-800 border-gray-300'
-                          }`}>
-                            {booking.paymentStatus === 'completed' ? '✅ Fully Paid' :
-                             booking.paymentStatus === 'partial' ? '⚠️ Partially Paid' :
-                             booking.paymentStatus === 'pending' ? '⏳ Payment Pending' :
-                             booking.paymentStatus === 'failed' ? '❌ Payment Failed' :
-                             booking.paymentStatus || 'Unknown'}
-                          </span>
+                      {/* Refund Information for Cancelled Bookings */}
+                      {bookingData.status === 'cancelled' && (
+                        <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-4 space-y-3 mb-4 border-2 border-red-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-red-700 font-bold text-lg">Refund Information</span>
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-600 text-white">
+                              CANCELLED
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {/* Original Amount Paid */}
+                            <div className="flex justify-between items-center py-2 border-b border-red-200">
+                              <span className="text-gray-700 font-medium">Amount Paid</span>
+                              <span className="text-lg font-bold text-gray-900">
+                                ₹{(booking.paidAmount || booking.payamount || booking.totalAmount || bookingData.amount).toLocaleString()}
+                              </span>
+                            </div>
+                            
+                            {/* Visiting Charge (Non-refundable) */}
+                            <div className="flex justify-between items-center py-2 border-b border-red-200">
+                              <span className="text-red-600 font-medium flex items-center gap-1">
+                                <FiAlertCircle className="w-4 h-4" />
+                                Visiting Charge (Non-refundable)
+                              </span>
+                              <span className="text-lg font-bold text-red-700">
+                                -₹{(booking.visitingCharge || 0).toLocaleString()}
+                              </span>
+                            </div>
+                            
+                            {/* Refund Amount */}
+                            {(() => {
+                              const paidAmount = booking.paidAmount || booking.payamount || booking.totalAmount || bookingData.amount;
+                              const visitingCharge = booking.visitingCharge || 0;
+                              const refundAmount = paidAmount <= visitingCharge ? 0 : paidAmount - visitingCharge;
+                              
+                              return (
+                                <div className="flex justify-between items-center py-3 bg-green-50 rounded-lg px-3 border-2 border-green-300">
+                                  <span className="text-green-700 font-bold text-lg flex items-center gap-2">
+                                    <FiCheckCircle className="w-5 h-5" />
+                                    Refund Amount
+                                  </span>
+                                  <span className="text-2xl font-bold text-green-700">
+                                    ₹{refundAmount.toLocaleString()}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                            
+                            {/* Refund Status Message */}
+                            {(() => {
+                              const paidAmount = booking.paidAmount || booking.payamount || booking.totalAmount || bookingData.amount;
+                              const visitingCharge = booking.visitingCharge || 0;
+                              const refundAmount = paidAmount <= visitingCharge ? 0 : paidAmount - visitingCharge;
+                              
+                              return refundAmount === 0 ? (
+                                <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 mt-2">
+                                  <p className="text-sm text-amber-800 font-medium">
+                                    ℹ️ No refund available as only the visiting charge was paid.
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mt-2">
+                                  <p className="text-sm text-blue-800 font-medium">
+                                    ℹ️ Your refund of ₹{refundAmount.toLocaleString()} will be processed within 5-7 business days.
+                                  </p>
+                                </div>
+                              );
+                            })()}
+                          </div>
                         </div>
+                      )}
+                      
+                      {/* Enhanced Payment Status Display - Only for non-cancelled bookings */}
+                      {bookingData.status !== 'cancelled' && (
+                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-700 font-semibold">Payment Status</span>
+                            <span className={`px-4 py-2 rounded-full text-sm font-bold border-2 ${
+                              booking.paymentStatus === 'completed' ? 'bg-green-100 text-green-800 border-green-300' :
+                              booking.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                              booking.paymentStatus === 'pending' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                              booking.paymentStatus === 'failed' ? 'bg-red-100 text-red-800 border-red-300' :
+                              'bg-gray-100 text-gray-800 border-gray-300'
+                            }`}>
+                              {booking.paymentStatus === 'completed' ? '✅ Fully Paid' :
+                               booking.paymentStatus === 'partial' ? '⚠️ Partially Paid' :
+                               booking.paymentStatus === 'pending' ? '⏳ Payment Pending' :
+                               booking.paymentStatus === 'failed' ? '❌ Payment Failed' :
+                               booking.paymentStatus || 'Unknown'}
+                            </span>
+                          </div>
                         
                         {/* Payment Breakdown */}
                         <div className="space-y-2">
@@ -1104,7 +1178,8 @@ const isCancellationAllowed = (bookingData) => {
                             </div>
                           ) : null;
                         })()}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -108,7 +108,7 @@ const getIconComponent = (iconName) => {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const ServiceDetail = () => {
   const { serviceName } = useParams()
@@ -622,10 +622,8 @@ const ServiceDetail = () => {
     // Exclude visiting charge for AC service
     const isACService = serviceName === 'ac-service' || serviceName === 'ac-service-repair'
     
-    // Add visiting charge if applicable and cart has items (but not for AC service)
-    if (!isACService && getTotalItemCount() > 0 && currentService.visitingCharge && currentService.visitingCharge > 0) {
-      total += currentService.visitingCharge
-    }
+    // DO NOT add visiting charge to cart total - it will be handled separately in checkout
+    // Visiting charge is shown separately in the UI but not included in the cart total
     
     // Add emergency service charge if applicable
     if (isEmergency && service?.emergencyService?.enabled && service?.emergencyService?.extraAmount > 0) {
@@ -961,9 +959,9 @@ const ServiceDetail = () => {
     <>
       <style>{customScrollbarStyles}</style>
       <SEO
-        title={`${currentService.name} | Nexo`}
-        description={`${currentService.description} ${currentService.trusted}. Book ${currentService.name} on WhatsApp with verified technicians.`}
-        keywords={`${currentService.name}, home services, ${currentService.name.toLowerCase()} near me, WhatsApp booking, verified technicians`}
+        title={currentService.seo?.metaTitle || `${currentService.name} | Nexo`}
+        description={currentService.seo?.metaDescription || `${currentService.description} ${currentService.trusted}. Book ${currentService.name} on WhatsApp with verified technicians.`}
+        keywords={currentService.seo?.metaKeywords?.join(', ') || `${currentService.name}, home services, ${currentService.name.toLowerCase()} near me, WhatsApp booking, verified technicians`}
         url={`/service/${serviceName}`}
       />
 

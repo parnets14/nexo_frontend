@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import PrintOptions from './PrintOptions';
 
 const SinglePageInvoice = ({ invoiceData, onPrint }) => {
-  const {
+  let {
     invoiceNumber,
     date,
     status = 'CONFIRMED',
@@ -12,6 +12,53 @@ const SinglePageInvoice = ({ invoiceData, onPrint }) => {
     paymentDetails,
     companyDetails
   } = invoiceData;
+  
+  // DEDUPLICATION: Merge duplicate items by name
+  // Group items by name and sum quantities/amounts for duplicates
+  if (services && services.length > 0) {
+    const serviceMap = new Map();
+    services.forEach(service => {
+      // Get the service name from various possible properties
+      const serviceName = service.name || service.serviceName || service.description || 'Service';
+      const key = serviceName.toLowerCase().trim();
+      
+      if (serviceMap.has(key)) {
+        // Item already exists - merge it
+        const existing = serviceMap.get(key);
+        
+        // If rates are the same, just add quantities
+        // If rates are different, keep them as separate items (don't merge)
+        if (existing.rate === service.rate) {
+          existing.quantity += (service.quantity || 1);
+        } else {
+          // Different rates - create a unique key with rate
+          const uniqueKey = `${key}_${service.rate}`;
+          serviceMap.set(uniqueKey, { 
+            ...service,
+            name: serviceName
+          });
+        }
+        
+        // Keep the first description if it exists, otherwise use the new one
+        if (!existing.description && service.description) {
+          existing.description = service.description;
+        }
+        // Keep the first category if it exists
+        if (!existing.category && service.category) {
+          existing.category = service.category;
+        }
+      } else {
+        // New item - add to map (ensure name property exists)
+        serviceMap.set(key, { 
+          ...service,
+          name: serviceName // Ensure name property is set
+        });
+      }
+    });
+    
+    // Convert map back to array
+    services = Array.from(serviceMap.values());
+  }
 
   // Calculate services subtotal from the services array
   const servicesSubtotal = services?.reduce((sum, service) => sum + (service.quantity * service.rate), 0) || 0;
@@ -25,8 +72,9 @@ const SinglePageInvoice = ({ invoiceData, onPrint }) => {
   const gstAmount = cgstAmount + sgstAmount;
   const discount = Number(invoiceData?.discount) || Number(paymentDetails?.discount) || 0;
   
-  // Calculate subtotal before tax (services + visiting + service + emergency charges)
-  const subtotalBeforeTax = servicesSubtotal + visitingCharge + serviceCharge + emergencyCharge;
+  // Calculate subtotal before tax (services + service + emergency charges)
+  // NOTE: Visiting charge is NOT included in subtotal - it's shown separately
+  const subtotalBeforeTax = servicesSubtotal + serviceCharge + emergencyCharge;
   
   // Calculate total amount
   let totalAmount = subtotalBeforeTax + gstAmount - discount;
@@ -115,6 +163,11 @@ const SinglePageInvoice = ({ invoiceData, onPrint }) => {
           <div>
             <h3 className="font-semibold text-xs mb-1">SERVICE DETAILS</h3>
             <div className="text-xs leading-tight">
+              {invoiceData.serviceCategory && (
+                <p className="mb-1 pb-1 border-b border-gray-200">
+                  <span className="font-medium text-blue-700">Service Category:</span> <span className="font-semibold text-blue-900">{invoiceData.serviceCategory}</span>
+                </p>
+              )}
               <p>Booking ID: <span className="font-medium">#{paymentDetails?.bookingId}</span></p>
               <p>Service Date: {format(new Date(paymentDetails?.serviceDate), 'dd MMM yyyy')} | Time: {paymentDetails?.serviceTime}</p>
               <p>Payment: <span className="font-medium text-green-600">{paymentDetails?.paymentStatus || 'COMPLETED'}</span></p>

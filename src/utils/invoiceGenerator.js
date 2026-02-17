@@ -181,38 +181,11 @@ export const generateInvoiceFromBooking = (booking) => {
     return 'addon';
   };
 
-  // Build services array - include main service, add-ons, sub-services, and quotation items
+  // Build services array - include add-ons, sub-services, and quotation items
+  // NOTE: Main service category is shown in header, not as a line item
   let services = [];
   
-  // Add main booking service if exists
-  if (booking.serviceName || booking.service || booking.subService || booking.popularService) {
-    const serviceName = extractField(booking, [
-      'serviceName', 
-      'popularService.name',
-      'service.name', 
-      'subService.name', 
-      'serviceType', 
-      'category', 
-      'title'
-    ], 'Service');
-    
-    // If it's from subService, it's a main service
-    const correctType = booking.subService ? 'service' : determineServiceType(serviceName, 'service');
-    
-    services.push({
-      description: serviceName,
-      details: extractField(booking, [
-        'popularService.description',
-        'service.description',
-        'subService.description',
-        'description'
-      ], 'Main service'),
-      quantity: 1,
-      rate: booking.amount || 0,
-      amount: booking.amount || 0,
-      type: correctType
-    });
-  }
+  // Do NOT add main booking service - it's shown as serviceCategory in the header
 
   // Add selected add-ons if they exist - apply correct categorization
   if (booking.selectedAddOns && Array.isArray(booking.selectedAddOns) && booking.selectedAddOns.length > 0) {
@@ -427,6 +400,7 @@ export const generateInvoiceFromBooking = (booking) => {
     invoiceNumber: cleanInvoiceNumber,
     date: booking.createdAt || booking.bookingDate || booking.date || new Date().toISOString(),
     status: booking.status === 'completed' ? 'COMPLETED' : 'CONFIRMED',
+    serviceCategory: extractField(booking, ['serviceName', 'service.name', 'serviceType', 'category'], null), // Main service category for display only
     customer: {
       name: extractField(booking, [
         'customerDetails.name', 'customerDetails.customerName', 'customerDetails.fullName',

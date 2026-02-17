@@ -75,6 +75,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
       return 'addon';
     };
 
+    // console.log("booking.cartItems",)
     // Process cart items with correct categorization
     if (booking.cartItems && Array.isArray(booking.cartItems) && booking.cartItems.length > 0) {
       booking.cartItems.forEach(item => {
@@ -88,25 +89,9 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
           type: correctType
         });
       });
-    } else {
-      // Fallback: If no cart items, use the actual sub-service or popular service name
-      // Priority: subService > popularService > serviceName (category - last resort)
-      const actualServiceName = booking.subService?.name || booking.popularService?.name || booking.serviceName || booking.service?.name;
-      const mainServiceAmount = booking.amount || 0;
-      
-      if (actualServiceName && mainServiceAmount > 0) {
-        // If it's from subService, it's a main service
-        const correctType = booking.subService ? 'service' : determineServiceType(actualServiceName, 'service');
-        
-        services.push({
-          name: actualServiceName,
-          description: booking.subService?.description || booking.popularService?.description || booking.description || '',
-          quantity: 1,
-          rate: mainServiceAmount,
-          type: correctType
-        });
-      }
     }
+    // NOTE: We do NOT add a fallback main service here anymore
+    // The main service category is shown in the header, not as a line item
     
     // Add selected add-ons if they exist (these should remain as add-ons)
     if (booking.selectedAddOns && Array.isArray(booking.selectedAddOns) && booking.selectedAddOns.length > 0) {
@@ -152,29 +137,63 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
       });
     }
     
+    // DEDUPLICATION: Merge duplicate items by name
+    // Group items by name and sum quantities/amounts for duplicates
+    const serviceMap = new Map();
+    services.forEach(service => {
+      // Get the service name from various possible properties
+      const serviceName = service.name || service.serviceName || service.description || 'Service';
+      const key = serviceName.toLowerCase().trim();
+      
+      if (serviceMap.has(key)) {
+        // Item already exists - merge it
+        const existing = serviceMap.get(key);
+        
+        // If rates are the same, just add quantities
+        // If rates are different, keep them as separate items (don't merge)
+        if (existing.rate === service.rate) {
+          existing.quantity += (service.quantity || 1);
+        } else {
+          // Different rates - create a unique key with rate
+          const uniqueKey = `${key}_${service.rate}`;
+          serviceMap.set(uniqueKey, { 
+            ...service,
+            name: serviceName
+          });
+        }
+        
+        // Keep the first description if it exists, otherwise use the new one
+        if (!existing.description && service.description) {
+          existing.description = service.description;
+        }
+        // Keep the first category if it exists
+        if (!existing.category && service.category) {
+          existing.category = service.category;
+        }
+      } else {
+        // New item - add to map (ensure name property exists)
+        serviceMap.set(key, { 
+          ...service,
+          name: serviceName // Ensure name property is set
+        });
+      }
+    });
+    
+    // Convert map back to array
+    services = Array.from(serviceMap.values());
+    
     // Calculate totals
     const bookingAmount = booking.amount || 0;
     const quotationAmount = quotation?.totalAmount || 0;
     const totalAmount = booking.totalAmount || (bookingAmount + quotationAmount);
     
-    console.log('Invoice Data Debug:', {
-      bookingAmount,
-      quotationAmount,
-      totalAmount,
-      visitingCharge: visitingChg,
-      serviceCharge: serviceChg,
-      emergencyCharge: emergencyChg,
-      mainServiceAmount,
-      bookingTotalAmount: booking.totalAmount,
-      quotationExists: !!quotation,
-      quotationStatus: quotation?.customerStatus,
-      isEmergency: booking.isEmergency
-    });
+
     
     actualInvoiceData = {
       invoiceNumber: booking.bookingId || `INV-${booking._id?.slice(-8)}` || 'INV-000001',
       date: booking.createdAt || new Date().toISOString(),
       status: booking.status === 'completed' ? 'COMPLETED' : 'CONFIRMED',
+      serviceCategory: booking.serviceName || booking.service?.name || null, // Main service category for display only
       customer: {
         name: booking.user?.name || booking.customerName || 'Customer',
         email: booking.user?.email || booking.customerEmail || '',
@@ -244,7 +263,7 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
 
   // Calculate services subtotal from the services array
   const servicesSubtotal = services && services.length > 0 
-    ? services.reduce((sum, service) => sum + ((service.quantity || 1) * (service.rate || 0)), 0) 
+    ? services.reduce((sum, service) => sum + ((service.quantity || 0) * (service.rate || 0)), 0) 
     : 0;
   
   // Get additional charges from invoice data
@@ -267,8 +286,9 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
   const offerName = actualInvoiceData.offerName || '';
   const specialDiscount = actualInvoiceData.specialDiscount?.amount || 0;
   
-  // Calculate subtotal before tax (services + visiting + service + emergency charges)
-  const subtotalBeforeTax = servicesSubtotal + visitingCharge + serviceCharge + emergencyCharge;
+  // Calculate subtotal before tax (services + service + emergency charges)
+  // NOTE: Visiting charge is NOT included in subtotal - it's shown separately
+  const subtotalBeforeTax = servicesSubtotal + serviceCharge + emergencyCharge;
   
   // Debug GST calculation
   console.log('GST Calculation Debug:', {
@@ -281,8 +301,8 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
     sgstAmount,
     gstAmount,
     bookingSubtotalBeforeTax: actualInvoiceData.subtotalBeforeTax,
-    bookingAmount: booking?.amount,
-    bookingTotalAmount: booking?.totalAmount
+    bookingAmount: actualInvoiceData.amount,
+    bookingTotalAmount: actualInvoiceData.totalAmount
   });
   
   // Use booking's calculated GST amounts if available, otherwise calculate
@@ -451,6 +471,12 @@ const Invoice = ({ invoiceData, data, type, onClose, onPrint }) => {
           <div>
             <h3 className="font-semibold text-gray-800 mb-3">SERVICE DETAILS</h3>
             <div className="space-y-1.5 text-sm">
+              {actualInvoiceData.serviceCategory && (
+                <div className="flex justify-between mb-2 pb-2 border-b border-gray-200">
+                  <span className="font-medium text-blue-700">Service Category:</span>
+                  <span className="font-semibold text-blue-900">{actualInvoiceData.serviceCategory}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Booking ID:</span>
                 <span className="font-medium">#{paymentDetails?.bookingId || invoiceNumber}</span>

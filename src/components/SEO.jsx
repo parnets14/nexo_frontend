@@ -2,15 +2,23 @@ import React from 'react'
 import { Helmet } from 'react-helmet-async'
 
 const SEO = ({ 
-  title = "Nexo - Connect. Work. Grow. | Home Services on WhatsApp",
-  description = "Fast, reliable and affordable home services from verified experts. Book AC, electrical, plumbing, cleaning, and 200+ services on WhatsApp. Response under 2 minutes.",
-  keywords = "home services, AC service, electrical work, plumbing, cleaning services, WhatsApp booking, verified technicians, home maintenance",
+  title,
+  description,
+  keywords,
   image = "/logo.png", // Using logo.png from public folder
   url = "",
   type = "website"
 }) => {
-  const fullTitle = title.includes("Nexo") ? title : `${title} | Nexo`
-  const siteUrl = "https://nexo.works" // Updated domain
+  // Use provided title or fallback to generic
+  const pageTitle = title || "Nexo - Connect. Work. Grow. | Home Services on WhatsApp"
+  const fullTitle = pageTitle.includes("Nexo") ? pageTitle : `${pageTitle} | Nexo`
+  
+  // Use provided description or fallback to generic
+  const pageDescription = description || "Fast, reliable and affordable home services from verified experts. Book AC, electrical, plumbing, cleaning, and 200+ services on WhatsApp. Response under 2 minutes."
+  
+  // Use provided keywords or fallback to generic
+  const pageKeywords = keywords || "home services, AC service, electrical work, plumbing, cleaning services, WhatsApp booking, verified technicians, home maintenance"
+  const siteUrl = "http://localhost:9088" // Updated domain
   const fullUrl = url ? `${siteUrl}${url}` : siteUrl
   const fullImage = image.startsWith("http") ? image : `${siteUrl}${image}`
 
@@ -19,8 +27,8 @@ const SEO = ({
       {/* Primary Meta Tags */}
       <title>{fullTitle}</title>
       <meta name="title" content={fullTitle} />
-      <meta name="description" content={description} />
-      <meta name="keywords" content={keywords} />
+      <meta name="description" content={pageDescription} />
+      <meta name="keywords" content={pageKeywords} />
       <meta name="author" content="Nexo" />
       <meta name="robots" content="index, follow" />
       <meta name="language" content="English" />
@@ -30,7 +38,7 @@ const SEO = ({
       <meta property="og:type" content={type} />
       <meta property="og:url" content={fullUrl} />
       <meta property="og:title" content={fullTitle} />
-      <meta property="og:description" content={description} />
+      <meta property="og:description" content={pageDescription} />
       <meta property="og:image" content={fullImage} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
@@ -42,7 +50,7 @@ const SEO = ({
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:url" content={fullUrl} />
       <meta name="twitter:title" content={fullTitle} />
-      <meta name="twitter:description" content={description} />
+      <meta name="twitter:description" content={pageDescription} />
       <meta name="twitter:image" content={fullImage} />
       <meta name="twitter:site" content="@nexo" />
 
@@ -57,7 +65,7 @@ const SEO = ({
           "@context": "https://schema.org",
           "@type": "Service",
           "name": "Nexo Home Services",
-          "description": description,
+          "description": pageDescription,
           "url": fullUrl,
           "logo": `${siteUrl}/logo.png`,
           "contactPoint": {

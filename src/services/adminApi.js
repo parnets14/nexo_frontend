@@ -1,6 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_ADMIN_API_BASE_URL ||
-  (import.meta.env.DEV ? 'https://nexo.works' : window.location.origin)
+  (import.meta.env.DEV ? 'http://localhost:9088' : window.location.origin)
 
 const buildUrl = (path) => {
   // Handle both /api/admin and /admin routes
@@ -254,7 +254,7 @@ export const adminApi = {
 
   async updatePartnerProfile(token, partnerId, profileData) {
     // Use buildUrl to ensure correct URL construction
-    // The buildUrl function will prepend API_BASE_URL which is https://nexo.works in dev
+    // The buildUrl function will prepend API_BASE_URL which is http://localhost:9088 in dev
     const url = buildUrl(`/api/admin/updatePartnerProfile/${partnerId}`)
     const response = await fetch(url, {
       method: 'PUT',
