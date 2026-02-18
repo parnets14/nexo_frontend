@@ -18,7 +18,7 @@ const SEO = ({
   
   // Use provided keywords or fallback to generic
   const pageKeywords = keywords || "home services, AC service, electrical work, plumbing, cleaning services, WhatsApp booking, verified technicians, home maintenance"
-  const siteUrl = "http://localhost:9088" // Updated domain
+  const siteUrl = "https://nexo.works" // Updated domain
   const fullUrl = url ? `${siteUrl}${url}` : siteUrl
   const fullImage = image.startsWith("http") ? image : `${siteUrl}${image}`
 

@@ -12,7 +12,7 @@ Disallow: /payment/
 Disallow: /checkout/
 
 # Sitemap location
-Sitemap: http://localhost:9088/sitemap.xml
+Sitemap: https://nexo.works/sitemap.xml
 
 # Crawl-delay (optional)
 Crawl-delay: 1

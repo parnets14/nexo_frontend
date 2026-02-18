@@ -135,7 +135,7 @@ const CustomerBookings = () => {
 
   //         const response = await adminApi.getQuotationsByBooking ? 
   //           await adminApi.getQuotationsByBooking(token, bookingId) :
-  //           await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9088'}/api/admin/bookings/${bookingId}/quotations`, {
+  //           await fetch(`${import.meta.env.VITE_API_URL || 'https://nexo.works'}/api/admin/bookings/${bookingId}/quotations`, {
   //             headers: { Authorization: `Bearer ${token}` }
   //           }).then(res => res.json())
           
